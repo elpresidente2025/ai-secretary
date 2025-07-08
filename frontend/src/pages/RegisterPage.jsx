@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom'; // 페이지 이동을 위한 훅
+import { useNavigate } from 'react-router-dom';
 
 function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const navigate = useNavigate(); // navigate 함수 사용 준비
+  const navigate = useNavigate();
 
   const handleSubmit = async (event) => {
-    event.preventDefault(); // 폼 제출 시 페이지가 새로고침되는 것을 방지
+    event.preventDefault();
 
     try {
-      const response = await fetch('/api/register', {
+      const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -22,7 +22,7 @@ function RegisterPage() {
 
       if (response.ok) {
         alert('회원가입 성공! 로그인 페이지로 이동합니다.');
-        navigate('/login'); // 회원가입 성공 시 로그인 페이지로 이동
+        navigate('/login');
       } else {
         alert(`회원가입 실패: ${data.message}`);
       }

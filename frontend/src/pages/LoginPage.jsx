@@ -10,7 +10,7 @@ function LoginPage() {
     event.preventDefault();
 
     try {
-      const response = await fetch('/api/login', {
+      const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -21,14 +21,9 @@ function LoginPage() {
       const data = await response.json();
 
       if (response.ok) {
-        // --- 수정된 부분 ---
-        // 1. 브라우저에 '로그인했다'는 사실을 기록합니다.
         localStorage.setItem('isLoggedIn', 'true');
-        
         alert('로그인 성공! 대시보드로 이동합니다.');
-        
-        // 2. 로그인 성공 시 대시보드 페이지로 이동합니다.
-        navigate('/dashboard'); 
+        navigate('/dashboard');
       } else {
         alert(`로그인 실패: ${data.message}`);
       }

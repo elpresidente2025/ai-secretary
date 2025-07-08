@@ -7,7 +7,6 @@ function DashboardPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [generatedPost, setGeneratedPost] = useState('');
 
-  // '원고 생성하기' 버튼을 눌렀을 때 실행되는 함수
   const handleGenerate = async (e) => {
     e.preventDefault();
     if (!topic) {
@@ -37,10 +36,9 @@ function DashboardPage() {
     }
   };
 
-  // 로그아웃 버튼을 눌렀을 때 실행되는 함수
   const handleLogout = async () => {
     try {
-      await fetch('/api/logout', { method: 'POST' });
+      await fetch('/api/auth/logout', { method: 'POST' });
       localStorage.removeItem('isLoggedIn');
       alert('로그아웃 되었습니다.');
       navigate('/login');
