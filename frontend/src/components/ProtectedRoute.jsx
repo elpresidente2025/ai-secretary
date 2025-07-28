@@ -1,17 +1,27 @@
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { Navigate, useLocation } from 'react-router-dom';
+import { Box, CircularProgress } from '@mui/material';
 
-// 이 컴포넌트는 로그인 여부를 확인하여 페이지 접근을 제어합니다.
-// 지금은 간단하게 localStorage를 사용하지만, 나중에 Context API로 고도화할 수 있습니다.
 const ProtectedRoute = ({ children }) => {
-  const isLoggedIn = localStorage.getItem('isLoggedIn');
+  const { auth, loading } = useAuth();
+  const location = useLocation();
 
-  if (!isLoggedIn) {
-    // 로그인하지 않았다면 로그인 페이지로 리디렉션
-    return <Navigate to="/login" replace />;
+  if (loading) {
+    // AuthContext가 인증 상태를 확인하는 동안 로딩 화면을 보여줍니다.
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    );
   }
 
-  // 로그인했다면 요청한 페이지를 보여줌
+  if (!auth) {
+    // 로그인하지 않은 사용자는 로그인 페이지로 보냅니다.
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // 로그인한 사용자는 자식 컴포넌트를 렌더링합니다.
   return children;
 };
 
