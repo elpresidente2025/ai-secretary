@@ -16,7 +16,8 @@ import {
   Card,
   CardContent,
   Divider,
-  Container
+  Container,
+  CircularProgress
 } from '@mui/material';
 import { 
   AutoAwesome, 
@@ -28,7 +29,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import { usePostGenerator } from '../hooks/usePostGenerator';
 
 // 카테고리 및 세부 카테고리 정의
@@ -42,17 +43,9 @@ const CATEGORIES = {
 
 const GeneratePage = () => {
   const navigate = useNavigate();
+  
+  // 모든 Hook들을 최상단에서 호출
   const { auth } = useAuth();
-  
-  // 폼 상태
-  const [formData, setFormData] = useState({
-    prompt: '',
-    keywords: '',
-    category: '일반',
-    subCategory: ''
-  });
-  
-  // 🔥 로직을 커스텀 훅으로 분리
   const {
     loading,
     error,
@@ -64,11 +57,34 @@ const GeneratePage = () => {
     regenerate,
     setError
   } = usePostGenerator();
-  
-  // 카테고리 변경 시 세부 카테고리 초기화
+
+  // 폼 상태
+  const [formData, setFormData] = useState({
+    prompt: '',
+    keywords: '',
+    category: '일반',
+    subCategory: ''
+  });
+
+  console.log('GeneratePage - 현재 사용자 정보:', auth);
+
+  // useEffect도 Hook이므로 조건부 return 이전에 호출
   useEffect(() => {
     setFormData(prev => ({ ...prev, subCategory: '' }));
   }, [formData.category]);
+
+  // Hook 호출 이후에 조건부 렌더링
+  if (!auth?.user?.id) {
+    return (
+      <DashboardLayout title="원고 생성">
+        <Container maxWidth="lg">
+          <Alert severity="error">
+            사용자 정보를 불러올 수 없습니다. 다시 로그인해주세요.
+          </Alert>
+        </Container>
+      </DashboardLayout>
+    );
+  }
 
   // 입력값 변경 핸들러
   const handleInputChange = (field) => (event) => {
@@ -103,355 +119,292 @@ const GeneratePage = () => {
     return true;
   };
 
-  // 🔥 원고 생성 요청 (단순화됨)
+  // 원고 생성 요청
   const handleGenerate = () => {
+    console.log('원고 생성 요청 시작:', { formData, userId: auth.user.id });
     setError('');
-    if (validateForm() && auth?.user) {
+    
+    if (validateForm() && auth?.user?.id) {
       generatePosts(formData, auth);
-    } else if (!auth?.user) {
-      setError('로그인이 필요합니다.');
+    } else if (!auth?.user?.id) {
+      setError('사용자 정보가 없습니다. 다시 로그인해주세요.');
     }
   };
 
-  // 초안 저장 (단순화됨)
+  // 🔥 초안 저장 - 완전히 새로 작성
   const handleSaveDraft = async (draft, index) => {
     try {
-      const postId = await saveDraft(draft, index, formData, generationMetadata);
+      // 🔥 현재 사용자 정보 직접 확인
+      console.log('🔥 저장 시 사용자 정보 확인:', {
+        auth: auth,
+        userId: auth?.user?.id,
+        userName: auth?.user?.name,
+        fullAuthObject: JSON.stringify(auth, null, 2)
+      });
+      
+      if (!auth?.user?.id) {
+        console.error('❌ 사용자 정보 없음');
+        setError('사용자 정보가 없습니다. 다시 로그인해주세요.');
+        return;
+      }
+      
+      console.log('🔥 초안 저장 요청 시작:', { 
+        draft, 
+        index, 
+        userId: auth.user.id,
+        userName: auth.user.name,
+        formData,
+        generationMetadata 
+      });
+      
+      // 🔥 auth 정보를 직접 전달
+      const postId = await saveDraft(draft, index, formData, generationMetadata, auth);
       if (postId) {
+        console.log('✅ 저장 성공, 페이지 이동:', postId);
         navigate(`/post/${postId}`);
+      } else {
+        console.error('❌ postId 없음');
+        setError('초안 저장은 됐지만 페이지 이동에 실패했습니다.');
       }
     } catch (err) {
-      console.error('초안 저장 실패:', err);
+      console.error('❌ 초안 저장 실패:', err);
       setError('초안 저장 중 오류가 발생했습니다.');
     }
   };
 
-  // 다시 생성 (단순화됨)
-  const handleRegenerate = () => regenerate();
+  // 재생성
+  const handleRegenerate = () => {
+    if (regenerate) {
+      regenerate();
+    } else {
+      handleGenerate();
+    }
+  };
 
-  // 텍스트 복사
-  const handleCopyText = (draft) => {
-    const plainText = `${draft.title}\n\n${draft.content.replace(/<[^>]*>/g, '')}`;
-    navigator.clipboard.writeText(plainText);
+  // 복사하기
+  const handleCopy = (content) => {
+    navigator.clipboard.writeText(content.replace(/<[^>]*>/g, ''));
+    alert('클립보드에 복사되었습니다.');
   };
 
   return (
-    <DashboardLayout title="AI 원고 생성">
-      <Container maxWidth="xl">
-        {/* 상단: 원고 생성 설정 */}
-        <Paper elevation={2} sx={{ p: 4, mb: 4, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-            <AutoAwesome sx={{ fontSize: 32, mr: 2 }} />
-            <Typography variant="h4" component="h1" fontWeight="bold">
-              AI 원고 생성 설정
-            </Typography>
-          </Box>
-          
-          <Typography variant="h6" sx={{ mb: 3, opacity: 0.9 }}>
-            주제와 카테고리를 설정하여 전문적인 정치 블로그 원고를 생성하세요
-          </Typography>
+    <DashboardLayout title="원고 생성">
+      <Container maxWidth="lg">
+        <Grid container spacing={3}>
+          {/* 입력 폼 */}
+          <Grid item xs={12} md={6}>
+            <Paper sx={{ p: 3, height: 'fit-content' }}>
+              <Typography variant="h6" gutterBottom>
+                <AutoAwesome sx={{ mr: 1, verticalAlign: 'middle' }} />
+                원고 생성 설정
+              </Typography>
+              
+              {/* 사용자 정보 표시 */}
+              <Alert severity="info" sx={{ mb: 2 }}>
+                <Typography variant="body2">
+                  <strong>작성자:</strong> {auth.user.name || '이름 없음'} 
+                  {auth.user.position && ` (${auth.user.position})`}
+                  {auth.user.regionMetro && ` | ${auth.user.regionMetro} ${auth.user.regionLocal || ''}`.trim()}
+                  <br />
+                  <strong>사용자 ID:</strong> {auth.user.id}
+                </Typography>
+              </Alert>
 
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth sx={{ 
-                '& .MuiOutlinedInput-root': { backgroundColor: 'rgba(255,255,255,0.1)' },
-                '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.8)' },
-                '& .MuiOutlinedInput-input': { color: 'white' }
-              }}>
-                <InputLabel>카테고리</InputLabel>
-                <Select
-                  value={formData.category}
-                  onChange={handleInputChange('category')}
-                  disabled={loading}
-                  label="카테고리"
-                >
-                  {Object.keys(CATEGORIES).map((category) => (
-                    <MenuItem key={category} value={category}>
-                      {category}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              {CATEGORIES[formData.category] && (
-                <FormControl fullWidth sx={{ 
-                  '& .MuiOutlinedInput-root': { backgroundColor: 'rgba(255,255,255,0.1)' },
-                  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.8)' },
-                  '& .MuiOutlinedInput-input': { color: 'white' }
-                }}>
-                  <InputLabel>세부 카테고리 (선택사항)</InputLabel>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {/* 카테고리 선택 */}
+                <FormControl fullWidth>
+                  <InputLabel>카테고리</InputLabel>
                   <Select
-                    value={formData.subCategory}
-                    onChange={handleInputChange('subCategory')}
+                    value={formData.category}
+                    onChange={handleInputChange('category')}
+                    label="카테고리"
                     disabled={loading}
-                    label="세부 카테고리 (선택사항)"
                   >
-                    <MenuItem value="">선택하지 않음</MenuItem>
-                    {CATEGORIES[formData.category].map((subCategory) => (
-                      <MenuItem key={subCategory} value={subCategory}>
-                        {subCategory}
-                      </MenuItem>
+                    {Object.keys(CATEGORIES).map((cat) => (
+                      <MenuItem key={cat} value={cat}>{cat}</MenuItem>
                     ))}
                   </Select>
                 </FormControl>
-              )}
-            </Grid>
 
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="주제 *"
-                multiline
-                rows={3}
-                value={formData.prompt}
-                onChange={handleInputChange('prompt')}
-                placeholder="예) 지역 교통 인프라 개선 방안에 대해"
-                disabled={loading}
-                helperText={`${formData.prompt.length}/500자`}
-                sx={{ 
-                  '& .MuiOutlinedInput-root': { backgroundColor: 'rgba(255,255,255,0.1)' },
-                  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.8)' },
-                  '& .MuiOutlinedInput-input': { color: 'white' },
-                  '& .MuiFormHelperText-root': { color: 'rgba(255,255,255,0.6)' }
-                }}
-              />
-            </Grid>
+                {/* 세부 카테고리 선택 */}
+                {formData.category && CATEGORIES[formData.category] && (
+                  <FormControl fullWidth>
+                    <InputLabel>세부 카테고리</InputLabel>
+                    <Select
+                      value={formData.subCategory}
+                      onChange={handleInputChange('subCategory')}
+                      label="세부 카테고리"
+                      disabled={loading}
+                    >
+                      {CATEGORIES[formData.category].map((subCat) => (
+                        <MenuItem key={subCat} value={subCat}>{subCat}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                )}
 
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="키워드 (선택사항)"
-                value={formData.keywords}
-                onChange={handleInputChange('keywords')}
-                placeholder="예) 교통, 인프라, 지역발전"
-                disabled={loading}
-                helperText={`${formData.keywords.length}/200자`}
-                sx={{ 
-                  '& .MuiOutlinedInput-root': { backgroundColor: 'rgba(255,255,255,0.1)' },
-                  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.8)' },
-                  '& .MuiOutlinedInput-input': { color: 'white' },
-                  '& .MuiFormHelperText-root': { color: 'rgba(255,255,255,0.6)' }
-                }}
-              />
-            </Grid>
+                {/* 주제 입력 */}
+                <TextField
+                  fullWidth
+                  multiline
+                  rows={4}
+                  label="주제 및 내용"
+                  placeholder="어떤 내용의 원고를 작성하고 싶으신가요? 상세할수록 더 정확한 원고가 생성됩니다."
+                  value={formData.prompt}
+                  onChange={handleInputChange('prompt')}
+                  disabled={loading}
+                  helperText={`${formData.prompt.length}/500자`}
+                />
 
-            <Grid item xs={12}>
-              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                {/* 키워드 입력 */}
+                <TextField
+                  fullWidth
+                  label="키워드 (선택사항)"
+                  placeholder="원고에 포함되길 원하는 키워드를 쉼표로 구분해서 입력하세요"
+                  value={formData.keywords}
+                  onChange={handleInputChange('keywords')}
+                  disabled={loading}
+                  helperText={`${formData.keywords.length}/200자`}
+                />
+
+                {/* 키워드 표시 */}
+                {formData.keywords && (
+                  <Box>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      입력된 키워드:
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                      {formData.keywords.split(',').map((keyword, index) => (
+                        keyword.trim() && (
+                          <Chip 
+                            key={index} 
+                            label={keyword.trim()} 
+                            size="small" 
+                            variant="outlined" 
+                          />
+                        )
+                      ))}
+                    </Box>
+                  </Box>
+                )}
+
+                {/* 에러 메시지 */}
+                {error && (
+                  <Alert severity="error">
+                    {error}
+                  </Alert>
+                )}
+
+                {/* 생성 버튼 */}
                 <Button
                   variant="contained"
                   size="large"
                   onClick={handleGenerate}
                   disabled={loading || !formData.prompt.trim()}
-                  startIcon={<AutoAwesome />}
-                  sx={{ 
-                    px: 4, 
-                    py: 1.5,
-                    backgroundColor: 'rgba(255,255,255,0.2)',
-                    backdropFilter: 'blur(10px)',
-                    '&:hover': {
-                      backgroundColor: 'rgba(255,255,255,0.3)',
-                    }
-                  }}
+                  sx={{ py: 1.5 }}
+                  startIcon={loading ? <CircularProgress size={20} /> : <AutoAwesome />}
                 >
-                  {loading ? '생성 중...' : 'AI 원고 생성'}
+                  {loading ? 'AI가 원고를 생성하고 있습니다...' : drafts.length > 0 ? '다시 생성하기' : 'AI 초안 생성하기'}
                 </Button>
 
-                {drafts.length > 0 && (
-                  <Button
-                    variant="outlined"
-                    onClick={handleRegenerate}
-                    disabled={loading}
-                    startIcon={<Refresh />}
-                    sx={{ 
-                      borderColor: 'rgba(255,255,255,0.5)', 
-                      color: 'white',
-                      '&:hover': {
-                        borderColor: 'white',
-                        backgroundColor: 'rgba(255,255,255,0.1)'
-                      }
-                    }}
-                  >
-                    다시 생성
-                  </Button>
+                {/* 진행률 표시 */}
+                {loading && (
+                  <Box sx={{ width: '100%' }}>
+                    <LinearProgress variant="determinate" value={progress} />
+                    <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 1 }}>
+                      {progress}% 완료
+                    </Typography>
+                  </Box>
                 )}
               </Box>
-
-              {loading && (
-                <Box sx={{ mt: 3 }}>
-                  <LinearProgress 
-                    variant="determinate" 
-                    value={progress} 
-                    sx={{ 
-                      height: 8, 
-                      borderRadius: 4,
-                      backgroundColor: 'rgba(255,255,255,0.2)',
-                      '& .MuiLinearProgress-bar': {
-                        backgroundColor: 'white'
-                      }
-                    }} 
-                  />
-                  <Typography variant="body2" sx={{ mt: 1, opacity: 0.8 }}>
-                    {progress < 30 && '입력 내용을 분석하고 있습니다...'}
-                    {progress >= 30 && progress < 70 && 'AI가 원고를 생성하고 있습니다...'}
-                    {progress >= 70 && progress < 100 && '생성된 원고를 검토하고 있습니다...'}
-                    {progress >= 100 && '완료되었습니다!'}
-                  </Typography>
-                </Box>
-              )}
-
-              {error && (
-                <Alert severity="error" sx={{ mt: 2, backgroundColor: 'rgba(244, 67, 54, 0.1)', color: 'white' }}>
-                  {error}
-                </Alert>
-              )}
-            </Grid>
+            </Paper>
           </Grid>
-        </Paper>
 
-        {/* 중간: 생성된 원고들 (3열 그리드) */}
-        {drafts.length > 0 && (
-          <Box sx={{ mb: 4 }}>
-            <Typography variant="h5" gutterBottom sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-              <Assignment sx={{ mr: 1 }} />
-              생성된 원고 ({drafts.length}개)
-            </Typography>
-
-            <Grid container spacing={3}>
-              {drafts.map((draft, index) => (
-                <Grid item xs={12} md={4} key={index}>
-                  <Card 
-                    elevation={3}
-                    sx={{ 
-                      height: '100%', 
-                      display: 'flex', 
-                      flexDirection: 'column',
-                      transition: 'transform 0.2s, box-shadow 0.2s',
-                      '&:hover': {
-                        transform: 'translateY(-4px)',
-                        boxShadow: 6
-                      }
-                    }}
-                  >
-                    <CardContent sx={{ flexGrow: 1, p: 3 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 2 }}>
-                        <Typography variant="h6" component="h3" sx={{ fontWeight: 'bold', flex: 1 }}>
-                          {draft.title}
+          {/* 생성된 초안들 */}
+          <Grid item xs={12} md={6}>
+            {drafts.length > 0 ? (
+              <Box>
+                <Typography variant="h6" gutterBottom>
+                  <Assignment sx={{ mr: 1, verticalAlign: 'middle' }} />
+                  생성된 초안 ({drafts.length}개)
+                </Typography>
+                
+                {drafts.map((draft, index) => (
+                  <Card key={index} sx={{ mb: 2 }}>
+                    <CardContent>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                        <Typography variant="h6" component="h3">
+                          {draft.title || `초안 ${index + 1}`}
                         </Typography>
                         <Chip 
-                          size="small" 
+                          icon={<Speed />}
                           label={`${draft.wordCount || 0}자`} 
-                          variant="outlined"
+                          size="small" 
+                          variant="outlined" 
                         />
                       </Box>
-
+                      
                       <Divider sx={{ mb: 2 }} />
-
+                      
                       <Box 
                         sx={{ 
-                          maxHeight: 300, 
+                          maxHeight: 200, 
                           overflow: 'auto', 
-                          mb: 3,
-                          '& p': { 
-                            mb: 1.5, 
-                            lineHeight: 1.6,
-                            fontSize: '0.9rem'
-                          },
-                          '&::-webkit-scrollbar': {
-                            width: '6px',
-                          },
-                          '&::-webkit-scrollbar-track': {
-                            background: '#f1f1f1',
-                            borderRadius: '3px',
-                          },
-                          '&::-webkit-scrollbar-thumb': {
-                            background: '#c1c1c1',
-                            borderRadius: '3px',
-                          },
+                          mb: 2,
+                          p: 1,
+                          backgroundColor: 'grey.50',
+                          borderRadius: 1
                         }}
-                        dangerouslySetInnerHTML={{ __html: draft.content }}
+                        dangerouslySetInnerHTML={{ __html: draft.content || '<p>내용이 없습니다.</p>' }}
                       />
+                      
+                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                        <Button
+                          variant="contained"
+                          size="small"
+                          startIcon={<Save />}
+                          onClick={() => handleSaveDraft(draft, index)}
+                          disabled={loading}
+                        >
+                          저장하기
+                        </Button>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          startIcon={<ContentCopy />}
+                          onClick={() => handleCopy(draft.content)}
+                        >
+                          복사하기
+                        </Button>
+                      </Box>
                     </CardContent>
-
-                    <Box sx={{ p: 2, pt: 0, display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        startIcon={<ContentCopy />}
-                        onClick={() => handleCopyText(draft)}
-                        sx={{ minWidth: 'auto' }}
-                      >
-                        복사
-                      </Button>
-                      <Button
-                        variant="contained"
-                        size="small"
-                        startIcon={<Save />}
-                        onClick={() => handleSaveDraft(draft, index)}
-                      >
-                        저장
-                      </Button>
-                    </Box>
                   </Card>
-                </Grid>
-              ))}
-            </Grid>
-          </Box>
-        )}
-
-        {/* 하단: AI 원고 생성기 안내 */}
-        {drafts.length === 0 && (
-          <Paper sx={{ p: 6, textAlign: 'center', background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)' }}>
-            <AutoAwesome sx={{ fontSize: 64, color: '#667eea', mb: 2 }} />
-            <Typography variant="h4" gutterBottom color="primary" fontWeight="bold">
-              AI 원고 생성기
-            </Typography>
-            <Typography variant="h6" color="text.secondary" sx={{ mb: 3, maxWidth: 600, mx: 'auto' }}>
-              상단의 설정 패널에서 주제와 카테고리를 선택하고 '생성' 버튼을 클릭하세요.
-            </Typography>
-            
-            <Grid container spacing={3} sx={{ mt: 2, maxWidth: 800, mx: 'auto' }}>
-              <Grid item xs={12} md={4}>
-                <Box sx={{ textAlign: 'center' }}>
-                  <Assignment sx={{ fontSize: 48, color: '#667eea', mb: 1 }} />
-                  <Typography variant="h6" gutterBottom>
-                    3개 초안 동시 생성
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    한 번의 요청으로 다양한 스타일의 원고 3개를 생성합니다
-                  </Typography>
-                </Box>
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <Box sx={{ textAlign: 'center' }}>
-                  <Speed sx={{ fontSize: 48, color: '#667eea', mb: 1 }} />
-                  <Typography variant="h6" gutterBottom>
-                    즉시 사용 가능
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    별도 수정 없이 바로 포스팅할 수 있는 완성도 높은 원고
-                  </Typography>
-                </Box>
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <Box sx={{ textAlign: 'center' }}>
-                  <AutoAwesome sx={{ fontSize: 48, color: '#667eea', mb: 1 }} />
-                  <Typography variant="h6" gutterBottom>
-                    전문 품질 보장
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    정치인 전용 AI로 전문적이고 적절한 톤앤매너 유지
-                  </Typography>
-                </Box>
-              </Grid>
-            </Grid>
-
-            <Typography variant="body1" color="text.secondary" sx={{ mt: 4, fontStyle: 'italic' }}>
-              💡 팁: 구체적이고 명확한 주제를 입력할수록 더 정확한 원고가 생성됩니다
-            </Typography>
-          </Paper>
-        )}
+                ))}
+                
+                <Button
+                  variant="outlined"
+                  fullWidth
+                  startIcon={<Refresh />}
+                  onClick={handleRegenerate}
+                  disabled={loading}
+                  sx={{ mt: 2 }}
+                >
+                  다른 초안 생성하기
+                </Button>
+              </Box>
+            ) : (
+              <Paper sx={{ p: 4, textAlign: 'center', color: 'text.secondary' }}>
+                <AutoAwesome sx={{ fontSize: 64, mb: 2, opacity: 0.5 }} />
+                <Typography variant="h6" gutterBottom>
+                  AI 원고 생성을 시작해보세요
+                </Typography>
+                <Typography variant="body2">
+                  왼쪽 폼을 작성하고 "AI 초안 생성하기" 버튼을 클릭하세요.
+                </Typography>
+              </Paper>
+            )}
+          </Grid>
+        </Grid>
       </Container>
     </DashboardLayout>
   );

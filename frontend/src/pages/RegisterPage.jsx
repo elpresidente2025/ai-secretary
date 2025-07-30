@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../hooks/useAuth'; // 🔥 경로 수정
 import {
   Container,
   Typography,
@@ -32,7 +32,6 @@ function RegisterPage() {
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
-    // 입력 시 에러 메시지 초기화
     if (error) setError('');
   };
 
@@ -56,7 +55,6 @@ function RegisterPage() {
     try {
       console.log("🔥 Firebase Auth 회원가입 시도:", { fullName, email });
       
-      // AuthContext의 register 함수 사용 (Firebase Auth 기반)
       await register(fullName, email, password);
       
       console.log("✅ Firebase Auth 회원가입 성공");
@@ -76,86 +74,77 @@ function RegisterPage() {
   };
 
   return (
-    <Container component="main" maxWidth="xs" sx={{ display: 'flex', alignItems: 'center', minHeight: '100vh' }}>
-      <Paper
-        elevation={6}
-        sx={{
-          p: 4,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          borderRadius: 4,
-          width: '100%',
-        }}
-      >
-        <Avatar sx={{ m: 1, bgcolor: 'secondary.main' }}>
-          <PersonAddIcon />
-        </Avatar>
-        <Typography component="h1" variant="h5">
-          회원가입
-        </Typography>
-        <Box component="form" onSubmit={handleSubmit} noValidate sx={{ mt: 3, width: '100%' }}>
-          <Stack spacing={1}>
-            {success && <Alert severity="success" sx={{ width: '100%' }}>{success}</Alert>}
-            {error && <Alert severity="error" sx={{ width: '100%' }}>{error}</Alert>}
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              id="fullName"
-              label="이름"
-              name="fullName"
-              autoComplete="name"
-              autoFocus
-              value={fullName}
-              onChange={handleChange}
-              disabled={loading || !!success}
-            />
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              id="email"
-              label="이메일 주소"
-              name="email"
-              autoComplete="email"
-              value={email}
-              onChange={handleChange}
-              disabled={loading || !!success}
-            />
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              name="password"
-              label="비밀번호"
-              type="password"
-              id="password"
-              autoComplete="new-password"
-              value={password}
-              onChange={handleChange}
-              disabled={loading || !!success}
-              helperText="6자 이상 입력해주세요."
-            />
-            <Button
-              type="submit"
-              fullWidth
-              variant="contained"
-              size="large"
-              sx={{ mt: 2, py: 1.5 }}
-              disabled={loading || !!success}
-            >
-              {loading ? <CircularProgress size={24} color="inherit" /> : '가입하기'}
-            </Button>
-            <Typography variant="body2" align="center" sx={{ mt: 2 }}>
-              이미 계정이 있으신가요?{' '}
-              <Link component={RouterLink} to="/" variant="body2">
-                로그인
-              </Link>
+    <Container component="main" maxWidth="sm">
+      <Box sx={{ marginTop: 8, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <Paper elevation={3} sx={{ padding: 4, width: '100%' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <Avatar sx={{ m: 1, bgcolor: 'primary.main' }}>
+              <PersonAddIcon />
+            </Avatar>
+            <Typography component="h1" variant="h4" gutterBottom>회원가입</Typography>
+            <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3 }}>
+              AI 비서관 서비스에 오신 것을 환영합니다
             </Typography>
-          </Stack>
-        </Box>
-      </Paper>
+            {error && <Alert severity="error" sx={{ width: '100%', mb: 2 }}>{error}</Alert>}
+            {success && <Alert severity="success" sx={{ width: '100%', mb: 2 }}>{success}</Alert>}
+            <Stack spacing={3} sx={{ width: '100%' }}>
+              <TextField
+                required
+                fullWidth
+                id="fullName"
+                label="이름"
+                name="fullName"
+                autoComplete="name"
+                autoFocus
+                value={fullName}
+                onChange={handleChange}
+                disabled={loading || !!success}
+              />
+              <TextField
+                required
+                fullWidth
+                id="email"
+                label="이메일 주소"
+                name="email"
+                autoComplete="email"
+                value={email}
+                onChange={handleChange}
+                disabled={loading || !!success}
+              />
+              <TextField
+                required
+                fullWidth
+                name="password"
+                label="비밀번호"
+                type="password"
+                id="password"
+                autoComplete="new-password"
+                value={password}
+                onChange={handleChange}
+                disabled={loading || !!success}
+                helperText="6자 이상 입력해주세요."
+              />
+              <Button
+                type="submit"
+                fullWidth
+                variant="contained"
+                size="large"
+                sx={{ mt: 2, py: 1.5 }}
+                disabled={loading || !!success}
+                onClick={handleSubmit}
+              >
+                {loading ? <CircularProgress size={24} color="inherit" /> : '가입하기'}
+              </Button>
+              <Typography variant="body2" align="center" sx={{ mt: 2 }}>
+                이미 계정이 있으신가요?{' '}
+                <Link component={RouterLink} to="/" variant="body2">
+                  로그인
+                </Link>
+              </Typography>
+            </Stack>
+          </Box>
+        </Paper>
+      </Box>
     </Container>
   );
 }

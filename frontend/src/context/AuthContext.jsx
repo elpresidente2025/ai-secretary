@@ -1,5 +1,7 @@
-import React, { createContext, useState, useContext, useEffect, useMemo, useCallback } from 'react';
+import React, { createContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { authService } from '../services/authService';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../config/firebase';
 
 // 1. Context 생성
 const AuthContext = createContext(null);
@@ -17,12 +19,32 @@ export const AuthProvider = ({ children }) => {
         setError(null);
         
         if (user) {
-          // 사용자가 로그인된 상태
-          const userData = {
+          // 기본 사용자 정보
+          let userData = {
             id: user.uid,
             email: user.email,
             name: user.displayName || ''
           };
+
+          // Firestore에서 추가 프로필 정보 (role 포함) 가져오기
+          try {
+            const getUserProfile = httpsCallable(functions, 'getUserProfile');
+            const profileResult = await getUserProfile();
+            
+            if (profileResult.data.success && profileResult.data.profile) {
+              // Firebase Functions에서 가져온 프로필 정보 병합
+              userData = {
+                ...userData,
+                ...profileResult.data.profile,
+                role: profileResult.data.profile.role || 'user' // 기본값 'user'
+              };
+              console.log("AuthContext: 사용자 프로필 로드 완료", userData);
+            }
+          } catch (profileError) {
+            console.warn("AuthContext: 프로필 로드 실패, 기본값 사용", profileError);
+            // 프로필 로드 실패해도 기본 정보로 진행
+            userData.role = 'user';
+          }
           
           setAuth({ user: userData });
           console.log("AuthContext: Firebase Auth 로그인 감지", userData);
@@ -48,6 +70,14 @@ export const AuthProvider = ({ children }) => {
   const login = useCallback(async (email, password) => {
     try {
       setError(null);
+      
+      // 이메일과 패스워드가 올바른 타입인지 확인
+      if (typeof email !== 'string' || typeof password !== 'string') {
+        throw new Error('이메일과 패스워드는 문자열이어야 합니다.');
+      }
+      
+      console.log("AuthContext: Firebase 로그인 시도:", { email: email, passwordLength: password.length });
+      
       const result = await authService.login(email, password);
       console.log("AuthContext: Firebase 로그인 성공", result.user);
       // Firebase onAuthStateChanged가 자동으로 상태를 업데이트함
@@ -86,6 +116,41 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
+  // 프로필 업데이트 함수
+  const updateUserProfile = useCallback(async (profileData) => {
+    try {
+      setError(null);
+      console.log('프로필 업데이트 요청:', profileData);
+      
+      const updateProfile = httpsCallable(functions, 'updateProfile');
+      const result = await updateProfile(profileData);
+      
+      if (result.data.success) {
+        // 로컬 상태만 업데이트, 재인증은 하지 않음
+        setAuth(prevAuth => {
+          if (!prevAuth) return prevAuth;
+          
+          const updatedAuth = {
+            ...prevAuth,
+            user: {
+              ...prevAuth.user,
+              ...profileData
+            }
+          };
+          
+          console.log("AuthContext: 프로필 로컬 업데이트 완료", updatedAuth.user);
+          return updatedAuth;
+        });
+      }
+      
+      return result.data;
+    } catch (error) {
+      console.error("AuthContext: 프로필 업데이트 실패", error);
+      setError(error.message);
+      throw error;
+    }
+  }, []);
+
   // context value를 메모이제이션
   const value = useMemo(() => ({
     auth,
@@ -94,8 +159,9 @@ export const AuthProvider = ({ children }) => {
     login,
     register,
     logout,
+    updateUserProfile,
     isAuthenticated: !!auth?.user,
-  }), [auth, loading, error, login, register, logout]);
+  }), [auth, loading, error, login, register, logout, updateUserProfile]);
 
   // 로딩 컴포넌트
   if (loading) {
@@ -113,13 +179,5 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-// 3. useAuth 커스텀 훅
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth는 AuthProvider 내부에서만 사용할 수 있습니다.');
-  }
-  return context;
-};
-
+// Context만 default export
 export default AuthContext;

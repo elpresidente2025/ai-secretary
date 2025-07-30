@@ -18,7 +18,9 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
-// 🔥 Functions 지역을 서울로 변경
+// 🔥 asia-northeast3 리전 강제 설정
 export const functions = getFunctions(app, 'asia-northeast3');
+
+console.log('🔥 Firebase Functions 리전 설정:', 'asia-northeast3');
 
 export default app;

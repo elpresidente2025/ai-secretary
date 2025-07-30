@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Drawer, AppBar, Toolbar, Typography, List, ListItem, ListItemButton, ListItemIcon, ListItemText, CssBaseline, Divider, IconButton, useTheme, useMediaQuery } from '@mui/material';
+import { Box, Drawer, AppBar, Toolbar, Typography, List, ListItem, ListItemButton, ListItemIcon, ListItemText, CssBaseline, Divider, IconButton } from '@mui/material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import MenuIcon from '@mui/icons-material/Menu';
 import DashboardIcon from '@mui/icons-material/Dashboard';
@@ -8,7 +8,7 @@ import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import ArticleIcon from '@mui/icons-material/Article';
 import LogoutIcon from '@mui/icons-material/Logout';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../hooks/useAuth'; // 🔥 경로 수정
 import { getUserDisplayTitle } from '../utils/userUtils';
 
 const drawerWidth = 240;
@@ -17,8 +17,6 @@ function DashboardLayout({ children, title }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { auth, logout } = useAuth();
-  const theme = useTheme();
-  const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const displayTitle = getUserDisplayTitle(auth?.user);
@@ -29,7 +27,6 @@ function DashboardLayout({ children, title }) {
 
   const handleLogout = () => {
     logout();
-    // Redirect to login page after logout to prevent access to protected routes
     navigate('/login');
   };
 

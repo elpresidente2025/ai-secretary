@@ -1,5 +1,5 @@
 import React from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../hooks/useAuth'; // 🔥 경로 수정
 import { Navigate, useLocation } from 'react-router-dom';
 import { Box, CircularProgress } from '@mui/material';
 
@@ -8,7 +8,6 @@ const ProtectedRoute = ({ children }) => {
   const location = useLocation();
 
   if (loading) {
-    // AuthContext가 인증 상태를 확인하는 동안 로딩 화면을 보여줍니다.
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
         <CircularProgress />
@@ -16,12 +15,10 @@ const ProtectedRoute = ({ children }) => {
     );
   }
 
-  if (!auth) {
-    // 로그인하지 않은 사용자는 로그인 페이지로 보냅니다.
+  if (!auth?.user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // 로그인한 사용자는 자식 컴포넌트를 렌더링합니다.
   return children;
 };
 
