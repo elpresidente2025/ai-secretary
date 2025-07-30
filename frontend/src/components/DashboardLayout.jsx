@@ -1,5 +1,19 @@
 import React, { useState } from 'react';
-import { Box, Drawer, AppBar, Toolbar, Typography, List, ListItem, ListItemButton, ListItemIcon, ListItemText, CssBaseline, Divider, IconButton } from '@mui/material';
+import { 
+  Box, 
+  Drawer, 
+  AppBar, 
+  Toolbar, 
+  Typography, 
+  List, 
+  ListItem, 
+  ListItemButton, 
+  ListItemIcon, 
+  ListItemText, 
+  CssBaseline, 
+  Divider, 
+  IconButton
+} from '@mui/material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import MenuIcon from '@mui/icons-material/Menu';
 import DashboardIcon from '@mui/icons-material/Dashboard';
@@ -8,8 +22,8 @@ import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import ArticleIcon from '@mui/icons-material/Article';
 import LogoutIcon from '@mui/icons-material/Logout';
-import { useAuth } from '../hooks/useAuth'; // 🔥 경로 수정
-import { getUserDisplayTitle } from '../utils/userUtils';
+import { useAuth } from '../hooks/useAuth';
+import { getUserFullTitle, getUserStatusIcon } from '../utils/userUtils';
 
 const drawerWidth = 240;
 
@@ -18,8 +32,9 @@ function DashboardLayout({ children, title }) {
   const location = useLocation();
   const { auth, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
-
-  const displayTitle = getUserDisplayTitle(auth?.user);
+  
+  const fullTitle = getUserFullTitle(auth?.user);
+  const statusIcon = getUserStatusIcon(auth?.user);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -57,6 +72,7 @@ function DashboardLayout({ children, title }) {
           AI 비서관
         </Typography>
       </Toolbar>
+
       <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
         <List>
           {menuItems.map((item) => (
@@ -111,9 +127,14 @@ function DashboardLayout({ children, title }) {
             {title}
           </Typography>
           {auth?.user && (
-            <Typography variant="body1">
-              {`${auth.user.name || '이름 없음'}${displayTitle ? ` ${displayTitle}` : ''}님, 안녕하세요.`}
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="body2" sx={{ fontSize: '1.2em' }}>
+                {statusIcon}
+              </Typography>
+              <Typography variant="body1">
+                {`${fullTitle}, 안녕하세요.`}
+              </Typography>
+            </Box>
           )}
         </Toolbar>
       </AppBar>

@@ -1,6 +1,3 @@
-// 🚨🚨🚨 새로운 ProfilePage.jsx 2024년 12월 버전 🚨🚨🚨
-console.log('🚨🚨🚨 새로운 ProfilePage.jsx 파일 로드됨!!! 🚨🚨🚨');
-
 import React, { useState, useEffect } from 'react';
 import {
   Box, Button, TextField, Typography, Paper, Container, CircularProgress,
@@ -8,19 +5,10 @@ import {
 } from '@mui/material';
 import DashboardLayout from '../components/DashboardLayout';
 import { useAuth } from '../hooks/useAuth';
+import allLocations from '../data/location/locations.index';
 
 function ProfilePage() {
-  console.log('🚨 ProfilePage 함수 실행 - 새 버전임!!!');
-  
   const { auth, updateUserProfile } = useAuth();
-  
-  console.log('🚨 useAuth 후크 결과:', {
-    authExists: !!auth,
-    userExists: !!auth?.user,
-    userId: auth?.user?.id,
-    updateUserProfileExists: !!updateUserProfile,
-    updateUserProfileType: typeof updateUserProfile
-  });
   
   const [profile, setProfile] = useState({
     name: '', 
@@ -37,15 +25,11 @@ function ProfilePage() {
 
   // 페이지 로드 시 사용자 프로필을 auth에서 가져오기
   useEffect(() => {
-    console.log('🚨 useEffect 실행 - 프로필 로드');
-    
     const loadProfile = () => {
       try {
         setLoading(true);
         
         if (auth?.user) {
-          console.log('🚨 사용자 정보 로드:', auth.user);
-          
           setProfile(prev => ({
             ...prev,
             name: auth.user.name || '',
@@ -57,7 +41,7 @@ function ProfilePage() {
           }));
         }
       } catch (err) {
-        console.error('🚨 프로필 로드 오류:', err);
+        console.error('프로필 로드 오류:', err);
         setError('프로필을 불러오는 데 실패했습니다.');
       } finally {
         setLoading(false);
@@ -71,36 +55,58 @@ function ProfilePage() {
     }
   }, [auth?.user]);
 
+  // 광역자치단체 목록 생성
+  const metroList = Object.keys(allLocations).sort();
+
+  // 선택된 광역자치단체의 기초자치단체 목록
+  const localList = profile.regionMetro ? Object.keys(allLocations[profile.regionMetro]).sort() : [];
+
+  // 선택된 기초자치단체의 선거구 목록
+  const electoralList = (profile.regionMetro && profile.regionLocal && profile.position && allLocations[profile.regionMetro]?.[profile.regionLocal]?.[profile.position]) 
+    ? allLocations[profile.regionMetro][profile.regionLocal][profile.position] 
+    : [];
+
   const handleChange = (event) => {
     const { name, value } = event.target;
-    setProfile((prev) => ({ ...prev, [name]: value }));
+    
+    // 지역 관련 필드 변경 시 하위 필드 초기화
+    if (name === 'position') {
+      setProfile((prev) => ({ 
+        ...prev, 
+        [name]: value,
+        electoralDistrict: '' // 직책 변경 시 선거구 초기화
+      }));
+    } else if (name === 'regionMetro') {
+      setProfile((prev) => ({ 
+        ...prev, 
+        [name]: value,
+        regionLocal: '', // 광역자치단체 변경 시 기초자치단체 초기화
+        electoralDistrict: '' // 선거구도 초기화
+      }));
+    } else if (name === 'regionLocal') {
+      setProfile((prev) => ({ 
+        ...prev, 
+        [name]: value,
+        electoralDistrict: '' // 기초자치단체 변경 시 선거구 초기화
+      }));
+    } else {
+      setProfile((prev) => ({ ...prev, [name]: value }));
+    }
   };
 
-  // 🚨 새로운 프로필 저장 핸들러
   const handleSubmit = async (event) => {
     event.preventDefault();
-    console.log('🚨🚨🚨 프로필 저장 버튼 클릭됨 - 새 버전!!!');
     
     setSaving(true);
     setError('');
     setSuccess('');
     
     try {
-      console.log('🚨 updateUserProfile 함수 확인:', {
-        exists: !!updateUserProfile,
-        type: typeof updateUserProfile
-      });
-      
       if (!updateUserProfile) {
         throw new Error('updateUserProfile 함수가 없습니다. useAuth 문제일 수 있습니다.');
       }
       
-      console.log('🚨 AuthContext updateUserProfile 호출 시작:', profile);
-      
-      // 🚨 AuthContext의 updateUserProfile 사용
       const result = await updateUserProfile(profile);
-      
-      console.log('🚨 AuthContext updateUserProfile 성공:', result);
       
       if (result?.success) {
         setSuccess(result.message || '프로필이 성공적으로 업데이트되었습니다.');
@@ -108,7 +114,7 @@ function ProfilePage() {
         setError(result?.message || '프로필 업데이트에 실패했습니다.');
       }
     } catch (err) {
-      console.error('🚨 AuthContext updateUserProfile 실패:', err);
+      console.error('프로필 업데이트 실패:', err);
       setError(err.message || '프로필 업데이트 중 오류가 발생했습니다.');
     } finally {
       setSaving(false);
@@ -141,12 +147,7 @@ function ProfilePage() {
 
   return (
     <DashboardLayout title="프로필 수정">
-      <Container maxWidth="md">
-        {/* 🚨 새 버전 표시 */}
-        <Alert severity="info" sx={{ mb: 2 }}>
-          🚨 새로운 ProfilePage.jsx 버전이 로드되었습니다! (AuthContext 사용)
-        </Alert>
-        
+      <Container maxWidth="md">        
         <Paper sx={{ p: 4, mt: 4 }}>
           <Typography variant="h4" component="h1" gutterBottom>
             프로필 수정
@@ -155,17 +156,9 @@ function ProfilePage() {
             AI가 원고를 작성할 때 참조하는 중요한 정보입니다. 정확하게 입력해주세요.
           </Typography>
           
-          {/* 현재 사용자 정보 표시 */}
-          <Alert severity="info" sx={{ mb: 3 }}>
-            <Typography variant="body2">
-              <strong>이메일:</strong> {auth.user.email}<br />
-              <strong>사용자 ID:</strong> {auth.user.id}<br />
-              <strong>updateUserProfile 함수:</strong> {updateUserProfile ? '✅ 존재함' : '❌ 없음'}
-            </Typography>
-          </Alert>
-          
           <form onSubmit={handleSubmit}>
             <Grid container spacing={3}>
+              {/* 이름 */}
               <Grid item xs={12}>
                 <TextField 
                   fullWidth 
@@ -178,6 +171,7 @@ function ProfilePage() {
                 />
               </Grid>
               
+              {/* 직책과 상태 */}
               <Grid item xs={12} sm={6}>
                 <FormControl fullWidth required>
                   <InputLabel>직책</InputLabel>
@@ -188,9 +182,12 @@ function ProfilePage() {
                     onChange={handleChange} 
                     disabled={saving}
                   >
+                    <MenuItem value="">
+                      <em>선택하세요</em>
+                    </MenuItem>
                     <MenuItem value="국회의원">국회의원</MenuItem>
-                    <MenuItem value="광역의원">광역의원(시/도의원)</MenuItem>
-                    <MenuItem value="기초의원">기초의원(시/군/구의원)</MenuItem>
+                    <MenuItem value="광역의원">광역의원</MenuItem>
+                    <MenuItem value="기초의원">기초의원</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
@@ -211,42 +208,80 @@ function ProfilePage() {
                 </FormControl>
               </Grid>
               
+              {/* 광역자치단체 */}
               <Grid item xs={12} sm={6}>
-                <TextField 
-                  fullWidth 
-                  required 
-                  name="regionMetro" 
-                  label="광역자치단체 (예: 서울특별시, 경기도)" 
-                  value={profile.regionMetro} 
-                  onChange={handleChange} 
-                  disabled={saving} 
-                />
+                <FormControl fullWidth required>
+                  <InputLabel>광역자치단체</InputLabel>
+                  <Select 
+                    name="regionMetro" 
+                    value={profile.regionMetro} 
+                    label="광역자치단체" 
+                    onChange={handleChange} 
+                    disabled={saving}
+                  >
+                    <MenuItem value="">
+                      <em>선택하세요</em>
+                    </MenuItem>
+                    {metroList.map((metro) => (
+                      <MenuItem key={metro} value={metro}>
+                        {metro}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               </Grid>
               
+              {/* 기초자치단체 */}
               <Grid item xs={12} sm={6}>
-                <TextField 
-                  fullWidth 
-                  required 
-                  name="regionLocal" 
-                  label="기초자치단체 (예: 강남구, 수원시)" 
-                  value={profile.regionLocal} 
-                  onChange={handleChange} 
-                  disabled={saving} 
-                />
+                <FormControl fullWidth required disabled={!profile.regionMetro || saving}>
+                  <InputLabel>기초자치단체</InputLabel>
+                  <Select 
+                    name="regionLocal" 
+                    value={profile.regionLocal} 
+                    label="기초자치단체" 
+                    onChange={handleChange} 
+                    disabled={!profile.regionMetro || saving}
+                  >
+                    <MenuItem value="">
+                      <em>선택하세요</em>
+                    </MenuItem>
+                    {localList.map((local) => (
+                      <MenuItem key={local} value={local}>
+                        {local}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               </Grid>
               
+              {/* 선거구 */}
               <Grid item xs={12}>
-                <TextField 
+                <FormControl 
                   fullWidth 
                   required 
-                  name="electoralDistrict" 
-                  label="선거구 (예: 갑, 을, 제1선거구)" 
-                  value={profile.electoralDistrict} 
-                  onChange={handleChange} 
-                  disabled={saving} 
-                />
+                  disabled={!profile.regionLocal || !profile.position || electoralList.length === 0 || saving}
+                >
+                  <InputLabel>선거구</InputLabel>
+                  <Select 
+                    name="electoralDistrict" 
+                    value={profile.electoralDistrict} 
+                    label="선거구" 
+                    onChange={handleChange} 
+                    disabled={!profile.regionLocal || !profile.position || electoralList.length === 0 || saving}
+                  >
+                    <MenuItem value="">
+                      <em>선택하세요</em>
+                    </MenuItem>
+                    {electoralList.map((electoral) => (
+                      <MenuItem key={electoral} value={electoral}>
+                        {electoral}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               </Grid>
               
+              {/* 저장 버튼 */}
               <Grid item xs={12}>
                 <Button 
                   type="submit" 
@@ -264,7 +299,7 @@ function ProfilePage() {
                       저장 중...
                     </>
                   ) : (
-                    '🚨 새 버전 프로필 저장'
+                    '프로필 저장'
                   )}
                 </Button>
               </Grid>
