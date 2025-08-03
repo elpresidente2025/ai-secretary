@@ -1,100 +1,322 @@
-const { onCall, HttpsError } = require('firebase-functions/v2/https');
-const { setGlobalOptions } = require('firebase-functions/v2');
-const { defineSecret } = require('firebase-functions/params');
 const admin = require('firebase-admin');
+const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const cors = require('cors')({ origin: true });
 
-// 🔥 Gemini API 키를 Secret으로 정의
-const geminiApiKey = defineSecret('GEMINI_API_KEY');
-
-// 🔥 타임아웃과 메모리 설정 (asia-northeast3 리전 유지)
-setGlobalOptions({
-  region: 'asia-northeast3',
-  memory: '2GiB',
-  timeoutSeconds: 540,
-});
-
+// Firebase Admin 초기화
 admin.initializeApp();
 const db = admin.firestore();
 
+// Gemini API 초기화
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+// 공통 함수 옵션
 const functionOptions = {
   region: 'asia-northeast3',
-  memory: '2GiB',
   timeoutSeconds: 540,
-  cors: true,
-  secrets: [geminiApiKey],
+  memory: '1GiB',
+  maxInstances: 100,
+  cors: true
 };
 
-// 🔥 Gemini 1.5 Flash 우선 모델 백업 전략
-const AI_MODELS = [
-  { name: "gemini-1.5-flash", priority: 1 },      // 🔥 기본 모델로 변경
-  { name: "gemini-1.5-flash-8b", priority: 2 },   // 더 가벼운 백업
-  { name: "gemini-1.5-pro", priority: 3 },        // 필요시 백업
-  { name: "gemini-pro", priority: 4 }              // 최종 백업
-];
-
-// 🔥 Gemini API 호출 with 모델 백업
-async function callGeminiWithBackup(prompt) {
-  const genAI = new GoogleGenerativeAI(geminiApiKey.value());
+// Gemini로 포스트 생성하는 함수
+async function generateWithGemini(model, prompt, retryCount = 0) {
+  const maxRetries = 3;
+  const models = ['gemini-1.5-flash', 'gemini-1.5-pro'];
   
-  for (const modelConfig of AI_MODELS) {
+  for (let i = 0; i < models.length; i++) {
     try {
-      console.log(`🤖 ${modelConfig.name} 모델 시도 중...`);
+      console.log(`🤖 ${models[i]} 모델로 생성 시도 (재시도: ${retryCount})`);
       
-      const model = genAI.getGenerativeModel({ 
-        model: modelConfig.name,
-        generationConfig: {
-          temperature: 0.7,
-          topK: 40,
-          topP: 0.95,
-          maxOutputTokens: 2048,
-        }
-      });
+      const currentModel = genAI.getGenerativeModel({ model: models[i] });
+      const result = await currentModel.generateContent(prompt);
+      const response = await result.response;
+      const text = response.text();
       
-      // 90초 타임아웃
-      const response = await Promise.race([
-        model.generateContent(prompt),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error(`${modelConfig.name} 90초 타임아웃`)), 90000)
-        )
-      ]);
-      
-      console.log(`✅ ${modelConfig.name} 성공`);
-      return response;
-      
-    } catch (error) {
-      console.warn(`⚠️ ${modelConfig.name} 실패:`, error.message);
-      
-      // 할당량 에러 구체적 감지
-      const isQuotaError = error.message.includes('quota') || 
-                          error.message.includes('429') ||
-                          error.message.includes('Too Many Requests') ||
-                          error.message.includes('rate limit');
-      
-      const isOverloadError = error.message.includes('overloaded') || 
-                             error.message.includes('503');
-      
-      // 할당량 에러가 아니면 즉시 다음 모델 시도
-      if (!isQuotaError && !isOverloadError && !error.message.includes('타임아웃')) {
-        console.log(`❌ ${modelConfig.name} 복구 불가능한 에러, 다음 모델 시도`);
-        continue;
+      if (!text || text.length < 50) {
+        throw new Error('생성된 텍스트가 너무 짧습니다.');
       }
       
-      // 마지막 모델까지 실패하면 에러 throw
-      if (modelConfig === AI_MODELS[AI_MODELS.length - 1]) {
-        if (isQuotaError) {
-          throw new HttpsError('resource-exhausted', 
-            '현재 AI 서비스 할당량이 초과되었습니다. 잠시 후 다시 시도해주세요.');
+      console.log(`✅ ${models[i]} 생성 성공 (길이: ${text.length})`);
+      return text;
+      
+    } catch (error) {
+      console.error(`❌ ${models[i]} 생성 실패:`, error.message);
+      
+      if (error.message.includes('SAFETY') || error.message.includes('안전')) {
+        throw new HttpsError('invalid-argument', 
+          'AI 안전 정책에 위배되는 내용입니다. 다른 주제로 시도해주세요.');
+      }
+      
+      if (error.message.includes('QUOTA_EXCEEDED') || error.message.includes('quota')) {
+        if (retryCount < maxRetries && i === models.length - 1) {
+          console.log(`🔄 할당량 초과, 5초 후 재시도 (${retryCount + 1}/${maxRetries})`);
+          await new Promise(resolve => setTimeout(resolve, 5000));
+          return generateWithGemini(model, prompt, retryCount + 1);
         }
-        throw new HttpsError('unavailable', 
-          'AI 서비스에 일시적 문제가 발생했습니다. 잠시 후 다시 시도해주세요.');
+        throw new HttpsError('resource-exhausted', 
+          'AI 서비스 사용량을 초과했습니다. 5-10분 후 다시 시도해주세요.');
+      }
+      
+      if (error.message.includes('timeout') || error.message.includes('타임아웃')) {
+        throw new HttpsError('deadline-exceeded', 'AI 응답 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.');
       }
       
       // 다음 모델 시도 전 1초 대기
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
   }
+  
+  throw new HttpsError('unavailable', 
+    'AI 서비스에 일시적 문제가 발생했습니다. 잠시 후 다시 시도해주세요.');
 }
+
+// 🔥 generatePosts Function
+exports.generatePosts = onCall(functionOptions, async (request) => {
+  const startTime = Date.now();
+  console.log('🔥 generatePosts 시작');
+  
+  try {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+    }
+
+    const { prompt, keywords, category, subCategory } = request.data;
+    const userId = request.auth.uid;
+
+    console.log('요청 데이터:', { prompt, keywords, category, subCategory, userId });
+
+    if (!prompt || prompt.trim().length === 0) {
+      throw new HttpsError('invalid-argument', '주제를 입력해주세요.');
+    }
+
+    // 사용자 프로필 조회
+    let userProfile = { name: '의원님' };
+    try {
+      const userDoc = await db.collection('users').doc(userId).get();
+      if (userDoc.exists) {
+        userProfile = userDoc.data();
+      }
+    } catch (profileError) {
+      console.warn('프로필 조회 실패, 기본값 사용:', profileError);
+    }
+
+    // 프롬프트 구성
+    const categoryInfo = subCategory ? `${category} > ${subCategory}` : category;
+    const keywordInfo = keywords ? `키워드: ${keywords}` : '';
+    const userInfo = `작성자: ${userProfile.name || '의원님'} (${userProfile.position || '의원'})`;
+    const regionInfo = userProfile.regionMetro ? 
+      `지역: ${userProfile.regionMetro} ${userProfile.regionLocal || ''}` : '';
+
+    const fullPrompt = `
+다음 조건에 맞춰 정치인의 SNS 포스트 3개를 생성해주세요:
+
+**기본 정보**
+- ${userInfo}
+- ${regionInfo}
+- 카테고리: ${categoryInfo}
+- ${keywordInfo}
+
+**주제 및 내용**
+${prompt}
+
+**요구사항**
+1. 각 포스트는 200-400자 정도로 작성
+2. 친근하고 진정성 있는 톤으로 작성
+3. 해시태그 2-3개 포함
+4. 정치적 성향은 더불어민주당 기조에 맞춤
+5. 구체적이고 실행 가능한 내용 포함
+
+**출력 형식**
+JSON 형태로 다음과 같이 출력:
+{
+  "posts": [
+    {
+      "title": "포스트 제목",
+      "content": "포스트 내용"
+    },
+    {
+      "title": "포스트 제목", 
+      "content": "포스트 내용"
+    },
+    {
+      "title": "포스트 제목",
+      "content": "포스트 내용"
+    }
+  ]
+}
+`;
+
+    console.log('📝 Gemini API 호출 시작');
+    const generatedText = await generateWithGemini('gemini-1.5-flash', fullPrompt);
+
+    // JSON 파싱 시도
+    let parsedResponse;
+    try {
+      const jsonMatch = generatedText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        parsedResponse = JSON.parse(jsonMatch[0]);
+      } else {
+        throw new Error('JSON 형식을 찾을 수 없습니다.');
+      }
+    } catch (parseError) {
+      console.error('JSON 파싱 실패:', parseError);
+      throw new HttpsError('internal', 'AI 응답 처리 중 오류가 발생했습니다.');
+    }
+
+    // 응답 검증
+    if (!parsedResponse.posts || !Array.isArray(parsedResponse.posts) || parsedResponse.posts.length === 0) {
+      throw new HttpsError('internal', 'AI가 올바른 형식의 포스트를 생성하지 못했습니다.');
+    }
+
+    // 메타데이터 구성
+    const metadata = {
+      userId,
+      prompt: prompt.substring(0, 200),
+      category,
+      subCategory,
+      keywords,
+      userProfile: {
+        name: userProfile.name,
+        position: userProfile.position,
+        region: regionInfo
+      },
+      generatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      model: 'gemini-1.5-flash',
+      processingTime: Date.now() - startTime
+    };
+
+    console.log(`✅ generatePosts 성공 (${Date.now() - startTime}ms)`);
+
+    return {
+      success: true,
+      posts: parsedResponse.posts,
+      metadata
+    };
+
+  } catch (error) {
+    console.error('❌ generatePosts 오류:', error);
+    
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    
+    if (error.message.includes('quota') || error.message.includes('할당량')) {
+      throw new HttpsError('resource-exhausted', 
+        'AI 서비스 사용량을 초과했습니다. 5-10분 후 다시 시도해주세요.');
+    }
+    
+    if (error.message.includes('timeout') || error.message.includes('타임아웃')) {
+      throw new HttpsError('deadline-exceeded', 'AI 응답 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.');
+    }
+    
+    throw new HttpsError('internal', `원고 생성 실패: ${error.message}`);
+  }
+});
+
+// 🔥 generatePostDrafts 별칭 함수
+exports.generatePostDrafts = onCall(functionOptions, async (request) => {
+  return exports.generatePosts.run(request);
+});
+
+// 🔥 선거구 중복 검사 및 회원가입 함수
+exports.registerWithDistrictCheck = onCall(functionOptions, async (request) => {
+  try {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+    }
+
+    const { profileData } = request.data;
+    const userId = request.auth.uid;
+
+    console.log('🔥 registerWithDistrictCheck 호출:', { userId, profileData });
+
+    // 필수 필드 검증
+    if (!profileData || !profileData.regionMetro || !profileData.regionLocal || !profileData.electoralDistrict || !profileData.position) {
+      throw new HttpsError('invalid-argument', '지역구 정보를 모두 입력해주세요.');
+    }
+
+    const { regionMetro, regionLocal, electoralDistrict, position } = profileData;
+
+    // 선거구 중복 검사
+    const existingUserQuery = await db.collection('users')
+      .where('regionMetro', '==', regionMetro)
+      .where('regionLocal', '==', regionLocal)
+      .where('electoralDistrict', '==', electoralDistrict)
+      .where('position', '==', position)
+      .get();
+
+    if (!existingUserQuery.empty) {
+      // 기존 사용자가 있는 경우, 현재 사용자가 아닌지 확인
+      const existingUser = existingUserQuery.docs[0];
+      if (existingUser.id !== userId) {
+        const existingUserData = existingUser.data();
+        throw new HttpsError('already-exists', 
+          `해당 선거구(${electoralDistrict})에는 이미 등록된 ${position}이 있습니다. (${existingUserData.name || '이름 없음'})`
+        );
+      }
+    }
+
+    // 중복이 없으면 프로필 저장
+    const userProfileData = {
+      ...profileData,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      role: 'user'
+    };
+
+    await db.collection('users').doc(userId).set(userProfileData, { merge: true });
+
+    console.log('✅ registerWithDistrictCheck 성공');
+    return {
+      success: true,
+      message: '회원가입이 완료되었습니다.'
+    };
+
+  } catch (error) {
+    console.error('❌ registerWithDistrictCheck 오류:', error);
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    throw new HttpsError('internal', '회원가입 처리 중 오류가 발생했습니다.');
+  }
+});
+
+// 🔥 선거구 사용 가능 여부 확인 함수
+exports.checkDistrictAvailability = onCall(functionOptions, async (request) => {
+  try {
+    const { regionMetro, regionLocal, electoralDistrict, position } = request.data;
+
+    if (!regionMetro || !regionLocal || !electoralDistrict || !position) {
+      throw new HttpsError('invalid-argument', '모든 지역구 정보를 입력해주세요.');
+    }
+
+    const existingUserQuery = await db.collection('users')
+      .where('regionMetro', '==', regionMetro)
+      .where('regionLocal', '==', regionLocal)
+      .where('electoralDistrict', '==', electoralDistrict)
+      .where('position', '==', position)
+      .get();
+
+    const isAvailable = existingUserQuery.empty;
+    let occupiedBy = null;
+
+    if (!isAvailable) {
+      const existingUserData = existingUserQuery.docs[0].data();
+      occupiedBy = existingUserData.name || '이름 없음';
+    }
+
+    return {
+      success: true,
+      available: isAvailable,
+      occupiedBy
+    };
+
+  } catch (error) {
+    console.error('❌ checkDistrictAvailability 오류:', error);
+    throw new HttpsError('internal', '선거구 확인 중 오류가 발생했습니다.');
+  }
+});
 
 // getDashboardData Function
 exports.getDashboardData = onCall(functionOptions, async (request) => {
@@ -104,7 +326,7 @@ exports.getDashboardData = onCall(functionOptions, async (request) => {
     }
 
     const userId = request.auth.uid;
-    console.log('🔥 getDashboardData 호출 (asia-northeast3):', userId);
+    console.log('🔥 getDashboardData 호출:', userId);
     
     const usage = {
       current: 5,
@@ -175,7 +397,8 @@ exports.getUserProfile = onCall(functionOptions, async (request) => {
         regionMetro: '',
         regionLocal: '',
         electoralDistrict: '',
-        status: '현역'
+        status: '현역',
+        role: 'user'
       };
 
       if (userDoc.exists) {
@@ -199,7 +422,8 @@ exports.getUserProfile = onCall(functionOptions, async (request) => {
           regionMetro: '',
           regionLocal: '',
           electoralDistrict: '',
-          status: '현역'
+          status: '현역',
+          role: 'user'
         }
       };
     }
@@ -255,233 +479,50 @@ exports.updateProfile = onCall(functionOptions, async (request) => {
   }
 });
 
-// 🔥 테스트 함수
-exports.testGenerate = onCall(functionOptions, async (request) => {
-  const startTime = Date.now();
-  console.log('🔥 testGenerate 시작');
-  
+// 🔥 savePost Function
+exports.savePost = onCall(functionOptions, async (request) => {
   try {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
     }
 
-    console.log('1단계: API 키 확인 중...');
-    const apiKey = geminiApiKey.value();
-    if (!apiKey) {
-      throw new HttpsError('internal', 'Gemini API 키가 설정되지 않았습니다.');
+    const { title, content, category, subCategory, metadata } = request.data;
+    const userId = request.auth.uid;
+
+    console.log('🔥 savePost 호출:', { userId, title: title?.substring(0, 50) });
+
+    if (!title || !content) {
+      throw new HttpsError('invalid-argument', '제목과 내용을 입력해주세요.');
     }
-    console.log('✅ API 키 확인 완료');
 
-    console.log('2단계: 간단한 AI 호출 테스트 중...');
-    const simplePrompt = "안녕하세요라고 간단히 인사해주세요.";
-    
-    const response = await callGeminiWithBackup(simplePrompt);
-    const responseText = response.response.text();
-    console.log('✅ AI 응답:', responseText.substring(0, 100));
+    const postData = {
+      title: title.trim(),
+      content: content.trim(),
+      category: category || '일반',
+      subCategory: subCategory || '',
+      authorId: userId,
+      status: 'draft',
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      metadata: metadata || {}
+    };
 
-    const processingTime = Date.now() - startTime;
-    console.log(`✅ testGenerate 성공: ${processingTime}ms`);
+    const docRef = await db.collection('posts').add(postData);
 
+    console.log('✅ savePost 성공:', docRef.id);
     return {
       success: true,
-      message: 'AI 연결 테스트 성공',
-      processingTime: processingTime,
-      response: responseText,
-      timestamp: new Date().toISOString()
+      postId: docRef.id,
+      message: '포스트가 성공적으로 저장되었습니다.'
     };
 
   } catch (error) {
-    const processingTime = Date.now() - startTime;
-    console.error('❌ testGenerate 실패:', {
-      error: error.message,
-      processingTime: `${processingTime}ms`
-    });
-    
-    throw new HttpsError('internal', `테스트 실패: ${error.message}`);
-  }
-});
-
-// 🔥 Gemini 1.5 Flash 기본 generatePosts Function
-exports.generatePosts = onCall(functionOptions, async (request) => {
-  const startTime = Date.now();
-  
-  try {
-    if (!request.auth) {
-      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
-    }
-
-    const data = request.data;
-    console.log('🔥 generatePosts 시작 (Gemini 1.5 Flash 우선):', data);
-
-    // 필수 데이터 검증
-    const topic = data.topic || data.prompt || '';
-    const category = data.category || '';
-    
-    if (!topic?.trim()) {
-      throw new HttpsError('invalid-argument', '주제를 입력해주세요.');
-    }
-    
-    if (!category?.trim()) {
-      throw new HttpsError('invalid-argument', '카테고리를 선택해주세요.');
-    }
-
-    console.log(`🔥 요청 검증 완료: 주제="${topic.substring(0, 50)}..." 카테고리="${category}"`);
-
-    // 사용자 프로필 가져오기 (타임아웃 방지)
-    let userProfile = {};
-    try {
-      const userDoc = await Promise.race([
-        db.collection('users').doc(request.auth.uid).get(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('프로필 조회 타임아웃')), 5000))
-      ]);
-      
-      if (userDoc.exists) {
-        userProfile = userDoc.data();
-      }
-    } catch (profileError) {
-      console.warn('프로필 조회 실패, 기본값 사용:', profileError);
-      userProfile = {
-        name: request.auth.token.name || '정치인',
-        position: '의원',
-        regionMetro: '지역',
-        regionLocal: '지역구',
-        status: '현역'
-      };
-    }
-
-    // 🔥 Gemini 1.5 Flash에 최적화된 프롬프트
-    const prompt = `정치인 블로그용 원고 3개를 JSON으로 작성:
-
-작성자: ${userProfile.name || '정치인'} (${userProfile.position || '의원'})
-주제: ${topic}
-카테고리: ${category}
-세부카테고리: ${data.subCategory || '없음'}
-키워드: ${data.keywords || '없음'}
-
-JSON 형식:
-{
-  "drafts": [
-    {"title": "제목1", "content": "<p>내용1</p>", "wordCount": 1200},
-    {"title": "제목2", "content": "<p>내용2</p>", "wordCount": 1200},
-    {"title": "제목3", "content": "<p>내용3</p>", "wordCount": 1200}
-  ]
-}
-
-각 원고는 1000-1500자, HTML 형식, 진중하고 신뢰감 있는 톤으로 작성.`;
-
-    console.log('🔥 AI 호출 시작 (Gemini 1.5 Flash 우선)...');
-    
-    // 🔥 백업 모델과 함께 호출
-    const apiResponse = await callGeminiWithBackup(prompt);
-    const responseText = apiResponse.response.text();
-    
-    console.log('✅ AI 응답 수신, 길이:', responseText.length);
-    
-    // 🔥 JSON 파싱 개선
-    let parsedResponse;
-    try {
-      // JSON 블록 추출
-      const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/) || 
-                       responseText.match(/\{[\s\S]*\}/);
-      
-      if (jsonMatch) {
-        parsedResponse = JSON.parse(jsonMatch[1] || jsonMatch[0]);
-      } else {
-        throw new Error('JSON 형식 찾기 실패');
-      }
-    } catch (parseError) {
-      console.warn('JSON 파싱 실패, 기본 응답 생성:', parseError);
-      parsedResponse = {
-        drafts: [
-          {
-            title: `${category}: ${topic} (1)`,
-            content: `<p><strong>${topic}</strong>에 대한 ${category} 원고입니다.</p><p>현재 상황을 분석하고 정책적 대안을 제시하겠습니다.</p><p>주민 여러분의 의견을 적극 수렴하여 더 나은 정책 방향을 모색하겠습니다.</p>`,
-            wordCount: 300
-          },
-          {
-            title: `${category}: ${topic} (2)`,
-            content: `<p>${topic}와 관련하여 심도 있는 검토가 필요합니다.</p><p>관련 부처와의 협의를 통해 효과적인 해결방안을 마련하겠습니다.</p><p>투명하고 공정한 과정을 통해 국민의 목소리를 반영하겠습니다.</p>`,
-            wordCount: 300
-          },
-          {
-            title: `${category}: ${topic} (3)`,
-            content: `<p>${topic}에 대한 체계적인 접근이 중요합니다.</p><p>단계적이고 실현 가능한 정책 추진으로 실질적 성과를 만들어내겠습니다.</p><p>지속적인 모니터링과 피드백을 통해 정책의 실효성을 높이겠습니다.</p>`,
-            wordCount: 300
-          }
-        ]
-      };
-    }
-
-    // 🔥 응답 정규화
-    const drafts = parsedResponse.drafts?.map((draft, index) => ({
-      title: draft.title || `${category}: ${topic} (${index + 1})`,
-      content: draft.content || '<p>원고 생성에 실패했습니다.</p>',
-      wordCount: draft.wordCount || Math.ceil((draft.content || '').length / 2),
-      tags: data.keywords?.split(',').map(k => k.trim()).filter(k => k) || [],
-      category: category,
-      style: draft.style || '일반',
-      metadata: {
-        aiModel: 'gemini-1.5-flash-priority',
-        prompt: topic,
-        userProfile: userProfile.name || 'Unknown'
-      }
-    })) || [];
-
-    if (drafts.length === 0) {
-      throw new HttpsError('internal', '원고가 생성되지 않았습니다.');
-    }
-
-    const processingTime = Date.now() - startTime;
-    
-    console.log('✅ generatePosts 성공:', {
-      draftsCount: drafts.length,
-      processingTime: `${processingTime}ms`,
-      model: 'gemini-1.5-flash-priority'
-    });
-
-    return {
-      success: true,
-      drafts: drafts,
-      metadata: {
-        generatedAt: new Date().toISOString(),
-        model: 'gemini-1.5-flash-priority',
-        processingTime: processingTime,
-        region: 'asia-northeast3',
-        inputTopic: topic,
-        inputCategory: category,
-        userProfile: userProfile.name || 'Unknown'
-      }
-    };
-
-  } catch (error) {
-    const processingTime = Date.now() - startTime;
-    console.error('❌ generatePosts 오류:', {
-      error: error.message,
-      processingTime: `${processingTime}ms`,
-      stack: error.stack?.substring(0, 500)
-    });
-    
+    console.error('❌ savePost 오류:', error);
     if (error instanceof HttpsError) {
       throw error;
     }
-    
-    // 특별 에러 메시지 처리
-    if (error.message.includes('quota') || error.message.includes('429')) {
-      throw new HttpsError('resource-exhausted', 'AI 서비스 할당량이 초과되었습니다. 5-10분 후 다시 시도해주세요.');
-    }
-    
-    if (error.message.includes('timeout') || error.message.includes('타임아웃')) {
-      throw new HttpsError('deadline-exceeded', 'AI 응답 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.');
-    }
-    
-    throw new HttpsError('internal', `원고 생성 실패: ${error.message}`);
+    throw new HttpsError('internal', '포스트 저장에 실패했습니다.');
   }
-});
-
-// 🔥 generatePostDrafts 별칭 함수
-exports.generatePostDrafts = onCall(functionOptions, async (request) => {
-  // generatePosts와 동일한 로직 호출
-  return exports.generatePosts.run(request);
 });
 
 // 🔥 사용자 포스트 목록 조회
@@ -667,5 +708,35 @@ exports.getUserList = onCall(functionOptions, async (request) => {
       throw error;
     }
     throw new HttpsError('internal', '사용자 목록을 불러오는데 실패했습니다.');
+  }
+});
+
+// 🔥 테스트 함수
+exports.testGenerate = onCall(functionOptions, async (request) => {
+  const startTime = Date.now();
+  console.log('🔥 testGenerate 시작');
+  
+  try {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+    }
+
+    const testPrompt = "간단한 인사말 생성 테스트";
+    const result = await generateWithGemini('gemini-1.5-flash', testPrompt);
+
+    console.log('✅ testGenerate 성공:', Date.now() - startTime, 'ms');
+    
+    return {
+      success: true,
+      result: result.substring(0, 200),
+      processingTime: Date.now() - startTime
+    };
+
+  } catch (error) {
+    console.error('❌ testGenerate 오류:', error);
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    throw new HttpsError('internal', 'AI 테스트 실패');
   }
 });

@@ -89,16 +89,39 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  // 회원가입 함수 (Firebase Auth 사용)
-  const register = useCallback(async (fullName, email, password) => {
+  // 회원가입 함수 (Firebase Auth + 선거구 검사)
+  const register = useCallback(async (fullName, email, password, profileData = null) => {
     try {
       setError(null);
+      
+      // 1단계: Firebase Auth 회원가입
       const result = await authService.register(fullName, email, password);
       console.log("AuthContext: Firebase 회원가입 성공", result.user);
-      // Firebase onAuthStateChanged가 자동으로 상태를 업데이트함
+      
+      // 2단계: 추가 프로필 정보가 있으면 선거구 중복 검사 및 저장
+      if (profileData) {
+        try {
+          const registerWithDistrictCheck = httpsCallable(functions, 'registerWithDistrictCheck');
+          const profileResult = await registerWithDistrictCheck({ profileData });
+          
+          if (!profileResult.data.success) {
+            // 프로필 저장 실패 시 생성된 Auth 계정 삭제
+            await authService.logout();
+            throw new Error(profileResult.data.message || '프로필 저장에 실패했습니다.');
+          }
+          
+          console.log("AuthContext: 프로필 저장 성공");
+        } catch (profileError) {
+          // 프로필 저장 실패 시 생성된 Auth 계정 삭제
+          await authService.logout();
+          console.error("AuthContext: 프로필 저장 실패, 계정 삭제함", profileError);
+          throw profileError;
+        }
+      }
+      
       return result;
     } catch (error) {
-      console.error("AuthContext: Firebase 회원가입 실패", error);
+      console.error("AuthContext: 회원가입 실패", error);
       setError(error.message);
       throw error;
     }

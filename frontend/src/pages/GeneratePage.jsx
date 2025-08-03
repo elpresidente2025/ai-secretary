@@ -63,7 +63,6 @@ const GeneratePage = () => {
     generationMetadata,
     generatePosts,
     saveDraft,
-    regenerate,
     setError
   } = usePostGenerator();
 
@@ -80,6 +79,7 @@ const GeneratePage = () => {
   const [currentAttempt, setCurrentAttempt] = useState(0);
   const maxAttempts = 3;
 
+  // 카테고리 변경 시 세부 카테고리 초기화
   useEffect(() => {
     setFormData(prev => ({ ...prev, subCategory: '' }));
   }, [formData.category]);
@@ -107,17 +107,20 @@ const GeneratePage = () => {
 
   // 폼 검증
   const validateForm = () => {
-    if (!formData.prompt.trim()) {
+    // 공백만 있는 경우도 체크
+    const trimmedPrompt = formData.prompt?.trim() || '';
+    
+    if (!trimmedPrompt) {
       setError('주제를 입력해주세요.');
       return false;
     }
     
-    if (formData.prompt.length < 5) {
+    if (trimmedPrompt.length < 5) {
       setError('주제는 최소 5자 이상 입력해주세요.');
       return false;
     }
     
-    if (formData.prompt.length > 500) {
+    if (trimmedPrompt.length > 500) {
       setError('주제는 500자를 초과할 수 없습니다.');
       return false;
     }
@@ -137,28 +140,81 @@ const GeneratePage = () => {
       return;
     }
 
+    // 에러 초기화
     setError('');
     
-    if (validateForm() && auth?.user?.id) {
-      try {
-        await generatePosts(formData, auth);
-        
-        // 생성 성공 시 이력에 추가
-        const newAttempt = currentAttempt + 1;
-        setCurrentAttempt(newAttempt);
-        
-        setGenerationHistory(prev => [...prev, {
-          attempt: newAttempt,
-          timestamp: new Date(),
-          formData: { ...formData },
-          drafts: [...drafts] // drafts가 업데이트된 후에 추가되어야 함
-        }]);
-        
-      } catch (error) {
-        console.error('원고 생성 실패:', error);
-      }
-    } else if (!auth?.user?.id) {
+    // 폼 검증
+    if (!validateForm()) {
+      return;
+    }
+
+    // auth 검증
+    if (!auth?.user?.id) {
       setError('사용자 정보가 없습니다. 다시 로그인해주세요.');
+      return;
+    }
+
+    try {
+      // 서버로 전송할 데이터 준비 및 검증
+      const requestData = {
+        prompt: formData.prompt.trim(),
+        keywords: formData.keywords?.trim() || '',
+        category: formData.category,
+        subCategory: formData.subCategory || ''
+      };
+
+      // 디버깅을 위한 로그
+      console.log('=== 원고 생성 요청 데이터 ===');
+      console.log('requestData:', requestData);
+      console.log('auth:', auth);
+      console.log('auth.user:', auth.user);
+      console.log('===========================');
+
+      // 다시 한번 검증
+      if (!requestData.prompt) {
+        setError('주제가 비어있습니다. 다시 입력해주세요.');
+        return;
+      }
+
+      await generatePosts(requestData, auth);
+      
+      // 생성 성공 시 이력에 추가
+      const newAttempt = currentAttempt + 1;
+      setCurrentAttempt(newAttempt);
+      
+      setGenerationHistory(prev => [...prev, {
+        attempt: newAttempt,
+        timestamp: new Date(),
+        formData: { ...requestData },
+        success: true
+      }]);
+      
+    } catch (error) {
+      console.error('=== 원고 생성 실패 ===');
+      console.error('Error:', error);
+      console.error('Error message:', error.message);
+      console.error('Error code:', error.code);
+      console.error('==================');
+      
+      // 에러 메시지 개선
+      let errorMessage = '원고 생성 중 오류가 발생했습니다.';
+      
+      if (error.message) {
+        errorMessage = error.message;
+      } else if (error.code) {
+        errorMessage = `오류 코드: ${error.code}`;
+      }
+      
+      setError(errorMessage);
+      
+      // 실패한 시도도 이력에 기록
+      setGenerationHistory(prev => [...prev, {
+        attempt: currentAttempt + 1,
+        timestamp: new Date(),
+        formData: { ...formData },
+        success: false,
+        error: errorMessage
+      }]);
     }
   };
 
@@ -170,23 +226,40 @@ const GeneratePage = () => {
         return;
       }
       
+      console.log('=== 초안 저장 시작 ===');
+      console.log('draft:', draft);
+      console.log('index:', index);
+      console.log('formData:', formData);
+      console.log('generationMetadata:', generationMetadata);
+      console.log('auth:', auth);
+      console.log('====================');
+      
       const postId = await saveDraft(draft, index, formData, generationMetadata, auth);
+      
       if (postId) {
+        console.log('초안 저장 성공, postId:', postId);
         navigate(`/post/${postId}`);
       } else {
         setError('초안 저장은 됐지만 페이지 이동에 실패했습니다.');
       }
     } catch (err) {
-      console.error('초안 저장 실패:', err);
-      setError('초안 저장 중 오류가 발생했습니다.');
+      console.error('=== 초안 저장 실패 ===');
+      console.error('Error:', err);
+      console.error('===================');
+      setError('초안 저장 중 오류가 발생했습니다: ' + (err.message || '알 수 없는 오류'));
     }
   };
 
   // 복사하기
   const handleCopy = (content) => {
-    const cleanContent = content.replace(/<[^>]*>/g, '');
-    navigator.clipboard.writeText(cleanContent);
-    alert('클립보드에 복사되었습니다.');
+    try {
+      const cleanContent = content.replace(/<[^>]*>/g, '');
+      navigator.clipboard.writeText(cleanContent);
+      alert('클립보드에 복사되었습니다.');
+    } catch (error) {
+      console.error('복사 실패:', error);
+      alert('복사에 실패했습니다.');
+    }
   };
 
   // 새로 시작하기
@@ -263,12 +336,13 @@ const GeneratePage = () => {
                 fullWidth
                 multiline
                 rows={3}
-                label="주제 및 내용"
+                label="주제 및 내용 *"
                 placeholder="어떤 내용의 원고를 작성하고 싶으신가요? 상세할수록 더 정확한 원고가 생성됩니다."
                 value={formData.prompt}
                 onChange={handleInputChange('prompt')}
                 disabled={loading}
-                helperText={`${formData.prompt.length}/500자`}
+                helperText={`${formData.prompt.length}/500자 (필수 입력)`}
+                error={!formData.prompt.trim() && formData.prompt.length > 0}
               />
             </Grid>
 
@@ -362,6 +436,26 @@ const GeneratePage = () => {
             )}
           </Grid>
         </Paper>
+
+        {/* 생성 이력 표시 */}
+        {generationHistory.length > 0 && (
+          <Paper sx={{ p: 2, mb: 3 }}>
+            <Typography variant="subtitle1" gutterBottom>
+              생성 이력
+            </Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+              {generationHistory.map((history, index) => (
+                <Chip
+                  key={index}
+                  label={`${history.attempt}회차 ${history.success ? '성공' : '실패'}`}
+                  color={history.success ? 'success' : 'error'}
+                  variant="outlined"
+                  size="small"
+                />
+              ))}
+            </Box>
+          </Paper>
+        )}
 
         {/* 생성된 초안들 - 하단에 가로로 나열 */}
         {drafts.length > 0 && (
