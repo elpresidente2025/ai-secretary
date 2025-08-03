@@ -71,10 +71,10 @@ async function generateWithGemini(model, prompt, retryCount = 0) {
     'AI 서비스에 일시적 문제가 발생했습니다. 잠시 후 다시 시도해주세요.');
 }
 
-// 🔥 generatePosts Function
+// 🔥 generatePosts Function - 1개씩 생성하도록 수정
 exports.generatePosts = onCall(functionOptions, async (request) => {
   const startTime = Date.now();
-  console.log('🔥 generatePosts 시작');
+  console.log('🔥 generatePosts 시작 (1개 생성 버전)');
   
   try {
     if (!request.auth) {
@@ -101,7 +101,7 @@ exports.generatePosts = onCall(functionOptions, async (request) => {
       console.warn('프로필 조회 실패, 기본값 사용:', profileError);
     }
 
-    // 프롬프트 구성
+    // 프롬프트 구성 - 1개만 생성하도록 수정
     const categoryInfo = subCategory ? `${category} > ${subCategory}` : category;
     const keywordInfo = keywords ? `키워드: ${keywords}` : '';
     const userInfo = `작성자: ${userProfile.name || '의원님'} (${userProfile.position || '의원'})`;
@@ -109,7 +109,7 @@ exports.generatePosts = onCall(functionOptions, async (request) => {
       `지역: ${userProfile.regionMetro} ${userProfile.regionLocal || ''}` : '';
 
     const fullPrompt = `
-다음 조건에 맞춰 정치인의 SNS 포스트 3개를 생성해주세요:
+다음 조건에 맞춰 정치인의 SNS 포스트 1개를 생성해주세요:
 
 **기본 정보**
 - ${userInfo}
@@ -121,7 +121,7 @@ exports.generatePosts = onCall(functionOptions, async (request) => {
 ${prompt}
 
 **요구사항**
-1. 각 포스트는 200-400자 정도로 작성
+1. 포스트는 200-400자 정도로 작성
 2. 친근하고 진정성 있는 톤으로 작성
 3. 해시태그 2-3개 포함
 4. 정치적 성향은 더불어민주당 기조에 맞춤
@@ -130,24 +130,14 @@ ${prompt}
 **출력 형식**
 JSON 형태로 다음과 같이 출력:
 {
-  "posts": [
-    {
-      "title": "포스트 제목",
-      "content": "포스트 내용"
-    },
-    {
-      "title": "포스트 제목", 
-      "content": "포스트 내용"
-    },
-    {
-      "title": "포스트 제목",
-      "content": "포스트 내용"
-    }
-  ]
+  "post": {
+    "title": "포스트 제목",
+    "content": "포스트 내용"
+  }
 }
 `;
 
-    console.log('📝 Gemini API 호출 시작');
+    console.log('📝 Gemini API 호출 시작 (1개 생성)');
     const generatedText = await generateWithGemini('gemini-1.5-flash', fullPrompt);
 
     // JSON 파싱 시도
@@ -164,8 +154,8 @@ JSON 형태로 다음과 같이 출력:
       throw new HttpsError('internal', 'AI 응답 처리 중 오류가 발생했습니다.');
     }
 
-    // 응답 검증
-    if (!parsedResponse.posts || !Array.isArray(parsedResponse.posts) || parsedResponse.posts.length === 0) {
+    // 응답 검증 - 단일 post 객체로 변경
+    if (!parsedResponse.post || !parsedResponse.post.title || !parsedResponse.post.content) {
       throw new HttpsError('internal', 'AI가 올바른 형식의 포스트를 생성하지 못했습니다.');
     }
 
@@ -186,11 +176,20 @@ JSON 형태로 다음과 같이 출력:
       processingTime: Date.now() - startTime
     };
 
-    console.log(`✅ generatePosts 성공 (${Date.now() - startTime}ms)`);
+    console.log(`✅ generatePosts 성공 (${Date.now() - startTime}ms) - 1개 생성`);
 
+    // 기존 프론트엔드와 호환성을 위해 posts 배열 대신 drafts 배열로 반환
     return {
       success: true,
-      posts: parsedResponse.posts,
+      drafts: [{
+        title: parsedResponse.post.title,
+        content: parsedResponse.post.content,
+        wordCount: Math.ceil(parsedResponse.post.content.length / 2),
+        tags: [],
+        category: category || '일반',
+        style: '일반',
+        metadata: {}
+      }],
       metadata
     };
 

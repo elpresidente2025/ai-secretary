@@ -18,7 +18,10 @@ import {
   Divider,
   Container,
   CircularProgress,
-  Badge
+  Badge,
+  IconButton,
+  Tooltip,
+  Snackbar
 } from '@mui/material';
 import { 
   AutoAwesome, 
@@ -26,7 +29,10 @@ import {
   Save, 
   Refresh,
   Assignment,
-  Speed
+  Speed,
+  DeleteOutline,
+  Add,
+  CheckCircle
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout';
@@ -59,10 +65,12 @@ const GeneratePage = () => {
     loading,
     error,
     progress,
-    drafts,
+    drafts, // 🔥 누적된 drafts 배열
     generationMetadata,
-    generatePosts,
+    generatePosts, // 🔥 누적으로 추가하는 함수
     saveDraft,
+    clearDrafts, // 🔥 새로 추가된 함수
+    removeDraft, // 🔥 새로 추가된 함수
     setError
   } = usePostGenerator();
 
@@ -74,10 +82,16 @@ const GeneratePage = () => {
     subCategory: ''
   });
 
-  // 생성 이력 관리 (최대 3번)
-  const [generationHistory, setGenerationHistory] = useState([]);
-  const [currentAttempt, setCurrentAttempt] = useState(0);
+  // 🔥 스낵바 상태 추가
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success'
+  });
+
+  // 🔥 최대 시도 횟수
   const maxAttempts = 3;
+  const currentAttemptCount = drafts.length; // 🔥 drafts 배열 길이가 곧 시도 횟수
 
   // 카테고리 변경 시 세부 카테고리 초기화
   useEffect(() => {
@@ -133,10 +147,10 @@ const GeneratePage = () => {
     return true;
   };
 
-  // 원고 생성 요청
+  // 🔥 원고 생성 요청 - 누적 생성으로 수정
   const handleGenerate = async () => {
-    if (currentAttempt >= maxAttempts) {
-      setError(`최대 ${maxAttempts}번까지만 생성할 수 있습니다.`);
+    if (currentAttemptCount >= maxAttempts) {
+      setError(`최대 ${maxAttempts}개까지만 생성할 수 있습니다.`);
       return;
     }
 
@@ -166,8 +180,8 @@ const GeneratePage = () => {
       // 디버깅을 위한 로그
       console.log('=== 원고 생성 요청 데이터 ===');
       console.log('requestData:', requestData);
+      console.log('currentAttemptCount:', currentAttemptCount);
       console.log('auth:', auth);
-      console.log('auth.user:', auth.user);
       console.log('===========================');
 
       // 다시 한번 검증
@@ -176,18 +190,15 @@ const GeneratePage = () => {
         return;
       }
 
+      // 🔥 누적으로 추가되는 generatePosts 호출
       await generatePosts(requestData, auth);
       
-      // 생성 성공 시 이력에 추가
-      const newAttempt = currentAttempt + 1;
-      setCurrentAttempt(newAttempt);
-      
-      setGenerationHistory(prev => [...prev, {
-        attempt: newAttempt,
-        timestamp: new Date(),
-        formData: { ...requestData },
-        success: true
-      }]);
+      // 🔥 성공 시 스낵바 표시
+      setSnackbar({
+        open: true,
+        message: `초안 ${currentAttemptCount + 1}이 생성되었습니다!`,
+        severity: 'success'
+      });
       
     } catch (error) {
       console.error('=== 원고 생성 실패 ===');
@@ -206,19 +217,10 @@ const GeneratePage = () => {
       }
       
       setError(errorMessage);
-      
-      // 실패한 시도도 이력에 기록
-      setGenerationHistory(prev => [...prev, {
-        attempt: currentAttempt + 1,
-        timestamp: new Date(),
-        formData: { ...formData },
-        success: false,
-        error: errorMessage
-      }]);
     }
   };
 
-  // 초안 저장
+  // 🔥 초안 저장 - 스낵바 추가
   const handleSaveDraft = async (draft, index) => {
     try {
       if (!auth?.user?.id) {
@@ -234,13 +236,19 @@ const GeneratePage = () => {
       console.log('auth:', auth);
       console.log('====================');
       
-      const postId = await saveDraft(draft, index, formData, generationMetadata, auth);
+      const result = await saveDraft(draft, index, formData, generationMetadata, auth);
       
-      if (postId) {
-        console.log('초안 저장 성공, postId:', postId);
-        navigate(`/post/${postId}`);
+      if (result && result.success) {
+        console.log('초안 저장 성공, postId:', result.postId);
+        setSnackbar({
+          open: true,
+          message: '초안이 성공적으로 저장되었습니다!',
+          severity: 'success'
+        });
+        // 필요시 페이지 이동
+        // navigate(`/post/${result.postId}`);
       } else {
-        setError('초안 저장은 됐지만 페이지 이동에 실패했습니다.');
+        setError('초안 저장에 실패했습니다.');
       }
     } catch (err) {
       console.error('=== 초안 저장 실패 ===');
@@ -250,19 +258,37 @@ const GeneratePage = () => {
     }
   };
 
+  // 🔥 초안 삭제
+  const handleRemoveDraft = (draftId) => {
+    removeDraft(draftId);
+    setSnackbar({
+      open: true,
+      message: '초안이 삭제되었습니다.',
+      severity: 'info'
+    });
+  };
+
   // 복사하기
   const handleCopy = (content) => {
     try {
       const cleanContent = content.replace(/<[^>]*>/g, '');
       navigator.clipboard.writeText(cleanContent);
-      alert('클립보드에 복사되었습니다.');
+      setSnackbar({
+        open: true,
+        message: '클립보드에 복사되었습니다!',
+        severity: 'success'
+      });
     } catch (error) {
       console.error('복사 실패:', error);
-      alert('복사에 실패했습니다.');
+      setSnackbar({
+        open: true,
+        message: '복사에 실패했습니다.',
+        severity: 'error'
+      });
     }
   };
 
-  // 새로 시작하기
+  // 🔥 새로 시작하기 - clearDrafts 사용
   const handleReset = () => {
     setFormData({
       prompt: '',
@@ -270,9 +296,21 @@ const GeneratePage = () => {
       category: '일반',
       subCategory: ''
     });
-    setGenerationHistory([]);
-    setCurrentAttempt(0);
+    clearDrafts(); // 🔥 모든 drafts 초기화
     setError('');
+    setSnackbar({
+      open: true,
+      message: '모든 데이터가 초기화되었습니다.',
+      severity: 'info'
+    });
+  };
+
+  // 🔥 스낵바 닫기
+  const handleCloseSnackbar = (event, reason) => {
+    if (reason === 'clickaway') {
+      return;
+    }
+    setSnackbar(prev => ({ ...prev, open: false }));
   };
 
   return (
@@ -285,11 +323,25 @@ const GeneratePage = () => {
               <AutoAwesome sx={{ mr: 1, color: 'primary.main' }} />
               AI 원고 생성
             </Typography>
-            <Badge badgeContent={`${currentAttempt}/${maxAttempts}`} color="primary">
-              <Typography variant="body2" color="text.secondary">
-                생성 횟수
-              </Typography>
-            </Badge>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Badge badgeContent={`${currentAttemptCount}/${maxAttempts}`} color="primary">
+                <Typography variant="body2" color="text.secondary">
+                  생성된 초안 수
+                </Typography>
+              </Badge>
+              {/* 🔥 새로 시작 버튼 */}
+              {drafts.length > 0 && (
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={handleReset}
+                  startIcon={<Refresh />}
+                  color="secondary"
+                >
+                  새로 시작
+                </Button>
+              )}
+            </Box>
           </Box>
 
           <Grid container spacing={3}>
@@ -382,42 +434,31 @@ const GeneratePage = () => {
               </Grid>
             )}
 
-            {/* 버튼 영역 */}
+            {/* 🔥 버튼 영역 - 수정됨 */}
             <Grid item xs={12}>
               <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
                 <Button
                   variant="contained"
                   size="large"
                   onClick={handleGenerate}
-                  disabled={loading || !formData.prompt.trim() || currentAttempt >= maxAttempts}
-                  startIcon={loading ? <CircularProgress size={20} /> : <AutoAwesome />}
+                  disabled={loading || !formData.prompt.trim() || currentAttemptCount >= maxAttempts}
+                  startIcon={loading ? <CircularProgress size={20} /> : (currentAttemptCount === 0 ? <AutoAwesome /> : <Add />)}
                   sx={{ minWidth: 200 }}
                 >
                   {loading 
                     ? 'AI가 원고를 생성하고 있습니다...' 
-                    : currentAttempt === 0 
+                    : currentAttemptCount === 0 
                       ? 'AI 초안 생성하기' 
-                      : `다시 생성하기 (${currentAttempt + 1}/${maxAttempts})`
+                      : `추가 생성하기 (${currentAttemptCount + 1}/${maxAttempts})`
                   }
                 </Button>
-
-                {currentAttempt > 0 && (
-                  <Button
-                    variant="outlined"
-                    onClick={handleReset}
-                    disabled={loading}
-                    startIcon={<Refresh />}
-                  >
-                    새로 시작하기
-                  </Button>
-                )}
               </Box>
             </Grid>
 
             {/* 에러 메시지 */}
             {error && (
               <Grid item xs={12}>
-                <Alert severity="error">
+                <Alert severity="error" onClose={() => setError('')}>
                   {error}
                 </Alert>
               </Grid>
@@ -437,37 +478,17 @@ const GeneratePage = () => {
           </Grid>
         </Paper>
 
-        {/* 생성 이력 표시 */}
-        {generationHistory.length > 0 && (
-          <Paper sx={{ p: 2, mb: 3 }}>
-            <Typography variant="subtitle1" gutterBottom>
-              생성 이력
-            </Typography>
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-              {generationHistory.map((history, index) => (
-                <Chip
-                  key={index}
-                  label={`${history.attempt}회차 ${history.success ? '성공' : '실패'}`}
-                  color={history.success ? 'success' : 'error'}
-                  variant="outlined"
-                  size="small"
-                />
-              ))}
-            </Box>
-          </Paper>
-        )}
-
-        {/* 생성된 초안들 - 하단에 가로로 나열 */}
+        {/* 🔥 생성된 초안들 - 누적 표시 */}
         {drafts.length > 0 && (
           <Box sx={{ mb: 3 }}>
             <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
               <Assignment sx={{ mr: 1, color: 'primary.main' }} />
-              생성된 초안 ({currentAttempt}번째 시도)
+              생성된 초안들 ({drafts.length}개)
             </Typography>
             
             <Grid container spacing={3}>
               {drafts.map((draft, index) => (
-                <Grid item xs={12} md={4} key={index}>
+                <Grid item xs={12} md={4} key={draft.id || index}>
                   <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                     <CardContent sx={{ flexGrow: 1 }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -479,6 +500,16 @@ const GeneratePage = () => {
                           <Typography variant="body2" color="text.secondary">
                             {calculateWordCount(draft.content)}자
                           </Typography>
+                          {/* 🔥 개별 삭제 버튼 */}
+                          <Tooltip title="이 초안 삭제">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleRemoveDraft(draft.id)}
+                              color="error"
+                            >
+                              <DeleteOutline fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
                         </Box>
                       </Box>
                       
@@ -494,7 +525,12 @@ const GeneratePage = () => {
                           overflow: 'auto',
                           fontSize: '0.9rem',
                           lineHeight: 1.6,
-                          '& p': { margin: '0.5rem 0' }
+                          '& p': { margin: '0.5rem 0' },
+                          backgroundColor: 'grey.50',
+                          padding: 1.5,
+                          borderRadius: 1,
+                          border: '1px solid',
+                          borderColor: 'grey.200'
                         }}
                         dangerouslySetInnerHTML={{ __html: draft.content }}
                       />
@@ -506,6 +542,7 @@ const GeneratePage = () => {
                           startIcon={<Save />}
                           onClick={() => handleSaveDraft(draft, index)}
                           sx={{ flexGrow: 1 }}
+                          disabled={loading}
                         >
                           저장하기
                         </Button>
@@ -523,6 +560,25 @@ const GeneratePage = () => {
                 </Grid>
               ))}
             </Grid>
+
+            {/* 🔥 추가 생성 가능 안내 */}
+            {currentAttemptCount < maxAttempts && (
+              <Box sx={{ mt: 2, p: 2, bgcolor: 'primary.50', borderRadius: 1 }}>
+                <Typography variant="body2" color="primary.main" align="center">
+                  💡 마음에 드는 초안이 없다면 추가로 {maxAttempts - currentAttemptCount}개 더 생성할 수 있습니다!
+                </Typography>
+              </Box>
+            )}
+
+            {/* 🔥 모든 초안 생성 완료 안내 */}
+            {currentAttemptCount >= maxAttempts && (
+              <Box sx={{ mt: 2, p: 2, bgcolor: 'success.50', borderRadius: 1, border: '1px solid', borderColor: 'success.200' }}>
+                <Typography variant="body2" color="success.main" align="center" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                  <CheckCircle fontSize="small" />
+                  최대 {maxAttempts}개의 초안 생성이 완료되었습니다. 마음에 드는 초안을 선택해주세요!
+                </Typography>
+              </Box>
+            )}
           </Box>
         )}
 
@@ -535,10 +591,26 @@ const GeneratePage = () => {
             </Typography>
             <Typography variant="body2">
               상단 폼을 작성하고 "AI 초안 생성하기" 버튼을 클릭하세요.<br />
-              최대 3번까지 다른 조건으로 재생성할 수 있습니다.
+              최대 3개까지 다른 버전의 초안을 생성할 수 있습니다.
             </Typography>
           </Paper>
         )}
+
+        {/* 🔥 스낵바 */}
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={4000}
+          onClose={handleCloseSnackbar}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        >
+          <Alert 
+            onClose={handleCloseSnackbar} 
+            severity={snackbar.severity}
+            sx={{ width: '100%' }}
+          >
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
       </Container>
     </DashboardLayout>
   );
