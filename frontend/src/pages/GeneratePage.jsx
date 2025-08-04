@@ -82,11 +82,12 @@ const GeneratePage = () => {
     subCategory: ''
   });
 
-  // 🔥 스낵바 상태 추가
+  // 🔥 스낵바 상태 추가 - action 필드 추가
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
-    severity: 'success'
+    severity: 'success',
+    action: null
   });
 
   // 🔥 최대 시도 횟수
@@ -197,7 +198,8 @@ const GeneratePage = () => {
       setSnackbar({
         open: true,
         message: `초안 ${currentAttemptCount + 1}이 생성되었습니다!`,
-        severity: 'success'
+        severity: 'success',
+        action: null
       });
       
     } catch (error) {
@@ -220,7 +222,7 @@ const GeneratePage = () => {
     }
   };
 
-  // 🔥 초안 저장 - 스낵바 추가
+  // 🔥 초안 저장 - 스낵바 추가 (매개변수 수정)
   const handleSaveDraft = async (draft, index) => {
     try {
       if (!auth?.user?.id) {
@@ -236,17 +238,30 @@ const GeneratePage = () => {
       console.log('auth:', auth);
       console.log('====================');
       
-      const result = await saveDraft(draft, index, formData, generationMetadata, auth);
+      // 🔥 매개변수 순서 수정: (draft, index, formData, metadata) - auth 제거
+      const result = await saveDraft(draft, index, formData, generationMetadata);
       
       if (result && result.success) {
         console.log('초안 저장 성공, postId:', result.postId);
         setSnackbar({
           open: true,
           message: '초안이 성공적으로 저장되었습니다!',
-          severity: 'success'
+          severity: 'success',
+          action: (
+            <Button 
+              color="inherit" 
+              size="small" 
+              onClick={() => {
+                navigate('/history');
+                setSnackbar(prev => ({ ...prev, open: false }));
+              }}
+            >
+              목록 보기
+            </Button>
+          )
         });
         // 필요시 페이지 이동
-        // navigate(`/post/${result.postId}`);
+        // navigate(`/history`); // 포스트 목록 페이지로 이동
       } else {
         setError('초안 저장에 실패했습니다.');
       }
@@ -254,7 +269,12 @@ const GeneratePage = () => {
       console.error('=== 초안 저장 실패 ===');
       console.error('Error:', err);
       console.error('===================');
-      setError('초안 저장 중 오류가 발생했습니다: ' + (err.message || '알 수 없는 오류'));
+      setSnackbar({
+        open: true,
+        message: '초안 저장 중 오류가 발생했습니다: ' + (err.message || '알 수 없는 오류'),
+        severity: 'error',
+        action: null
+      });
     }
   };
 
@@ -264,7 +284,8 @@ const GeneratePage = () => {
     setSnackbar({
       open: true,
       message: '초안이 삭제되었습니다.',
-      severity: 'info'
+      severity: 'info',
+      action: null
     });
   };
 
@@ -276,14 +297,16 @@ const GeneratePage = () => {
       setSnackbar({
         open: true,
         message: '클립보드에 복사되었습니다!',
-        severity: 'success'
+        severity: 'success',
+        action: null
       });
     } catch (error) {
       console.error('복사 실패:', error);
       setSnackbar({
         open: true,
         message: '복사에 실패했습니다.',
-        severity: 'error'
+        severity: 'error',
+        action: null
       });
     }
   };
@@ -301,7 +324,8 @@ const GeneratePage = () => {
     setSnackbar({
       open: true,
       message: '모든 데이터가 초기화되었습니다.',
-      severity: 'info'
+      severity: 'info',
+      action: null
     });
   };
 
@@ -596,12 +620,13 @@ const GeneratePage = () => {
           </Paper>
         )}
 
-        {/* 🔥 스낵바 */}
+        {/* 🔥 스낵바 - autoHideDuration 늘림 */}
         <Snackbar
           open={snackbar.open}
-          autoHideDuration={4000}
+          autoHideDuration={6000}
           onClose={handleCloseSnackbar}
           anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+          action={snackbar.action}
         >
           <Alert 
             onClose={handleCloseSnackbar} 

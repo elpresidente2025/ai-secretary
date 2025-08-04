@@ -321,6 +321,81 @@ export const usePostGenerator = () => {
   }, [generatePosts]);
 
   /**
+   * 🔥 사용자 포스트 목록 조회
+   */
+  const getUserPosts = useCallback(async () => {
+    try {
+      setLoading(true);
+      
+      const getUserPostsFn = httpsCallable(firebaseFunctions, 'getUserPosts');
+      const result = await getUserPostsFn();
+      
+      console.log('사용자 포스트 조회 성공:', result.data);
+      
+      return {
+        success: true,
+        posts: result.data.posts || []
+      };
+      
+    } catch (err) {
+      console.error('사용자 포스트 조회 실패:', err);
+      throw new Error('포스트 목록을 불러오는데 실패했습니다: ' + (err.message || '알 수 없는 오류'));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  /**
+   * 🔥 특정 포스트 조회
+   */
+  const getPost = useCallback(async (postId) => {
+    try {
+      setLoading(true);
+      
+      const getPostFn = httpsCallable(firebaseFunctions, 'getPost');
+      const result = await getPostFn({ postId });
+      
+      console.log('포스트 조회 성공:', result.data);
+      
+      return {
+        success: true,
+        post: result.data.post
+      };
+      
+    } catch (err) {
+      console.error('포스트 조회 실패:', err);
+      throw new Error('포스트를 불러오는데 실패했습니다: ' + (err.message || '알 수 없는 오류'));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  /**
+   * 🔥 포스트 업데이트
+   */
+  const updatePost = useCallback(async (postId, title, content) => {
+    try {
+      setLoading(true);
+      
+      const updatePostFn = httpsCallable(firebaseFunctions, 'updatePost');
+      const result = await updatePostFn({ postId, title, content });
+      
+      console.log('포스트 업데이트 성공:', result.data);
+      
+      return {
+        success: true,
+        message: result.data.message
+      };
+      
+    } catch (err) {
+      console.error('포스트 업데이트 실패:', err);
+      throw new Error('포스트 업데이트에 실패했습니다: ' + (err.message || '알 수 없는 오류'));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  /**
    * 에러 설정 함수
    */
   const setErrorMessage = useCallback((message) => {
@@ -360,6 +435,9 @@ export const usePostGenerator = () => {
     regenerate,
     clearDrafts, // 🔥 새로 추가
     removeDraft, // 🔥 새로 추가
+    getUserPosts, // 🔥 새로 추가
+    getPost, // 🔥 새로 추가
+    updatePost, // 🔥 새로 추가
     setError: setErrorMessage,
     resetState
   };
