@@ -1,23 +1,86 @@
-const admin = require('firebase-admin');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { setGlobalOptions } = require('firebase-functions/v2');
+const { defineSecret } = require('firebase-functions/params');
+const admin = require('firebase-admin');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const cors = require('cors')({ origin: true });
 
-// Firebase Admin 초기화
+// 🔥 Gemini API 키를 Secret으로 정의
+const geminiApiKey = defineSecret('GEMINI_API_KEY');
+
+// 🔥 타임아웃과 메모리 설정 (asia-northeast3 리전 유지)
+setGlobalOptions({
+  region: 'asia-northeast3',
+  memory: '2GiB',
+  timeoutSeconds: 540,
+});
+
 admin.initializeApp();
 const db = admin.firestore();
 
-// Gemini API 초기화
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
-// 공통 함수 옵션
 const functionOptions = {
   region: 'asia-northeast3',
+  memory: '2GiB',
   timeoutSeconds: 540,
-  memory: '1GiB',
-  maxInstances: 100,
-  cors: true
+  cors: true,
+  secrets: [geminiApiKey],
 };
+
+// 🔥 다중 모델 백업 전략
+const AI_MODELS = [
+  { name: "gemini-1.5-flash", priority: 1 },
+  { name: "gemini-1.5-pro", priority: 2 },
+  { name: "gemini-pro", priority: 3 }
+];
+
+// 🔥 Gemini API 호출 with 모델 백업
+async function callGeminiWithBackup(prompt) {
+  const genAI = new GoogleGenerativeAI(geminiApiKey.value());
+  
+  for (const modelConfig of AI_MODELS) {
+    try {
+      console.log(`🤖 ${modelConfig.name} 모델 시도 중...`);
+      
+      const model = genAI.getGenerativeModel({ 
+        model: modelConfig.name,
+        generationConfig: {
+          temperature: 0.7,
+          topK: 40,
+          topP: 0.95,
+          maxOutputTokens: 2048,
+        }
+      });
+      
+      // 90초 타임아웃
+      const response = await Promise.race([
+        model.generateContent(prompt),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error(`${modelConfig.name} 90초 타임아웃`)), 90000)
+        )
+      ]);
+      
+      console.log(`✅ ${modelConfig.name} 성공`);
+      return response;
+      
+    } catch (error) {
+      console.warn(`⚠️ ${modelConfig.name} 실패:`, error.message);
+      
+      // 503 과부하 에러가 아니면 즉시 에러 throw
+      if (!error.message.includes('overloaded') && 
+          !error.message.includes('503') && 
+          !error.message.includes('타임아웃')) {
+        throw error;
+      }
+      
+      // 마지막 모델까지 실패하면 에러 throw
+      if (modelConfig === AI_MODELS[AI_MODELS.length - 1]) {
+        throw new HttpsError('unavailable', 'All AI models are currently overloaded. Please try again in a few minutes.');
+      }
+      
+      // 다음 모델 시도 전 1초 대기
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  }
+}
 
 // Gemini로 포스트 생성하는 함수
 async function generateWithGemini(model, prompt, retryCount = 0) {
@@ -28,6 +91,7 @@ async function generateWithGemini(model, prompt, retryCount = 0) {
     try {
       console.log(`🤖 ${models[i]} 모델로 생성 시도 (재시도: ${retryCount})`);
       
+      const genAI = new GoogleGenerativeAI(geminiApiKey.value());
       const currentModel = genAI.getGenerativeModel({ model: models[i] });
       const result = await currentModel.generateContent(prompt);
       const response = await result.response;
@@ -71,7 +135,7 @@ async function generateWithGemini(model, prompt, retryCount = 0) {
     'AI 서비스에 일시적 문제가 발생했습니다. 잠시 후 다시 시도해주세요.');
 }
 
-// 🔥 generatePosts Function - 1개씩 생성하도록 수정
+// 🔥 generatePosts Function
 exports.generatePosts = onCall(functionOptions, async (request) => {
   const startTime = Date.now();
   console.log('🔥 generatePosts 시작 (1개 생성 버전)');
@@ -81,239 +145,59 @@ exports.generatePosts = onCall(functionOptions, async (request) => {
       throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
     }
 
-    const { prompt, keywords, category, subCategory } = request.data;
-    const userId = request.auth.uid;
-
-    console.log('요청 데이터:', { prompt, keywords, category, subCategory, userId });
-
-    if (!prompt || prompt.trim().length === 0) {
-      throw new HttpsError('invalid-argument', '주제를 입력해주세요.');
+    const { category, content, userProfile } = request.data;
+    
+    if (!category || !content) {
+      throw new HttpsError('invalid-argument', '카테고리와 내용을 입력해주세요.');
     }
 
-    // 사용자 프로필 조회
-    let userProfile = { name: '의원님' };
-    try {
-      const userDoc = await db.collection('users').doc(userId).get();
-      if (userDoc.exists) {
-        userProfile = userDoc.data();
-      }
-    } catch (profileError) {
-      console.warn('프로필 조회 실패, 기본값 사용:', profileError);
-    }
+    console.log('📝 원고 생성 요청:', { 
+      category: category.substring(0, 50), 
+      contentLength: content.length,
+      userProfile: userProfile?.name || 'Unknown'
+    });
 
-    // 프롬프트 구성 - 1개만 생성하도록 수정
-    const categoryInfo = subCategory ? `${category} > ${subCategory}` : category;
-    const keywordInfo = keywords ? `키워드: ${keywords}` : '';
-    const userInfo = `작성자: ${userProfile.name || '의원님'} (${userProfile.position || '의원'})`;
-    const regionInfo = userProfile.regionMetro ? 
-      `지역: ${userProfile.regionMetro} ${userProfile.regionLocal || ''}` : '';
+    // 프롬프트 구성
+    const prompt = `
+당신은 정치인을 위한 전문 원고 작성자입니다.
 
-    const fullPrompt = `
-다음 조건에 맞춰 정치인의 SNS 포스트 1개를 생성해주세요:
+사용자 정보:
+- 이름: ${userProfile?.name || '정치인'}
+- 직책: ${userProfile?.position || '의원'}
+- 지역: ${userProfile?.regionMetro || ''} ${userProfile?.regionLocal || ''}
+- 선거구: ${userProfile?.electoralDistrict || ''}
 
-**기본 정보**
-- ${userInfo}
-- ${regionInfo}
-- 카테고리: ${categoryInfo}
-- ${keywordInfo}
+요청사항:
+- 카테고리: ${category}
+- 내용: ${content}
 
-**주제 및 내용**
-${prompt}
+다음 지침에 따라 블로그 원고를 작성해주세요:
 
-**요구사항**
-1. 포스트는 200-400자 정도로 작성
-2. 친근하고 진정성 있는 톤으로 작성
-3. 해시태그 2-3개 포함
-4. 정치적 성향은 더불어민주당 기조에 맞춤
-5. 구체적이고 실행 가능한 내용 포함
+1. 1000-1500자 분량의 완성된 블로그 포스트 작성
+2. 친근하고 진정성 있는 어조 사용
+3. 지역 주민들의 관심사와 연결
+4. 구체적인 정책이나 활동 내용 포함
+5. 제목, 본문, 마무리 인사까지 완전한 형태
 
-**출력 형식**
-JSON 형태로 다음과 같이 출력:
-{
-  "post": {
-    "title": "포스트 제목",
-    "content": "포스트 내용"
-  }
-}
+원고를 작성해주세요:
 `;
 
-    console.log('📝 Gemini API 호출 시작 (1개 생성)');
-    const generatedText = await generateWithGemini('gemini-1.5-flash', fullPrompt);
+    const result = await generateWithGemini('gemini-1.5-flash', prompt);
 
-    // JSON 파싱 시도
-    let parsedResponse;
-    try {
-      const jsonMatch = generatedText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        parsedResponse = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error('JSON 형식을 찾을 수 없습니다.');
-      }
-    } catch (parseError) {
-      console.error('JSON 파싱 실패:', parseError);
-      throw new HttpsError('internal', 'AI 응답 처리 중 오류가 발생했습니다.');
-    }
-
-    // 응답 검증 - 단일 post 객체로 변경
-    if (!parsedResponse.post || !parsedResponse.post.title || !parsedResponse.post.content) {
-      throw new HttpsError('internal', 'AI가 올바른 형식의 포스트를 생성하지 못했습니다.');
-    }
-
-    // 메타데이터 구성
-    const metadata = {
-      userId,
-      prompt: prompt.substring(0, 200),
-      category,
-      subCategory,
-      keywords,
-      userProfile: {
-        name: userProfile.name,
-        position: userProfile.position,
-        region: regionInfo
-      },
-      generatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      model: 'gemini-1.5-flash',
-      processingTime: Date.now() - startTime
-    };
-
-    console.log(`✅ generatePosts 성공 (${Date.now() - startTime}ms) - 1개 생성`);
-
-    // 기존 프론트엔드와 호환성을 위해 posts 배열 대신 drafts 배열로 반환
+    console.log('✅ generatePosts 성공:', Date.now() - startTime, 'ms');
+    
     return {
       success: true,
-      drafts: [{
-        title: parsedResponse.post.title,
-        content: parsedResponse.post.content,
-        wordCount: Math.ceil(parsedResponse.post.content.length / 2),
-        tags: [],
-        category: category || '일반',
-        style: '일반',
-        metadata: {}
-      }],
-      metadata
+      posts: [result],
+      processingTime: Date.now() - startTime
     };
 
   } catch (error) {
     console.error('❌ generatePosts 오류:', error);
-    
     if (error instanceof HttpsError) {
       throw error;
     }
-    
-    if (error.message.includes('quota') || error.message.includes('할당량')) {
-      throw new HttpsError('resource-exhausted', 
-        'AI 서비스 사용량을 초과했습니다. 5-10분 후 다시 시도해주세요.');
-    }
-    
-    if (error.message.includes('timeout') || error.message.includes('타임아웃')) {
-      throw new HttpsError('deadline-exceeded', 'AI 응답 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.');
-    }
-    
-    throw new HttpsError('internal', `원고 생성 실패: ${error.message}`);
-  }
-});
-
-// 🔥 generatePostDrafts 별칭 함수
-exports.generatePostDrafts = onCall(functionOptions, async (request) => {
-  return exports.generatePosts.run(request);
-});
-
-// 🔥 선거구 중복 검사 및 회원가입 함수
-exports.registerWithDistrictCheck = onCall(functionOptions, async (request) => {
-  try {
-    if (!request.auth) {
-      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
-    }
-
-    const { profileData } = request.data;
-    const userId = request.auth.uid;
-
-    console.log('🔥 registerWithDistrictCheck 호출:', { userId, profileData });
-
-    // 필수 필드 검증
-    if (!profileData || !profileData.regionMetro || !profileData.regionLocal || !profileData.electoralDistrict || !profileData.position) {
-      throw new HttpsError('invalid-argument', '지역구 정보를 모두 입력해주세요.');
-    }
-
-    const { regionMetro, regionLocal, electoralDistrict, position } = profileData;
-
-    // 선거구 중복 검사
-    const existingUserQuery = await db.collection('users')
-      .where('regionMetro', '==', regionMetro)
-      .where('regionLocal', '==', regionLocal)
-      .where('electoralDistrict', '==', electoralDistrict)
-      .where('position', '==', position)
-      .get();
-
-    if (!existingUserQuery.empty) {
-      // 기존 사용자가 있는 경우, 현재 사용자가 아닌지 확인
-      const existingUser = existingUserQuery.docs[0];
-      if (existingUser.id !== userId) {
-        const existingUserData = existingUser.data();
-        throw new HttpsError('already-exists', 
-          `해당 선거구(${electoralDistrict})에는 이미 등록된 ${position}이 있습니다. (${existingUserData.name || '이름 없음'})`
-        );
-      }
-    }
-
-    // 중복이 없으면 프로필 저장
-    const userProfileData = {
-      ...profileData,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      role: 'user'
-    };
-
-    await db.collection('users').doc(userId).set(userProfileData, { merge: true });
-
-    console.log('✅ registerWithDistrictCheck 성공');
-    return {
-      success: true,
-      message: '회원가입이 완료되었습니다.'
-    };
-
-  } catch (error) {
-    console.error('❌ registerWithDistrictCheck 오류:', error);
-    if (error instanceof HttpsError) {
-      throw error;
-    }
-    throw new HttpsError('internal', '회원가입 처리 중 오류가 발생했습니다.');
-  }
-});
-
-// 🔥 선거구 사용 가능 여부 확인 함수
-exports.checkDistrictAvailability = onCall(functionOptions, async (request) => {
-  try {
-    const { regionMetro, regionLocal, electoralDistrict, position } = request.data;
-
-    if (!regionMetro || !regionLocal || !electoralDistrict || !position) {
-      throw new HttpsError('invalid-argument', '모든 지역구 정보를 입력해주세요.');
-    }
-
-    const existingUserQuery = await db.collection('users')
-      .where('regionMetro', '==', regionMetro)
-      .where('regionLocal', '==', regionLocal)
-      .where('electoralDistrict', '==', electoralDistrict)
-      .where('position', '==', position)
-      .get();
-
-    const isAvailable = existingUserQuery.empty;
-    let occupiedBy = null;
-
-    if (!isAvailable) {
-      const existingUserData = existingUserQuery.docs[0].data();
-      occupiedBy = existingUserData.name || '이름 없음';
-    }
-
-    return {
-      success: true,
-      available: isAvailable,
-      occupiedBy
-    };
-
-  } catch (error) {
-    console.error('❌ checkDistrictAvailability 오류:', error);
-    throw new HttpsError('internal', '선거구 확인 중 오류가 발생했습니다.');
+    throw new HttpsError('internal', 'AI 원고 생성에 실패했습니다. 잠시 후 다시 시도해주세요.');
   }
 });
 
@@ -430,6 +314,105 @@ exports.getUserProfile = onCall(functionOptions, async (request) => {
   } catch (error) {
     console.error('❌ getUserProfile 오류:', error);
     throw new HttpsError('internal', '프로필을 불러오는데 실패했습니다.');
+  }
+});
+
+// 🔥 회원가입 및 선거구 중복 체크
+exports.registerWithDistrictCheck = onCall(functionOptions, async (request) => {
+  try {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+    }
+
+    const { profileData } = request.data;
+    const userId = request.auth.uid;
+
+    console.log('🔥 registerWithDistrictCheck 호출:', { userId, profileData });
+
+    // 필수 필드 검증
+    if (!profileData || !profileData.regionMetro || !profileData.regionLocal || !profileData.electoralDistrict || !profileData.position) {
+      throw new HttpsError('invalid-argument', '지역구 정보를 모두 입력해주세요.');
+    }
+
+    const { regionMetro, regionLocal, electoralDistrict, position } = profileData;
+
+    // 선거구 중복 검사
+    const existingUserQuery = await db.collection('users')
+      .where('regionMetro', '==', regionMetro)
+      .where('regionLocal', '==', regionLocal)
+      .where('electoralDistrict', '==', electoralDistrict)
+      .where('position', '==', position)
+      .get();
+
+    if (!existingUserQuery.empty) {
+      // 기존 사용자가 있는 경우, 현재 사용자가 아닌지 확인
+      const existingUser = existingUserQuery.docs[0];
+      if (existingUser.id !== userId) {
+        const existingUserData = existingUser.data();
+        throw new HttpsError('already-exists', 
+          `해당 선거구(${electoralDistrict})에는 이미 등록된 ${position}이 있습니다. (${existingUserData.name || '이름 없음'})`
+        );
+      }
+    }
+
+    // 중복이 없으면 프로필 저장
+    const userProfileData = {
+      ...profileData,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      role: 'user'
+    };
+
+    await db.collection('users').doc(userId).set(userProfileData, { merge: true });
+
+    console.log('✅ registerWithDistrictCheck 성공');
+    return {
+      success: true,
+      message: '회원가입이 완료되었습니다.'
+    };
+
+  } catch (error) {
+    console.error('❌ registerWithDistrictCheck 오류:', error);
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    throw new HttpsError('internal', '회원가입 처리 중 오류가 발생했습니다.');
+  }
+});
+
+// 🔥 선거구 사용 가능 여부 확인 함수
+exports.checkDistrictAvailability = onCall(functionOptions, async (request) => {
+  try {
+    const { regionMetro, regionLocal, electoralDistrict, position } = request.data;
+
+    if (!regionMetro || !regionLocal || !electoralDistrict || !position) {
+      throw new HttpsError('invalid-argument', '모든 지역구 정보를 입력해주세요.');
+    }
+
+    const existingUserQuery = await db.collection('users')
+      .where('regionMetro', '==', regionMetro)
+      .where('regionLocal', '==', regionLocal)
+      .where('electoralDistrict', '==', electoralDistrict)
+      .where('position', '==', position)
+      .get();
+
+    const isAvailable = existingUserQuery.empty;
+    let occupiedBy = null;
+
+    if (!isAvailable) {
+      const existingUserData = existingUserQuery.docs[0].data();
+      occupiedBy = existingUserData.name || '이름 없음';
+    }
+
+    return {
+      success: true,
+      available: isAvailable,
+      occupiedBy
+    };
+
+  } catch (error) {
+    console.error('❌ checkDistrictAvailability 오류:', error);
+    throw new HttpsError('internal', '선거구 확인 중 오류가 발생했습니다.');
   }
 });
 
@@ -672,20 +655,32 @@ exports.updatePost = onCall(functionOptions, async (request) => {
   }
 });
 
-// 🔥 관리자용 사용자 목록 조회
+// 🔥 관리자용 사용자 목록 조회 - ✅ 수정 완료
 exports.getUserList = onCall(functionOptions, async (request) => {
   try {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
     }
 
-    // 관리자 권한 확인 (실제 구현 필요)
-    // const userDoc = await db.collection('users').doc(request.auth.uid).get();
-    // if (!userDoc.exists || userDoc.data().role !== 'admin') {
-    //   throw new HttpsError('permission-denied', '관리자 권한이 필요합니다.');
-    // }
+    console.log('🔥 getUserList 호출 - 사용자 UID:', request.auth.uid);
 
-    console.log('🔥 getUserList 호출');
+    // ✅ 관리자 권한 확인 - 주석 해제하고 활성화
+    const userDoc = await db.collection('users').doc(request.auth.uid).get();
+    
+    if (!userDoc.exists) {
+      console.log('❌ 사용자 문서를 찾을 수 없음:', request.auth.uid);
+      throw new HttpsError('not-found', '사용자 정보를 찾을 수 없습니다.');
+    }
+
+    const userData = userDoc.data();
+    console.log('🔍 사용자 데이터:', { uid: request.auth.uid, role: userData.role, email: userData.email });
+
+    if (!userData.role || userData.role !== 'admin') {
+      console.log('❌ 관리자 권한이 없음:', userData.role);
+      throw new HttpsError('permission-denied', '관리자 권한이 필요합니다.');
+    }
+
+    console.log('✅ 관리자 권한 확인 완료');
 
     const usersSnapshot = await db.collection('users').limit(100).get();
     const users = usersSnapshot.docs.map(doc => ({
@@ -707,6 +702,44 @@ exports.getUserList = onCall(functionOptions, async (request) => {
       throw error;
     }
     throw new HttpsError('internal', '사용자 목록을 불러오는데 실패했습니다.');
+  }
+});
+
+// 🔥 관리자 권한 설정 함수 - 추가
+exports.setAdminRole = onCall(functionOptions, async (request) => {
+  try {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+    }
+
+    // 특정 이메일만 관리자로 설정 가능
+    const adminEmails = ['kjk6206@gmail.com']; // 실제 관리자 이메일
+    
+    if (!adminEmails.includes(request.auth.token.email)) {
+      throw new HttpsError('permission-denied', '관리자 설정 권한이 없습니다.');
+    }
+
+    const userId = request.auth.uid;
+    console.log('🔥 관리자 역할 설정:', userId, request.auth.token.email);
+
+    await db.collection('users').doc(userId).set({
+      role: 'admin',
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    console.log('✅ 관리자 역할 설정 완료');
+
+    return {
+      success: true,
+      message: '관리자 권한이 설정되었습니다.'
+    };
+
+  } catch (error) {
+    console.error('❌ setAdminRole 오류:', error);
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    throw new HttpsError('internal', '관리자 권한 설정에 실패했습니다.');
   }
 });
 
