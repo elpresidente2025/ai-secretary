@@ -99,7 +99,7 @@ exports.getDashboardData = onCall(functionOptions, async (request) => {
 
     try {
       const postsSnapshot = await db.collection('posts')
-        .where('authorId', '==', userId)
+        .where('userId', '==', userId) // authorId에서 userId로 수정
         .orderBy('createdAt', 'desc')
         .limit(5)
         .get();
@@ -196,6 +196,72 @@ exports.getUserProfile = onCall(functionOptions, async (request) => {
   }
 });
 
+// 🔥 getUserPosts Function - 누락된 함수 추가
+exports.getUserPosts = onCall(functionOptions, async (request) => {
+  try {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+    }
+
+    const userId = request.auth.uid;
+    console.log('🔥 getUserPosts 호출:', userId);
+
+    try {
+      // posts 컬렉션에서 사용자의 포스트 조회
+      const postsSnapshot = await db.collection('posts')
+        .where('userId', '==', userId) // Firestore 규칙과 일치
+        .orderBy('createdAt', 'desc')
+        .limit(50)
+        .get();
+
+      const posts = [];
+      postsSnapshot.forEach(doc => {
+        const data = doc.data();
+        posts.push({
+          id: doc.id,
+          title: data.title || '제목 없음',
+          content: data.content || '',
+          status: data.status || 'draft',
+          category: data.category || '일반',
+          createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+          updatedAt: data.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString()
+        });
+      });
+
+      console.log(`✅ getUserPosts 성공: ${posts.length}개 포스트 조회`);
+
+      return {
+        success: true,
+        posts: posts
+      };
+
+    } catch (firestoreError) {
+      console.error('❌ Firestore 조회 오류:', firestoreError);
+      
+      // 컬렉션이나 인덱스가 없는 경우 빈 배열 반환
+      if (firestoreError.code === 'failed-precondition' || 
+          firestoreError.code === 'not-found') {
+        console.log('⚠️ posts 컬렉션 또는 인덱스 없음, 빈 결과 반환');
+        return {
+          success: true,
+          posts: []
+        };
+      }
+      
+      throw firestoreError;
+    }
+
+  } catch (error) {
+    console.error('❌ getUserPosts 최종 오류:', error);
+    
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    
+    throw new HttpsError('internal', `포스트 목록을 불러오는데 실패했습니다.`);
+  }
+});
+
 // updateProfile Function
 exports.updateProfile = onCall(functionOptions, async (request) => {
   try {
@@ -287,7 +353,7 @@ exports.testGenerate = onCall(functionOptions, async (request) => {
   }
 });
 
-// 🔥 개선된 generatePosts Function - 다중 모델 백업
+// 🔥 개선된 generatePosts Function - 데이터 검증 강화
 exports.generatePosts = onCall(functionOptions, async (request) => {
   const startTime = Date.now();
   
@@ -296,22 +362,26 @@ exports.generatePosts = onCall(functionOptions, async (request) => {
       throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
     }
 
-    const data = request.data;
-    console.log('🔥 generatePosts 시작 (다중 모델 백업):', data);
+    const data = request.data || {};
+    console.log('🔥 generatePosts 시작 - 받은 데이터:', JSON.stringify(data, null, 2));
 
-    // 필수 데이터 검증
+    // 🔥 더 유연한 데이터 검증 (기존 에러 해결)
     const topic = data.topic || data.prompt || '';
     const category = data.category || '';
     
-    if (!topic?.trim()) {
+    console.log('🔍 검증 중:', { topic: topic.substring(0, 50), category });
+
+    if (!topic || typeof topic !== 'string' || topic.trim().length === 0) {
+      console.error('❌ 주제 검증 실패:', { topic, type: typeof topic });
       throw new HttpsError('invalid-argument', '주제를 입력해주세요.');
     }
     
-    if (!category?.trim()) {
+    if (!category || typeof category !== 'string' || category.trim().length === 0) {
+      console.error('❌ 카테고리 검증 실패:', { category, type: typeof category });
       throw new HttpsError('invalid-argument', '카테고리를 선택해주세요.');
     }
 
-    console.log(`🔥 요청 검증 완료: 주제="${topic.substring(0, 50)}..." 카테고리="${category}"`);
+    console.log(`✅ 데이터 검증 통과: 주제="${topic.substring(0, 50)}..." 카테고리="${category}"`);
 
     // 사용자 프로필 가져오기 (타임아웃 방지)
     let userProfile = {};
@@ -323,9 +393,10 @@ exports.generatePosts = onCall(functionOptions, async (request) => {
       
       if (userDoc.exists) {
         userProfile = userDoc.data();
+        console.log('✅ 사용자 프로필 조회 성공:', userProfile.name || 'Unknown');
       }
     } catch (profileError) {
-      console.warn('프로필 조회 실패, 기본값 사용:', profileError);
+      console.warn('⚠️ 프로필 조회 실패, 기본값 사용:', profileError.message);
       userProfile = {
         name: request.auth.token.name || '정치인',
         position: '의원',
@@ -355,7 +426,7 @@ JSON 형식:
 
 각 원고는 1000-1500자, HTML 형식, 진중하고 신뢰감 있는 톤으로 작성.`;
 
-    console.log('🔥 AI 호출 시작 (다중 모델 백업)...');
+    console.log('🤖 AI 호출 시작 (다중 모델 백업)...');
     
     // 🔥 백업 모델과 함께 호출
     const apiResponse = await callGeminiWithBackup(prompt);
@@ -371,12 +442,17 @@ JSON 형식:
                        responseText.match(/\{[\s\S]*\}/);
       
       if (jsonMatch) {
-        parsedResponse = JSON.parse(jsonMatch[1] || jsonMatch[0]);
+        const jsonText = jsonMatch[1] || jsonMatch[0];
+        console.log('🔍 추출된 JSON 일부:', jsonText.substring(0, 200));
+        parsedResponse = JSON.parse(jsonText);
+        console.log('✅ JSON 파싱 성공, drafts 개수:', parsedResponse.drafts?.length || 0);
       } else {
         throw new Error('JSON 형식 찾기 실패');
       }
     } catch (parseError) {
-      console.warn('JSON 파싱 실패, 기본 응답 생성:', parseError);
+      console.warn('⚠️ JSON 파싱 실패, 기본 응답 생성:', parseError.message);
+      console.warn('원본 응답:', responseText.substring(0, 500));
+      
       parsedResponse = {
         drafts: [
           {
@@ -398,13 +474,15 @@ JSON 형식:
       };
     }
 
-    // 🔥 응답 정규화
+    // 🔥 응답 정규화 및 고유 ID 추가
     const drafts = parsedResponse.drafts?.map((draft, index) => ({
+      id: `draft_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       title: draft.title || `${category}: ${topic} (${index + 1})`,
       content: draft.content || '<p>원고 생성에 실패했습니다.</p>',
       wordCount: draft.wordCount || Math.ceil((draft.content || '').length / 2),
       tags: data.keywords?.split(',').map(k => k.trim()).filter(k => k) || [],
       category: category,
+      subCategory: data.subCategory || '',
       style: draft.style || '일반',
       metadata: {
         aiModel: 'gemini-multi-fallback',
