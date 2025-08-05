@@ -353,7 +353,7 @@ exports.testGenerate = onCall(functionOptions, async (request) => {
   }
 });
 
-// 🔥 개선된 generatePosts Function - 데이터 검증 강화
+// 🔥 수정된 generatePosts Function - 1개씩만 생성
 exports.generatePosts = onCall(functionOptions, async (request) => {
   const startTime = Date.now();
   
@@ -363,10 +363,10 @@ exports.generatePosts = onCall(functionOptions, async (request) => {
     }
 
     const data = request.data || {};
-    console.log('🔥 generatePosts 시작 - 받은 데이터:', JSON.stringify(data, null, 2));
+    console.log('🔥 generatePosts 시작 (1개 생성) - 받은 데이터:', JSON.stringify(data, null, 2));
 
-    // 🔥 더 유연한 데이터 검증 (기존 에러 해결)
-    const topic = data.topic || data.prompt || '';
+    // 🔥 프론트엔드에서 prompt 필드로 보내므로 prompt 우선 처리
+    const topic = data.prompt || data.topic || '';  // prompt 우선!
     const category = data.category || '';
     
     console.log('🔍 검증 중:', { topic: topic.substring(0, 50), category });
@@ -406,8 +406,8 @@ exports.generatePosts = onCall(functionOptions, async (request) => {
       };
     }
 
-    // 🔥 간단하고 효율적인 프롬프트
-    const prompt = `정치인 블로그용 원고 3개를 JSON으로 작성:
+    // 🔥 수정된 프롬프트 - 1개만 생성하도록 변경
+    const prompt = `정치인 블로그용 원고 1개를 작성해주세요.
 
 작성자: ${userProfile.name || '정치인'} (${userProfile.position || '의원'})
 주제: ${topic}
@@ -415,18 +415,23 @@ exports.generatePosts = onCall(functionOptions, async (request) => {
 세부카테고리: ${data.subCategory || '없음'}
 키워드: ${data.keywords || '없음'}
 
-JSON 형식:
+**중요: 반드시 1개의 원고만 작성하세요. 여러 버전을 만들지 마세요.**
+
+다음 JSON 형식으로 응답해주세요:
 {
-  "drafts": [
-    {"title": "제목1", "content": "<p>내용1</p>", "wordCount": 1200},
-    {"title": "제목2", "content": "<p>내용2</p>", "wordCount": 1200},
-    {"title": "제목3", "content": "<p>내용3</p>", "wordCount": 1200}
-  ]
+  "title": "원고 제목",
+  "content": "<p>HTML 형식의 원고 내용</p>",
+  "wordCount": 1200
 }
 
-각 원고는 1000-1500자, HTML 형식, 진중하고 신뢰감 있는 톤으로 작성.`;
+요구사항:
+- 1000-1500자 분량
+- HTML 형식으로 작성 (<p>, <strong> 등 사용)
+- 진중하고 신뢰감 있는 톤
+- 지역 주민과의 소통을 중시하는 내용
+- 구체적인 정책이나 활동 내용 포함`;
 
-    console.log('🤖 AI 호출 시작 (다중 모델 백업)...');
+    console.log('🤖 AI 호출 시작 (1개 원고 생성)...');
     
     // 🔥 백업 모델과 함께 호출
     const apiResponse = await callGeminiWithBackup(prompt);
@@ -434,18 +439,18 @@ JSON 형식:
     
     console.log('✅ AI 응답 수신, 길이:', responseText.length);
     
-    // 🔥 JSON 파싱 개선
+    // 🔥 JSON 파싱 개선 - 단일 객체 처리
     let parsedResponse;
     try {
       // JSON 블록 추출
       const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/) || 
-                       responseText.match(/\{[\s\S]*\}/);
+                       responseText.match(/\{[\s\S]*?\}/);
       
       if (jsonMatch) {
         const jsonText = jsonMatch[1] || jsonMatch[0];
         console.log('🔍 추출된 JSON 일부:', jsonText.substring(0, 200));
         parsedResponse = JSON.parse(jsonText);
-        console.log('✅ JSON 파싱 성공, drafts 개수:', parsedResponse.drafts?.length || 0);
+        console.log('✅ JSON 파싱 성공, 제목:', parsedResponse.title);
       } else {
         throw new Error('JSON 형식 찾기 실패');
       }
@@ -453,58 +458,46 @@ JSON 형식:
       console.warn('⚠️ JSON 파싱 실패, 기본 응답 생성:', parseError.message);
       console.warn('원본 응답:', responseText.substring(0, 500));
       
+      // 🔥 백업 응답도 1개만 생성
       parsedResponse = {
-        drafts: [
-          {
-            title: `${category}: ${topic} (1)`,
-            content: `<p><strong>${topic}</strong>에 대한 ${category} 원고입니다.</p><p>현재 상황을 분석하고 정책적 대안을 제시하겠습니다.</p><p>주민 여러분의 의견을 적극 수렴하여 더 나은 정책 방향을 모색하겠습니다.</p>`,
-            wordCount: 300
-          },
-          {
-            title: `${category}: ${topic} (2)`,
-            content: `<p>${topic}와 관련하여 심도 있는 검토가 필요합니다.</p><p>관련 부처와의 협의를 통해 효과적인 해결방안을 마련하겠습니다.</p><p>투명하고 공정한 과정을 통해 국민의 목소리를 반영하겠습니다.</p>`,
-            wordCount: 300
-          },
-          {
-            title: `${category}: ${topic} (3)`,
-            content: `<p>${topic}에 대한 체계적인 접근이 중요합니다.</p><p>단계적이고 실현 가능한 정책 추진으로 실질적 성과를 만들어내겠습니다.</p><p>지속적인 모니터링과 피드백을 통해 정책의 실효성을 높이겠습니다.</p>`,
-            wordCount: 300
-          }
-        ]
+        title: `${category}: ${topic}`,
+        content: `<p><strong>${topic}</strong>에 대한 ${category} 원고입니다.</p>
+<p>현재 상황을 분석하고 정책적 대안을 제시하겠습니다.</p>
+<p>주민 여러분의 의견을 적극 수렴하여 더 나은 정책 방향을 모색하겠습니다.</p>
+<p>관련 부처와의 협의를 통해 효과적인 해결방안을 마련하겠습니다.</p>
+<p>투명하고 공정한 과정을 통해 국민의 목소리를 반영하겠습니다.</p>`,
+        wordCount: 400
       };
     }
 
-    // 🔥 응답 정규화 및 고유 ID 추가
-    const drafts = parsedResponse.drafts?.map((draft, index) => ({
+    // 🔥 단일 draft 객체 생성
+    const singleDraft = {
       id: `draft_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      title: draft.title || `${category}: ${topic} (${index + 1})`,
-      content: draft.content || '<p>원고 생성에 실패했습니다.</p>',
-      wordCount: draft.wordCount || Math.ceil((draft.content || '').length / 2),
+      title: parsedResponse.title || `${category}: ${topic}`,
+      content: parsedResponse.content || '<p>원고 생성에 실패했습니다.</p>',
+      wordCount: parsedResponse.wordCount || Math.ceil((parsedResponse.content || '').length / 2),
       tags: data.keywords?.split(',').map(k => k.trim()).filter(k => k) || [],
       category: category,
       subCategory: data.subCategory || '',
-      style: draft.style || '일반',
+      style: parsedResponse.style || '일반',
       metadata: {
         aiModel: 'gemini-multi-fallback',
         prompt: topic,
         userProfile: userProfile.name || 'Unknown'
       }
-    })) || [];
-
-    if (drafts.length === 0) {
-      throw new HttpsError('internal', '원고가 생성되지 않았습니다.');
-    }
+    };
 
     const processingTime = Date.now() - startTime;
     
-    console.log('✅ generatePosts 성공:', {
-      draftsCount: drafts.length,
+    console.log('✅ generatePosts 성공 (1개 생성):', {
+      title: singleDraft.title.substring(0, 50),
       processingTime: `${processingTime}ms`
     });
 
+    // 🔥 1개의 draft만 배열에 담아서 반환
     return {
       success: true,
-      drafts: drafts,
+      drafts: [singleDraft],  // 배열에 1개만 담음
       metadata: {
         generatedAt: new Date().toISOString(),
         model: 'gemini-multi-fallback',
@@ -541,7 +534,7 @@ JSON 형식:
   }
 });
 
-// 🔥 generatePostDrafts 별칭 함수
+// 🔥 generatePostDrafts 별칭 함수도 동일하게 수정
 exports.generatePostDrafts = onCall(functionOptions, async (request) => {
   // generatePosts와 동일한 로직 호출
   return exports.generatePosts.run(request);
