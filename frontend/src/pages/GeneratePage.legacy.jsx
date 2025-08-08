@@ -1,16 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import {
-  Box,
-  Typography,
-  TextField,
-  Button,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Paper,
-  Grid,
-  LinearProgress,
+// frontend/src/pages/GeneratePage.jsx
+import React, { useState, useEffect, useMemo } from 'react';
+import { 
+  Box, 
+  Typography, 
+  TextField, 
+  Button, 
+  FormControl, 
+  InputLabel, 
+  Select, 
+  MenuItem, 
+  Paper, 
+  Grid, 
+  LinearProgress, 
   Alert,
   AlertTitle,
   Chip,
@@ -24,10 +25,10 @@ import {
   Tooltip,
   Snackbar
 } from '@mui/material';
-import {
-  AutoAwesome,
-  ContentCopy,
-  Save,
+import { 
+  AutoAwesome, 
+  ContentCopy, 
+  Save, 
   Refresh,
   Assignment,
   Speed,
@@ -40,9 +41,6 @@ import DashboardLayout from '../components/DashboardLayout';
 import { useAuth } from '../hooks/useAuth';
 import { usePostGenerator } from '../hooks/usePostGenerator';
 
-// 카드 배경 컬러(텍스트 박스는 흰색 유지)
-const CARD_BG = ['#003a87', '#55207d', '#006261'];
-
 // 카테고리 및 세부 카테고리 정의
 const CATEGORIES = {
   '의정활동': ['국정감사', '법안발의', '질의응답', '위원회활동', '예산심사', '정책토론'],
@@ -53,28 +51,36 @@ const CATEGORIES = {
 };
 
 // 네이버 기준 글자수 계산 함수 (공백 제외)
-const calculateWordCount = (html) => {
-  if (!html) return 0;
-  const clean = html.replace(/<[^>]*>/g, '').replace(/\s/g, '');
-  return clean.length;
+const calculateWordCount = (text) => {
+  if (!text) return 0;
+  const cleanText = text.replace(/<[^>]*>/g, '').replace(/\s/g, '');
+  return cleanText.length;
+};
+
+// HTML → 텍스트
+const htmlToText = (html) => {
+  if (!html) return '';
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  const text = tmp.textContent || tmp.innerText || '';
+  return text.replace(/\u00A0/g, ' ').trim();
 };
 
 const GeneratePage = () => {
   const navigate = useNavigate();
   const { auth } = useAuth();
-
   const {
     loading,
     error,
     progress,
-    drafts,                 // 누적 drafts 배열 (최대 3개)
+    drafts, // 누적된 drafts 배열
     generationMetadata,
-    generatePosts,          // 초안 생성
-    saveDraft,              // 초안 저장
-    clearDrafts,            // 모든 초안 초기화
-    removeDraft,            // 특정 초안 삭제
-    setError,               // 에러 표시
-    getRateLimitInfo        // { canRequest, waitTime, requestsRemaining }
+    generatePosts, // 누적으로 추가
+    saveDraft,
+    clearDrafts,
+    removeDraft,
+    setError,
+    getRateLimitInfo
   } = usePostGenerator();
 
   // 폼 상태
@@ -93,27 +99,18 @@ const GeneratePage = () => {
     action: null
   });
 
-  // 최대 3개까지 생성
+  // 최대 3개
   const maxAttempts = 3;
   const currentAttemptCount = drafts.length;
 
-  // 요청 제한 정보(1초 폴링으로 실시간 갱신)
-  const [limit, setLimit] = useState(
-    getRateLimitInfo ? getRateLimitInfo() : { canRequest: true, waitTime: 0, requestsRemaining: 15 }
-  );
-  useEffect(() => {
-    if (!getRateLimitInfo) return;
-    setLimit(getRateLimitInfo());
-    const t = setInterval(() => setLimit(getRateLimitInfo()), 1000);
-    return () => clearInterval(t);
-  }, [getRateLimitInfo]);
+  // 요청 제한
+  const rateLimitInfo = getRateLimitInfo ? getRateLimitInfo() : { canRequest: true, waitTime: 0, requestsRemaining: 15 };
 
-  // 카테고리 바뀌면 세부 카테고리 초기화
+  // 카테고리 변경 시 세부 카테고리 초기화
   useEffect(() => {
-    setFormData((prev) => ({ ...prev, subCategory: '' }));
+    setFormData(prev => ({ ...prev, subCategory: '' }));
   }, [formData.category]);
 
-  // 인증 확인
   if (!auth?.user?.id) {
     return (
       <DashboardLayout title="원고 생성">
@@ -124,65 +121,38 @@ const GeneratePage = () => {
     );
   }
 
-  // 입력값 변경
+  // 입력 변경
   const handleInputChange = (field) => (event) => {
-    setFormData((prev) => ({ ...prev, [field]: event.target.value }));
+    setFormData(prev => ({ ...prev, [field]: event.target.value }));
   };
 
   // 폼 검증
   const validateForm = () => {
-    const trimmed = (formData.prompt || '').trim();
-    if (!trimmed) {
-      setError('주제를 입력해주세요.');
-      return false;
-    }
-    if (trimmed.length < 5) {
-      setError('주제는 최소 5자 이상 입력해주세요.');
-      return false;
-    }
-    if (trimmed.length > 500) {
-      setError('주제는 500자를 초과할 수 없습니다.');
-      return false;
-    }
-    if (formData.keywords && formData.keywords.length > 200) {
-      setError('키워드는 200자를 초과할 수 없습니다.');
-      return false;
-    }
+    const trimmedPrompt = formData.prompt?.trim() || '';
+    if (!trimmedPrompt) { setError('주제를 입력해주세요.'); return false; }
+    if (trimmedPrompt.length < 5) { setError('주제는 최소 5자 이상 입력해주세요.'); return false; }
+    if (trimmedPrompt.length > 500) { setError('주제는 500자를 초과할 수 없습니다.'); return false; }
+    if (formData.keywords && formData.keywords.length > 200) { setError('키워드는 200자를 초과할 수 없습니다.'); return false; }
     return true;
   };
 
-  // 초안 생성
+  // 생성
   const handleGenerate = async () => {
-    if (currentAttemptCount >= maxAttempts) {
-      setError(`최대 ${maxAttempts}개까지만 생성할 수 있습니다.`);
-      return;
-    }
-    if (!limit.canRequest) {
-      setError(`너무 빈번한 요청입니다. ${limit.waitTime}초 후 다시 시도해주세요.`);
-      return;
-    }
+    if (currentAttemptCount >= maxAttempts) { setError(`최대 ${maxAttempts}개까지만 생성할 수 있습니다.`); return; }
+    if (!rateLimitInfo.canRequest) { setError(`너무 빈번한 요청입니다. ${rateLimitInfo.waitTime}초 후 다시 시도해주세요.`); return; }
     setError('');
-
     if (!validateForm()) return;
-
-    if (!auth?.user?.id) {
-      setError('사용자 정보가 없습니다. 다시 로그인해주세요.');
-      return;
-    }
-
-    const requestData = {
-      prompt: formData.prompt.trim(),
-      keywords: (formData.keywords || '').trim(),
-      category: formData.category,
-      subCategory: formData.subCategory || ''
-    };
-
-    if (!requestData.prompt) {
-      setError('주제가 비어있습니다. 다시 입력해주세요.');
-      return;
-    }
+    if (!auth?.user?.id) { setError('사용자 정보가 없습니다. 다시 로그인해주세요.'); return; }
 
     try {
+      const requestData = {
+        prompt: formData.prompt.trim(),
+        keywords: formData.keywords?.trim() || '',
+        category: formData.category,
+        subCategory: formData.subCategory || ''
+      };
+      if (!requestData.prompt) { setError('주제가 비어있습니다. 다시 입력해주세요.'); return; }
+
       await generatePosts(requestData, auth);
       setSnackbar({
         open: true,
@@ -190,33 +160,27 @@ const GeneratePage = () => {
         severity: 'success',
         action: null
       });
-    } catch (e) {
-      // 상세 에러는 훅에서 처리됨
-      console.error('원고 생성 실패:', e);
+    } catch (error) {
+      console.error('원고 생성 실패:', error);
+      // usePostGenerator에서 에러 처리
     }
   };
 
-  // 초안 저장
+  // 저장
   const handleSaveDraft = async (draft, index) => {
     try {
-      if (!auth?.user?.id) {
-        setError('사용자 정보가 없습니다. 다시 로그인해주세요.');
-        return;
-      }
+      if (!auth?.user?.id) { setError('사용자 정보가 없습니다. 다시 로그인해주세요.'); return; }
       const result = await saveDraft(draft, index, formData, generationMetadata);
-      if (result?.success) {
+      if (result && result.success) {
         setSnackbar({
           open: true,
           message: '초안이 성공적으로 저장되었습니다!',
           severity: 'success',
           action: (
-            <Button
-              color="inherit"
-              size="small"
-              onClick={() => {
-                navigate('/history');
-                setSnackbar((prev) => ({ ...prev, open: false }));
-              }}
+            <Button 
+              color="inherit" 
+              size="small" 
+              onClick={() => { navigate('/history'); setSnackbar(prev => ({ ...prev, open: false })); }}
             >
               목록 보기
             </Button>
@@ -236,57 +200,46 @@ const GeneratePage = () => {
     }
   };
 
-  // 초안 삭제
+  // 삭제
   const handleRemoveDraft = (draftId) => {
     removeDraft(draftId);
-    setSnackbar({
-      open: true,
-      message: '초안이 삭제되었습니다.',
-      severity: 'info',
-      action: null
-    });
+    setSnackbar({ open: true, message: '초안이 삭제되었습니다.', severity: 'info', action: null });
   };
 
   // 복사
   const handleCopy = (content) => {
     try {
-      const clean = content.replace(/<[^>]*>/g, '');
+      const clean = htmlToText(content);
       navigator.clipboard.writeText(clean);
-      setSnackbar({
-        open: true,
-        message: '클립보드에 복사되었습니다!',
-        severity: 'success',
-        action: null
-      });
-    } catch (e) {
-      console.error('복사 실패:', e);
-      setSnackbar({
-        open: true,
-        message: '복사에 실패했습니다.',
-        severity: 'error',
-        action: null
-      });
+      setSnackbar({ open: true, message: '클립보드에 복사되었습니다!', severity: 'success', action: null });
+    } catch (error) {
+      console.error('복사 실패:', error);
+      setSnackbar({ open: true, message: '복사에 실패했습니다.', severity: 'error', action: null });
     }
   };
 
-  // 새로 시작
+  // 초기화
   const handleReset = () => {
     setFormData({ prompt: '', keywords: '', category: '일반', subCategory: '' });
     clearDrafts();
     setError('');
-    setSnackbar({
-      open: true,
-      message: '모든 데이터가 초기화되었습니다.',
-      severity: 'info',
-      action: null
-    });
+    setSnackbar({ open: true, message: '모든 데이터가 초기화되었습니다.', severity: 'info', action: null });
   };
 
-  // 스낵바 닫기
-  const handleCloseSnackbar = (event, reason) => {
+  const handleCloseSnackbar = (_, reason) => {
     if (reason === 'clickaway') return;
-    setSnackbar((prev) => ({ ...prev, open: false }));
+    setSnackbar(prev => ({ ...prev, open: false }));
   };
+
+  // ==== 여기부터 레이아웃/색/크기 커스터마이즈 ====
+  const BOX_COLORS = ['#003a87', '#55207d', '#006261']; // 1~3번째 박스 배경
+
+  // 1개면 중앙, 2개면 좌측 2열, 3개면 3열 꽉차게
+  const gridProps = useMemo(
+    () => ({ justifyContent: drafts.length === 1 ? 'center' : 'flex-start' }),
+    [drafts.length]
+  );
+  // ===============================================
 
   return (
     <DashboardLayout title="원고 생성">
@@ -298,19 +251,19 @@ const GeneratePage = () => {
               <AutoAwesome sx={{ mr: 1, color: 'primary.main' }} />
               AI 원고 생성
             </Typography>
-
-            {/* 원하면 상단에도 '새로 시작' 버튼 배치 */}
-            {drafts.length > 0 && (
-              <Button
-                variant="outlined"
-                size="small"
-                onClick={handleReset}
-                startIcon={<Refresh />}
-                color="secondary"
-              >
-                새로 시작
-              </Button>
-            )}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Badge badgeContent={`${currentAttemptCount}/${maxAttempts}`} color="primary">
+                <Typography variant="body2" color="text.secondary">생성된 초안 수</Typography>
+              </Badge>
+              <Typography variant="caption" color="text.secondary">
+                남은 횟수: {rateLimitInfo.requestsRemaining}회
+              </Typography>
+              {drafts.length > 0 && (
+                <Button variant="outlined" size="small" onClick={handleReset} startIcon={<Refresh />} color="secondary">
+                  새로 시작
+                </Button>
+              )}
+            </Box>
           </Box>
 
           <Grid container spacing={3}>
@@ -341,9 +294,7 @@ const GeneratePage = () => {
                   label="세부 카테고리"
                   disabled={loading || !formData.category}
                 >
-                  <MenuItem value="">
-                    <em>선택하세요</em>
-                  </MenuItem>
+                  <MenuItem value=""><em>선택하세요</em></MenuItem>
                   {formData.category && CATEGORIES[formData.category]?.map((subCat) => (
                     <MenuItem key={subCat} value={subCat}>{subCat}</MenuItem>
                   ))}
@@ -380,7 +331,7 @@ const GeneratePage = () => {
               />
             </Grid>
 
-            {/* 키워드 칩 */}
+            {/* 키워드 표시 */}
             {formData.keywords && (
               <Grid item xs={12}>
                 <Box>
@@ -388,95 +339,51 @@ const GeneratePage = () => {
                     입력된 키워드:
                   </Typography>
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                    {formData.keywords.split(',').map((kw, i) => {
-                      const k = kw.trim();
-                      return k ? <Chip key={`${k}-${i}`} label={k} size="small" variant="outlined" /> : null;
-                    })}
+                    {formData.keywords.split(',').map((keyword, index) => (
+                      keyword.trim() && (
+                        <Chip key={index} label={keyword.trim()} size="small" variant="outlined" />
+                      )
+                    ))}
                   </Box>
                 </Box>
               </Grid>
             )}
 
-            {/* 버튼 영역 (남은 회수/대기시간 칩 포함) */}
+            {/* 버튼 */}
             <Grid item xs={12}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
                 <Button
                   variant="contained"
                   size="large"
                   onClick={handleGenerate}
-                  disabled={
-                    loading ||
-                    !formData.prompt.trim() ||
-                    currentAttemptCount >= maxAttempts ||
-                    !limit.canRequest
-                  }
-                  startIcon={
-                    loading
-                      ? <CircularProgress size={20} />
-                      : (currentAttemptCount === 0 ? <AutoAwesome /> : <Add />)
-                  }
+                  disabled={loading || !formData.prompt.trim() || currentAttemptCount >= maxAttempts || !rateLimitInfo.canRequest}
+                  startIcon={loading ? <CircularProgress size={20} /> : (currentAttemptCount === 0 ? <AutoAwesome /> : <Add />)}
                   sx={{ minWidth: 200 }}
                 >
-                  {loading
-                    ? 'AI가 원고를 생성하고 있습니다...'
-                    : !limit.canRequest
-                      ? `대기 중 (${limit.waitTime}초)`
-                      : currentAttemptCount === 0
-                        ? 'AI 초안 생성하기'
-                        : `추가 생성하기 (${currentAttemptCount + 1}/${maxAttempts})`}
+                  {loading 
+                    ? 'AI가 원고를 생성하고 있습니다...' 
+                    : !rateLimitInfo.canRequest
+                      ? `대기 중 (${rateLimitInfo.waitTime}초)`
+                    : currentAttemptCount === 0 
+                      ? 'AI 초안 생성하기' 
+                      : `추가 생성하기 (${currentAttemptCount + 1}/${maxAttempts})`
+                  }
                 </Button>
-
-                {/* 생성 남은 회수 */}
-                <Chip
-                  label={`생성 ${currentAttemptCount}/${maxAttempts}`}
-                  color="primary"
-                  variant="outlined"
-                />
-
-                {/* 대기시간 (대기 중일 때만) */}
-                {!limit.canRequest && (
-                  <Chip
-                    label={`대기 ${limit.waitTime}초`}
-                    color="warning"
-                    variant="filled"
-                  />
-                )}
-
-                <Typography variant="caption" color="text.secondary">
-                  남은 호출: {limit.requestsRemaining}회
-                </Typography>
-
-                {/* 새로 시작 버튼을 우측 정렬 */}
-                {drafts.length > 0 && (
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    onClick={handleReset}
-                    startIcon={<Refresh />}
-                    color="secondary"
-                    sx={{ ml: 'auto' }}
-                  >
-                    새로 시작
-                  </Button>
-                )}
               </Box>
             </Grid>
 
-            {/* 에러 메시지 */}
+            {/* 에러 */}
             {error && (
               <Grid item xs={12}>
-                <Alert
+                <Alert 
                   severity={typeof error === 'object' && error.type === 'quota_exceeded' ? 'warning' : 'error'}
                   onClose={() => setError('')}
                   action={
                     (typeof error === 'object' && error.canRetry) && (
-                      <Button
-                        color="inherit"
-                        size="small"
-                        onClick={() => {
-                          setError('');
-                          if (validateForm()) handleGenerate();
-                        }}
+                      <Button 
+                        color="inherit" 
+                        size="small" 
+                        onClick={() => { setError(''); if (validateForm()) handleGenerate(); }}
                         disabled={typeof error === 'object' && error.retryDelay && Date.now() < error.retryDelay}
                       >
                         다시 시도
@@ -530,93 +437,95 @@ const GeneratePage = () => {
               생성된 초안들 ({drafts.length}개)
             </Typography>
 
-            <Grid container spacing={3}>
-              {drafts.map((draft, index) => (
-                <Grid item xs={12} md={4} key={draft.id || index}>
-                  <Card
-                    sx={{
-                      height: '100%',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      backgroundColor: CARD_BG[index % CARD_BG.length],
-                      color: '#fff',
-                      borderRadius: 2
-                    }}
-                  >
-                    <CardContent sx={{ flexGrow: 1 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                        <Typography variant="h6" sx={{ color: '#fff' }}>
-                          초안 {index + 1}
-                        </Typography>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Speed sx={{ fontSize: 16, color: 'rgba(255,255,255,0.8)' }} />
-                          <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.9)' }}>
-                            {calculateWordCount(draft.content)}자
+            {/* 🔥 여기서부터 변경: 1개 중앙 / 2개 좌정렬 2열 / 3개 3열, 박스색 지정, 본문 더 큼 */}
+            <Grid container spacing={2} {...gridProps}>
+              {drafts.map((draft, index) => {
+                const bg = BOX_COLORS[index]; // 1~3번째만 존재
+                const fg = '#ffffff';
+
+                // 열/폭 동적 결정
+                const itemProps =
+                  drafts.length >= 3
+                    ? { xs: 12, sm: 6, md: 4, lg: 4, xl: 4 } // 3개 → PC에서 3열
+                    : drafts.length === 2
+                    ? { xs: 12, sm: 6, md: 6, lg: 6 }       // 2개 → 2열(좌정렬)
+                    : { xs: 12, sm: 10, md: 8, lg: 6 };     // 1개 → 넓게 중앙
+
+                return (
+                  <Grid item key={draft.id || index} {...itemProps}>
+                    <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                      <CardContent sx={{ flexGrow: 1 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                          <Typography variant="h6" sx={{ color: bg }}>
+                            초안 {index + 1}
                           </Typography>
-                          <Tooltip title="이 초안 삭제">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleRemoveDraft(draft.id)}
-                              sx={{ color: '#ffd2d2' }}
-                            >
-                              <DeleteOutline fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Speed sx={{ fontSize: 16, color: 'text.secondary' }} />
+                            <Typography variant="body2" color="text.secondary">
+                              {calculateWordCount(draft.content)}자
+                            </Typography>
+                            <Tooltip title="이 초안 삭제">
+                              <IconButton size="small" onClick={() => handleRemoveDraft(draft.id)} color="error">
+                                <DeleteOutline fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </Box>
                         </Box>
-                      </Box>
 
-                      <Typography variant="subtitle1" fontWeight="bold" gutterBottom sx={{ color: '#fff' }}>
-                        {draft.title}
-                      </Typography>
+                        <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                          {draft.title}
+                        </Typography>
 
-                      <Divider sx={{ my: 1, borderColor: 'rgba(255,255,255,0.2)' }} />
+                        <Divider sx={{ my: 1 }} />
 
-                      {/* 텍스트 박스는 흰색 고정 */}
-                      <Box
-                        sx={{
-                          maxHeight: 300,
-                          overflow: 'auto',
-                          fontSize: '0.95rem',
-                          lineHeight: 1.7,
-                          backgroundColor: '#fff',
-                          color: 'text.primary',
-                          p: 1.5,
-                          borderRadius: 1,
-                          border: '1px solid',
-                          borderColor: 'grey.200',
-                          '& p': { m: '0.5rem 0' }
-                        }}
-                        dangerouslySetInnerHTML={{ __html: draft.content }}
-                      />
-
-                      <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
-                        <Button
-                          variant="contained"
-                          size="small"
-                          startIcon={<Save />}
-                          onClick={() => handleSaveDraft(draft, index)}
-                          sx={{ flexGrow: 1 }}
-                          disabled={loading}
-                        >
-                          저장하기
-                        </Button>
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          startIcon={<ContentCopy />}
-                          onClick={() => handleCopy(draft.content)}
-                          sx={{
-                            bgcolor: '#ffffff',
-                            '&:hover': { bgcolor: '#f5f5f5' }
+                        {/* 본문 박스: 색/크기/반응형 */}
+                        <Box 
+                          sx={{ 
+                            maxHeight: { xs: 340, md: 600 },   // PC에서 크게
+                            minHeight: { md: 380 },
+                            overflow: 'auto',
+                            fontSize: { xs: '0.95rem', md: '1rem' },
+                            lineHeight: 1.65,
+                            '& p': { m: '0.5rem 0' },
+                            bgcolor: bg,
+                            color: fg,
+                            p: 2,
+                            borderRadius: 1,
+                            border: '1px solid',
+                            borderColor: 'rgba(255,255,255,0.24)',
+                            boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.06)',
+                            '& a': { color: fg, textDecorationColor: 'rgba(255,255,255,0.6)' },
+                            '& strong, & b': { color: fg },
+                            '& img': { maxWidth: '100%' }
                           }}
-                        >
-                          복사
-                        </Button>
-                      </Box>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              ))}
+                          dangerouslySetInnerHTML={{ __html: draft.content }}
+                        />
+
+                        <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
+                          <Button
+                            variant="contained"
+                            size="small"
+                            startIcon={<Save />}
+                            onClick={() => handleSaveDraft(draft, index)}
+                            sx={{ flexGrow: 1 }}
+                            disabled={loading}
+                          >
+                            저장하기
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={<ContentCopy />}
+                            onClick={() => handleCopy(draft.content)}
+                          >
+                            복사
+                          </Button>
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                );
+              })}
             </Grid>
 
             {/* 추가 생성 안내 */}
@@ -628,18 +537,9 @@ const GeneratePage = () => {
               </Box>
             )}
 
-            {/* 최대치 안내 */}
+            {/* 완료 안내 */}
             {currentAttemptCount >= maxAttempts && (
-              <Box
-                sx={{
-                  mt: 2,
-                  p: 2,
-                  bgcolor: 'success.50',
-                  borderRadius: 1,
-                  border: '1px solid',
-                  borderColor: 'success.200'
-                }}
-              >
+              <Box sx={{ mt: 2, p: 2, bgcolor: 'success.50', borderRadius: 1, border: '1px solid', borderColor: 'success.200' }}>
                 <Typography
                   variant="body2"
                   color="success.main"
@@ -654,11 +554,13 @@ const GeneratePage = () => {
           </Box>
         )}
 
-        {/* 안내 (아직 초안 없음) */}
+        {/* 안내 */}
         {drafts.length === 0 && !loading && (
           <Paper sx={{ p: 4, textAlign: 'center', color: 'text.secondary' }}>
             <AutoAwesome sx={{ fontSize: 64, mb: 2, opacity: 0.5 }} />
-            <Typography variant="h6" gutterBottom>AI 원고 생성을 시작해보세요</Typography>
+            <Typography variant="h6" gutterBottom>
+              AI 원고 생성을 시작해보세요
+            </Typography>
             <Typography variant="body2">
               상단 폼을 작성하고 "AI 초안 생성하기" 버튼을 클릭하세요.<br />
               최대 3개까지 다른 버전의 초안을 생성할 수 있습니다.

@@ -1,4 +1,4 @@
-// src/layouts/DashboardLayout.jsx
+// src/components/DashboardLayout.jsx
 import React, { useState } from 'react';
 import {
   Box,
@@ -27,7 +27,7 @@ import { useAuth } from '../hooks/useAuth';
 import { getUserFullTitle, getUserStatusIcon } from '../utils/userUtils';
 
 const drawerWidth = 240;
-const ICON_SIZE = 32; // ← 아이콘 표시 크기 (원하면 36, 40 등으로 키워도 됨)
+const ICON_SIZE = 32; // 사이드바 로고 표시 크기
 
 function DashboardLayout({ children, title }) {
   const navigate = useNavigate();
@@ -54,7 +54,6 @@ function DashboardLayout({ children, title }) {
     { text: '프로필 수정', icon: <AccountCircleIcon />, path: '/profile' },
   ];
 
-  // 관리자 메뉴
   if (auth?.user?.role === 'admin') {
     menuItems.push({ text: '관리자 페이지', icon: <AdminPanelSettingsIcon />, path: '/admin' });
   }
@@ -74,14 +73,14 @@ function DashboardLayout({ children, title }) {
       >
         <Box
           component="img"
-          src="/android-chrome-192x192.png?v=3" // public/ 파일 사용 + 캐시버스팅
+          src="/android-chrome-192x192.png?v=3" // public/ 파일 + 캐시버스팅
           alt=""
           aria-hidden="true"
           sx={{
             width: ICON_SIZE,
             height: ICON_SIZE,
-            borderRadius: 1, // 살짝 둥글게(원형 원하면 999로)
-            // 다크 모드에서 색 반전이 필요하면 아래 주석 해제
+            borderRadius: 1, // 원형 원하면 999
+            // 다크 모드 반전이 필요하면 아래 주석 해제
             // filter: (theme) => theme.palette.mode === 'dark' ? 'brightness(0) invert(1)' : 'none',
           }}
         />
@@ -129,7 +128,7 @@ function DashboardLayout({ children, title }) {
         sx={{
           width: { md: `calc(100% - ${drawerWidth}px)` },
           ml: { md: `${drawerWidth}px` },
-          backgroundColor: '#1976d2'
+          backgroundColor: '#152484', // 메인 컬러
         }}
       >
         <Toolbar sx={{ justifyContent: 'space-between' }}>
@@ -169,7 +168,10 @@ function DashboardLayout({ children, title }) {
           open={mobileOpen}
           onClose={handleDrawerToggle}
           ModalProps={{ keepMounted: true }}
-          sx={{ display: { xs: 'block', md: 'none' }, '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth } }}
+          sx={{
+            display: { xs: 'block', md: 'none' },
+            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+          }}
         >
           {drawerContent}
         </Drawer>
@@ -177,7 +179,10 @@ function DashboardLayout({ children, title }) {
         {/* Desktop */}
         <Drawer
           variant="permanent"
-          sx={{ display: { xs: 'none', md: 'block' }, '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth } }}
+          sx={{
+            display: { xs: 'none', md: 'block' },
+            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+          }}
           open
         >
           {drawerContent}

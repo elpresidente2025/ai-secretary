@@ -1,288 +1,315 @@
-// src/pages/PostsListPage.jsx
-import React, { useEffect, useMemo, useState } from "react";
+// frontend/src/pages/PostsListPage.jsx
+import React, { useEffect, useState } from 'react';
 import {
   Box,
+  Container,
   Paper,
   Typography,
-  Table,
-  TableHead,
-  TableBody,
-  TableRow,
-  TableCell,
+  Grid,
+  Card,
+  CardContent,
+  CardActions,
+  CardActionArea,
   Chip,
   IconButton,
   Tooltip,
+  CircularProgress,
+  Snackbar,
+  Alert,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   Button,
-  CircularProgress,
-  Snackbar,
-  Alert,
-  Stack,
-} from "@mui/material";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
-import { getFunctions, httpsCallable } from "firebase/functions";
+  Divider,
+} from '@mui/material';
+import { ContentCopy, DeleteOutline, Assignment } from '@mui/icons-material';
+import DashboardLayout from '../components/DashboardLayout';
+import { useAuth } from '../hooks/useAuth';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 
-// Functions 리전 고정
-const functions = getFunctions(undefined, "asia-northeast3");
-
-// 상태 → 칩 색상 매핑
-const statusToChip = (status) => {
-  switch ((status || "").toLowerCase()) {
-    case "published":
-      return <Chip label="published" color="success" size="small" />;
-    case "scheduled":
-      return <Chip label="scheduled" color="info" size="small" />;
-    case "review":
-      return <Chip label="review" color="warning" size="small" />;
-    case "archived":
-      return <Chip label="archived" color="default" size="small" />;
-    case "draft":
-    default:
-      return <Chip label="draft" size="small" />;
-  }
-};
-
-// HTML → 텍스트 변환 (복사용)
-const htmlToText = (html) => {
-  if (!html) return "";
-  // 간단 파서: 태그 제거 + &nbsp; 등 디코딩
-  const tmp = document.createElement("div");
-  tmp.innerHTML = html;
-  const text = tmp.textContent || tmp.innerText || "";
-  return text.replace(/\u00A0/g, " ").trim();
-};
-
-// 날짜 포맷
-const fmt = (iso) => {
+function formatDate(iso) {
   try {
-    if (!iso) return "-";
+    if (!iso) return '-';
     const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return "-";
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
-      d.getDate()
-    ).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(
-      2,
-      "0"
-    )}`;
+    if (Number.isNaN(d.getTime())) return '-';
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    return `${y}-${m}-${day} ${hh}:${mm}`;
   } catch {
-    return "-";
+    return '-';
   }
-};
+}
+
+function stripHtml(html = '') {
+  try {
+    return html.replace(/<[^>]*>/g, '');
+  } catch {
+    return html || '';
+  }
+}
 
 export default function PostsListPage() {
-  const [rows, setRows] = useState([]);
+  const { auth } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [posts, setPosts] = useState([]);
+  const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
+  const [error, setError] = useState('');
   const [viewerOpen, setViewerOpen] = useState(false);
-  const [current, setCurrent] = useState(null);
-  const [snack, setSnack] = useState({ open: false, severity: "info", msg: "" });
-  const [busyId, setBusyId] = useState(null);
+  const [viewerPost, setViewerPost] = useState(null);
 
-  const loadPosts = async () => {
-    setLoading(true);
+  const functions = getFunctions(undefined, 'asia-northeast3');
+  const callGetUserPosts = httpsCallable(functions, 'getUserPosts');
+  const callDeletePost = httpsCallable(functions, 'deletePost');
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        setLoading(true);
+        if (!auth?.user?.id) {
+          setError('사용자 정보를 불러올 수 없습니다. 다시 로그인해주세요.');
+          return;
+        }
+        const res = await callGetUserPosts();
+        const list = res?.data?.posts || [];
+        if (!mounted) return;
+        setPosts(list);
+      } catch (e) {
+        console.error(e);
+        setError('목록을 불러오지 못했습니다.');
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [auth?.user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleCopy = (content, e) => {
+    if (e) e.stopPropagation();
     try {
-      const call = httpsCallable(functions, "getUserPosts");
-      const { data } = await call();
-      setRows(Array.isArray(data?.posts) ? data.posts : []);
-    } catch (e) {
-      console.error(e);
-      setSnack({ open: true, severity: "error", msg: "목록을 불러오지 못했습니다." });
-    } finally {
-      setLoading(false);
+      const text = stripHtml(content);
+      navigator.clipboard.writeText(text);
+      setSnack({ open: true, message: '클립보드에 복사되었습니다!', severity: 'success' });
+    } catch (err) {
+      console.error(err);
+      setSnack({ open: true, message: '복사에 실패했습니다.', severity: 'error' });
     }
   };
 
-  useEffect(() => {
-    loadPosts();
-  }, []);
+  const handleDelete = async (postId, e) => {
+    if (e) e.stopPropagation();
+    if (!postId) return;
+    const ok = window.confirm('정말 이 원고를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.');
+    if (!ok) return;
+    try {
+      await callDeletePost({ postId });
+      setPosts((prev) => prev.filter((p) => p.id !== postId));
+      setSnack({ open: true, message: '삭제되었습니다.', severity: 'info' });
+      // 모달에서 삭제했을 수도 있으니 닫기
+      if (viewerPost?.id === postId) {
+        setViewerOpen(false);
+        setViewerPost(null);
+      }
+    } catch (err) {
+      console.error(err);
+      setSnack({ open: true, message: '삭제에 실패했습니다.', severity: 'error' });
+    }
+  };
 
-  const handleOpenViewer = (row) => {
-    setCurrent(row);
+  const openViewer = (post) => {
+    setViewerPost(post);
     setViewerOpen(true);
   };
 
-  const handleCloseViewer = () => {
+  const closeViewer = () => {
     setViewerOpen(false);
-    setCurrent(null);
+    setViewerPost(null);
   };
 
-  const handleCopy = async (row) => {
-    try {
-      const text = htmlToText(row?.content || "");
-      await navigator.clipboard.writeText(text);
-      setSnack({ open: true, severity: "success", msg: "본문을 클립보드에 복사했습니다." });
-    } catch (e) {
-      console.error(e);
-      setSnack({ open: true, severity: "error", msg: "복사에 실패했습니다." });
-    }
-  };
-
-  const handleDelete = async (row) => {
-    if (!row?.id) return;
-    const ok = window.confirm(`정말 삭제하시겠습니까?\n제목: ${row.title || "(제목 없음)"}`);
-    if (!ok) return;
-
-    setBusyId(row.id);
-    try {
-      const call = httpsCallable(functions, "deletePost");
-      await call({ postId: row.id });
-      setSnack({ open: true, severity: "success", msg: "삭제했습니다." });
-      // 로컬 목록에서 제거
-      setRows((prev) => prev.filter((p) => p.id !== row.id));
-      if (current?.id === row.id) handleCloseViewer();
-    } catch (e) {
-      console.error(e);
-      setSnack({ open: true, severity: "error", msg: "삭제에 실패했습니다." });
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  const empty = useMemo(() => !loading && rows.length === 0, [loading, rows]);
+  // 인증 안 된 경우도 레이아웃은 유지해서 사이드바 보이게
+  if (!auth?.user?.id) {
+    return (
+      <DashboardLayout title="포스트 목록">
+        <Container maxWidth="xl" sx={{ mt: 2 }}>
+          <Alert severity="error">사용자 정보를 불러올 수 없습니다. 다시 로그인해주세요.</Alert>
+        </Container>
+      </DashboardLayout>
+    );
+  }
 
   return (
-    <Box sx={{ p: 0 }}>
-      <Typography variant="h5" sx={{ mb: 2 }}>
-        포스트 목록
-      </Typography>
-
-      <Paper variant="outlined">
-        {loading ? (
-          <Box sx={{ p: 6, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <CircularProgress />
+    <DashboardLayout title="포스트 목록">
+      <Container maxWidth="xl" sx={{ mt: 2, px: { xs: 1, sm: 2 } }}>
+        <Paper sx={{ p: { xs: 2, sm: 3 } }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, flexWrap: 'wrap', gap: 1 }}>
+            <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Assignment sx={{ color: 'primary.main' }} />
+              내 원고 목록
+            </Typography>
+            <Chip label={`총 ${posts.length}개`} color="primary" variant="outlined" />
           </Box>
-        ) : empty ? (
-          <Box sx={{ p: 6, textAlign: "center", color: "text.secondary" }}>
-            등록된 원고가 없습니다.
-          </Box>
-        ) : (
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell sx={{ width: 56 }} />
-                <TableCell>제목</TableCell>
-                <TableCell>상태</TableCell>
-                <TableCell>작성</TableCell>
-                <TableCell>수정</TableCell>
-                <TableCell align="right" sx={{ width: 120 }}>
-                  작업
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  hover
-                  sx={{ cursor: "pointer" }}
-                  onClick={() => handleOpenViewer(row)} // 👈 행 클릭으로 보기
-                >
-                  <TableCell>
-                    {/* 썸네일 자리 비워둠 */}
-                  </TableCell>
-                  <TableCell sx={{ maxWidth: 560 }}>
-                    <Typography variant="body1" noWrap title={row.title || ""}>
-                      {row.title || "제목 없음"}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>{statusToChip(row.status)}</TableCell>
-                  <TableCell>{fmt(row.createdAt)}</TableCell>
-                  <TableCell>{fmt(row.updatedAt)}</TableCell>
-                  <TableCell
-                    align="right"
-                    onClick={(e) => e.stopPropagation()} // 행 클릭과 분리
-                  >
-                    <Stack direction="row" spacing={1} justifyContent="flex-end">
-                      {/* 👇 보기(눈) 버튼 제거, 복사 + 삭제만 남김 */}
-                      <Tooltip title="본문 복사">
-                        <span>
-                          <IconButton size="small" onClick={() => handleCopy(row)}>
-                            <ContentCopyIcon fontSize="small" />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                      <Tooltip title="삭제">
-                        <span>
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => handleDelete(row)}
-                            disabled={busyId === row.id}
-                          >
-                            {busyId === row.id ? (
-                              <CircularProgress size={18} />
-                            ) : (
-                              <DeleteOutlineIcon fontSize="small" />
-                            )}
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                    </Stack>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </Paper>
 
-      {/* 읽기 전용 보기 다이얼로그 */}
-      <Dialog open={viewerOpen} onClose={handleCloseViewer} fullWidth maxWidth="md">
-        <DialogTitle>원고 보기</DialogTitle>
-        <DialogContent dividers>
-          {/* 안내 문구 */}
           <Alert severity="info" sx={{ mb: 2 }}>
-            이 화면은 <strong>읽기 전용</strong>입니다. 내용을 수정하려면 아래 <b>복사</b> 버튼으로
-            클립보드에 복사한 뒤, 메모장 등 외부 편집기에서 수정하세요.
+            이 화면은 <strong>읽기 전용</strong>입니다. 카드를 <b>터치/클릭</b>하면 원고가 열립니다. <b>복사</b> 후 메모장 등 외부 편집기에서 직접 수정하세요.
           </Alert>
 
-          <Typography variant="h6" sx={{ mb: 1 }}>
-            {current?.title || "제목 없음"}
-          </Typography>
+          {loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+              <CircularProgress />
+            </Box>
+          ) : error ? (
+            <Alert severity="error">{error}</Alert>
+          ) : posts.length === 0 ? (
+            <Alert severity="warning">저장된 원고가 없습니다.</Alert>
+          ) : (
+            <Grid container spacing={2}>
+              {posts.map((p) => {
+                const preview = stripHtml(p.content || '');
+                const wordCount = p.wordCount ?? preview.length;
+                const status = p.status || 'draft';
+                const statusColor =
+                  status === 'published' ? 'success' : status === 'scheduled' ? 'warning' : 'default';
 
-          {/* 본문: HTML 그대로 표시 (읽기 전용) */}
-          <Box
-            sx={{
-              border: "1px solid",
-              borderColor: "divider",
-              borderRadius: 1,
-              p: 2,
-              minHeight: 200,
-              "& img": { maxWidth: "100%" },
-              "& p": { m: 0, mb: 1.2 },
-            }}
-            dangerouslySetInnerHTML={{ __html: current?.content || "<p>(내용 없음)</p>" }}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseViewer}>닫기</Button>
-          <Button
-            variant="contained"
-            onClick={() => current && handleCopy(current)}
-            startIcon={<ContentCopyIcon />}
-          >
-            본문 복사
-          </Button>
-        </DialogActions>
-      </Dialog>
+                return (
+                  <Grid item xs={12} sm={6} md={4} key={p.id}>
+                    <Card
+                      variant="outlined"
+                      sx={{
+                        height: '100%',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        borderRadius: 2,
+                      }}
+                    >
+                      <CardActionArea onClick={() => openViewer(p)} sx={{ flexGrow: 1 }}>
+                        <CardContent>
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                            <Chip size="small" label={status} color={statusColor} variant="outlined" />
+                            <Typography variant="caption" color="text.secondary">
+                              {formatDate(p.updatedAt) || formatDate(p.createdAt)}
+                            </Typography>
+                          </Box>
 
-      <Snackbar
-        open={snack.open}
-        autoHideDuration={2200}
-        onClose={() => setSnack((s) => ({ ...s, open: false }))}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-      >
-        <Alert
-          severity={snack.severity}
+                          <Typography
+                            variant="h6"
+                            sx={{
+                              fontWeight: 700,
+                              mb: 1,
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden',
+                              wordBreak: 'break-word',
+                            }}
+                            title={p.title || '제목 없음'}
+                          >
+                            {p.title || '제목 없음'}
+                          </Typography>
+
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{
+                              display: '-webkit-box',
+                              WebkitLineClamp: 4,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden',
+                              wordBreak: 'break-word',
+                              minHeight: 84, // 두 줄 이상 높이 확보(미관)
+                            }}
+                          >
+                            {preview || '내용 미리보기가 없습니다.'}
+                          </Typography>
+
+                          <Divider sx={{ my: 1.5 }} />
+
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Typography variant="caption" color="text.secondary">
+                              글자수: {wordCount}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              생성일 {formatDate(p.createdAt)}
+                            </Typography>
+                          </Box>
+                        </CardContent>
+                      </CardActionArea>
+
+                      <CardActions sx={{ justifyContent: 'flex-end', pt: 0 }}>
+                        <Tooltip title="복사">
+                          <IconButton size="small" onClick={(e) => handleCopy(p.content, e)}>
+                            <ContentCopy fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="삭제">
+                          <IconButton size="small" color="error" onClick={(e) => handleDelete(p.id, e)}>
+                            <DeleteOutline fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </CardActions>
+                    </Card>
+                  </Grid>
+                );
+              })}
+            </Grid>
+          )}
+        </Paper>
+
+        {/* 뷰어 다이얼로그 */}
+        <Dialog open={viewerOpen} onClose={closeViewer} fullWidth maxWidth="md">
+          <DialogTitle sx={{ pr: 2 }}>
+            {viewerPost?.title || '제목 없음'}
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+              생성일 {formatDate(viewerPost?.createdAt)} · 수정일 {formatDate(viewerPost?.updatedAt)}
+            </Typography>
+          </DialogTitle>
+          <DialogContent dividers>
+            <Box
+              sx={{
+                '& p': { my: 1 },
+                '& h1, & h2, & h3': { mt: 2, mb: 1 },
+                fontSize: '0.95rem',
+                lineHeight: 1.7,
+                maxHeight: '70vh',
+                overflow: 'auto',
+                bgcolor: 'grey.50',
+                p: 2,
+                borderRadius: 1,
+                border: '1px solid',
+                borderColor: 'grey.200',
+              }}
+              dangerouslySetInnerHTML={{ __html: viewerPost?.content || '<p>내용이 없습니다.</p>' }}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={(e) => handleCopy(viewerPost?.content || '', e)} startIcon={<ContentCopy />}>
+              복사
+            </Button>
+            <Button onClick={(e) => handleDelete(viewerPost?.id, e)} color="error" startIcon={<DeleteOutline />}>
+              삭제
+            </Button>
+            <Button onClick={closeViewer} variant="contained">닫기</Button>
+          </DialogActions>
+        </Dialog>
+
+        <Snackbar
+          open={snack.open}
+          autoHideDuration={4000}
           onClose={() => setSnack((s) => ({ ...s, open: false }))}
-          sx={{ width: "100%" }}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
         >
-          {snack.msg}
-        </Alert>
-      </Snackbar>
-    </Box>
+          <Alert
+            onClose={() => setSnack((s) => ({ ...s, open: false }))}
+            severity={snack.severity}
+            sx={{ width: '100%' }}
+          >
+            {snack.message}
+          </Alert>
+        </Snackbar>
+      </Container>
+    </DashboardLayout>
   );
 }
