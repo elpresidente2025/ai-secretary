@@ -24,11 +24,11 @@ const functionOptions = {
   region: 'asia-northeast3',
   memory: '2GiB',
   timeoutSeconds: 540,
-  cors: true,
+  cors: true, // onCall에선 CORS 자동처리지만 다른 핸들러와 호환 위해 유지
   secrets: [geminiApiKey],
 };
 
-// 🎯 최적화 헬퍼 함수 5개 (완전체)
+// 🎯 최적화 헬퍼 함수들
 const auth = (req) => {
   if (!req.auth) throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
   return { uid: req.auth.uid, token: req.auth.token };
@@ -126,7 +126,51 @@ async function callGeminiWithBackup(prompt) {
     'AI 서비스에 일시적 문제가 발생했습니다. 잠시 후 다시 시도해주세요.');
 }
 
-// 🔥 최종 최적화된 함수들
+// ─────────────────────────────────────────────────────────────
+// ✅ 여기 추가: Admin 사용자 목록 호출 (Callable, CORS 프리)
+// ─────────────────────────────────────────────────────────────
+exports.getUserList = wrap(async (req) => {
+  const { uid, token } = auth(req);
+  log('ADMIN', 'getUserList 호출', { uid, email: token?.email });
+
+  // (선택) 관리자만 허용하고 싶으면 아래 주석 해제
+  // if (!token?.isAdmin) throw new HttpsError('permission-denied', '관리자만 가능합니다.');
+
+  const { pageSize = 100, pageToken } = req.data || {};
+
+  let q = db.collection('users').orderBy('createdAt', 'desc');
+  if (pageToken) {
+    const startDoc = await db.collection('users').doc(pageToken).get();
+    if (startDoc.exists) q = q.startAfter(startDoc);
+  }
+
+  const limit = Math.min(500, Number(pageSize) || 100);
+  const snap = await q.limit(limit).get();
+
+  const users = snap.docs.map((d) => {
+    const data = d.data();
+    return {
+      id: d.id,
+      email: data.email || '',
+      name: data.name || '',
+      position: data.position || '',
+      regionMetro: data.regionMetro || '',
+      regionLocal: data.regionLocal || '',
+      status: data.status || '',
+      createdAt: data.createdAt?.toDate?.()?.toISOString?.() || null,
+      updatedAt: data.updatedAt?.toDate?.()?.toISOString?.() || null
+    };
+  });
+
+  const nextPageToken = snap.docs.length === limit ? snap.docs[snap.docs.length - 1].id : null;
+
+  log('ADMIN', 'getUserList 성공', { count: users.length });
+  return ok({ users, nextPageToken });
+});
+
+// ─────────────────────────────────────────────────────────────
+// 이하 기존 함수들 (네가 준 코드 그대로 유지)
+// ─────────────────────────────────────────────────────────────
 exports.getDashboardData = wrap(async (req) => {
   const { uid } = auth(req);
   log('DASH', 'getDashboardData 호출', uid);
@@ -347,7 +391,6 @@ exports.testGenerate = wrap(async (req) => {
   log('TEST', 'API 키 확인 완료');
 
   log('TEST', '간단한 AI 호출 테스트 중...');
-  // 🎯 프롬프트 템플릿 사용
   const response = await callGeminiWithBackup(testPrompt());
   const responseText = response.response.text();
   log('TEST', 'AI 응답', responseText.substring(0, 100));
@@ -406,7 +449,6 @@ exports.generatePosts = wrap(async (req) => {
     };
   }
 
-  // 🎯 프롬프트 템플릿 사용
   const prompt = generatePostPrompt({
     authorName: userProfile.name || '정치인',
     authorPosition: userProfile.position || '의원',
@@ -438,8 +480,6 @@ exports.generatePosts = wrap(async (req) => {
     }
   } catch (parseError) {
     log('AI', 'JSON 파싱 실패, 기본 응답 생성', parseError.message);
-    
-    // 🎯 백업 응답도 템플릿 사용
     parsedResponse = createFallbackDraft(topic, category);
   }
 
@@ -481,5 +521,6 @@ exports.generatePosts = wrap(async (req) => {
 });
 
 exports.generatePostDrafts = wrap(async (request) => {
+  // 기존 generatePosts를 같은 onCall 인터페이스로 재사용
   return exports.generatePosts.run(request);
 });

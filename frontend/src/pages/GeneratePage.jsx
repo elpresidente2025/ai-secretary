@@ -12,6 +12,7 @@ import {
   Grid, 
   LinearProgress, 
   Alert,
+  AlertTitle, // 🔥 추가
   Chip,
   Card,
   CardContent,
@@ -71,7 +72,8 @@ const GeneratePage = () => {
     saveDraft,
     clearDrafts, // 🔥 새로 추가된 함수
     removeDraft, // 🔥 새로 추가된 함수
-    setError
+    setError,
+    getRateLimitInfo // 🔥 추가된 함수
   } = usePostGenerator();
 
   // 폼 상태
@@ -93,6 +95,9 @@ const GeneratePage = () => {
   // 🔥 최대 시도 횟수
   const maxAttempts = 3;
   const currentAttemptCount = drafts.length; // 🔥 drafts 배열 길이가 곧 시도 횟수
+
+  // 🔥 요청 제한 정보 가져오기
+  const rateLimitInfo = getRateLimitInfo ? getRateLimitInfo() : { canRequest: true, waitTime: 0, requestsRemaining: 15 };
 
   // 카테고리 변경 시 세부 카테고리 초기화
   useEffect(() => {
@@ -155,6 +160,12 @@ const GeneratePage = () => {
       return;
     }
 
+    // 🔥 요청 제한 체크
+    if (!rateLimitInfo.canRequest) {
+      setError(`너무 빈번한 요청입니다. ${rateLimitInfo.waitTime}초 후 다시 시도해주세요.`);
+      return;
+    }
+
     // 에러 초기화
     setError('');
     
@@ -183,6 +194,7 @@ const GeneratePage = () => {
       console.log('requestData:', requestData);
       console.log('currentAttemptCount:', currentAttemptCount);
       console.log('auth:', auth);
+      console.log('rateLimitInfo:', rateLimitInfo);
       console.log('===========================');
 
       // 다시 한번 검증
@@ -209,16 +221,8 @@ const GeneratePage = () => {
       console.error('Error code:', error.code);
       console.error('==================');
       
-      // 에러 메시지 개선
-      let errorMessage = '원고 생성 중 오류가 발생했습니다.';
-      
-      if (error.message) {
-        errorMessage = error.message;
-      } else if (error.code) {
-        errorMessage = `오류 코드: ${error.code}`;
-      }
-      
-      setError(errorMessage);
+      // 에러 메시지 개선 - 이미 usePostGenerator에서 처리됨
+      // setError는 usePostGenerator 내에서 자동 처리
     }
   };
 
@@ -353,6 +357,10 @@ const GeneratePage = () => {
                   생성된 초안 수
                 </Typography>
               </Badge>
+              {/* 🔥 요청 제한 정보 표시 */}
+              <Typography variant="caption" color="text.secondary">
+                남은 횟수: {rateLimitInfo.requestsRemaining}회
+              </Typography>
               {/* 🔥 새로 시작 버튼 */}
               {drafts.length > 0 && (
                 <Button
@@ -465,12 +473,14 @@ const GeneratePage = () => {
                   variant="contained"
                   size="large"
                   onClick={handleGenerate}
-                  disabled={loading || !formData.prompt.trim() || currentAttemptCount >= maxAttempts}
+                  disabled={loading || !formData.prompt.trim() || currentAttemptCount >= maxAttempts || !rateLimitInfo.canRequest}
                   startIcon={loading ? <CircularProgress size={20} /> : (currentAttemptCount === 0 ? <AutoAwesome /> : <Add />)}
                   sx={{ minWidth: 200 }}
                 >
                   {loading 
                     ? 'AI가 원고를 생성하고 있습니다...' 
+                    : !rateLimitInfo.canRequest
+                      ? `대기 중 (${rateLimitInfo.waitTime}초)`
                     : currentAttemptCount === 0 
                       ? 'AI 초안 생성하기' 
                       : `추가 생성하기 (${currentAttemptCount + 1}/${maxAttempts})`
@@ -479,11 +489,54 @@ const GeneratePage = () => {
               </Box>
             </Grid>
 
-            {/* 에러 메시지 */}
+            {/* 🔥 개선된 에러 메시지 */}
             {error && (
               <Grid item xs={12}>
-                <Alert severity="error" onClose={() => setError('')}>
-                  {error}
+                <Alert 
+                  severity={typeof error === 'object' && error.type === 'quota_exceeded' ? 'warning' : 'error'}
+                  onClose={() => setError('')}
+                  action={
+                    (typeof error === 'object' && error.canRetry) && (
+                      <Button 
+                        color="inherit" 
+                        size="small" 
+                        onClick={() => {
+                          setError('');
+                          if (validateForm()) {
+                            handleGenerate();
+                          }
+                        }}
+                        disabled={typeof error === 'object' && error.retryDelay && Date.now() < error.retryDelay}
+                      >
+                        다시 시도
+                      </Button>
+                    )
+                  }
+                >
+                  <AlertTitle>
+                    {typeof error === 'object' ? error.title : '오류 발생'}
+                  </AlertTitle>
+                  <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
+                    {typeof error === 'object' ? error.message : error}
+                  </Typography>
+                  
+                  {/* 할당량 오류 시 추가 정보 */}
+                  {(typeof error === 'object' && error.type === 'quota_exceeded') && (
+                    <Box sx={{ mt: 1, p: 1, bgcolor: 'warning.light', borderRadius: 1 }}>
+                      <Typography variant="caption" color="warning.dark">
+                        💡 <strong>팁:</strong> 유료 플랜 전환 시 월 $10-20으로 무제한 사용 가능
+                      </Typography>
+                    </Box>
+                  )}
+
+                  {/* 서비스 과부하 시 추가 정보 */}
+                  {(typeof error === 'object' && error.type === 'service_overloaded') && (
+                    <Box sx={{ mt: 1, p: 1, bgcolor: 'info.light', borderRadius: 1 }}>
+                      <Typography variant="caption" color="info.dark">
+                        🔄 <strong>상태:</strong> AI 서비스 과부하 - 백업 모델로 자동 재시도 중
+                      </Typography>
+                    </Box>
+                  )}
                 </Alert>
               </Grid>
             )}
