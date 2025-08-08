@@ -1,64 +1,53 @@
-import React, { useState, useEffect } from 'react';
-import { Box, Button, Paper, Typography, CircularProgress, Alert } from '@mui/material';
-import { useEditor, EditorContent } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
-import apiClient from '../services/api';
+// src/components/Editor.jsx
+import React from "react";
+import { Box, Alert, Stack, Button } from "@mui/material";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 
-const Editor = ({ initialContent, postId }) => {
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState({ message: '', severity: 'success' });
+const htmlToText = (html) => {
+  if (!html) return "";
+  const tmp = document.createElement("div");
+  tmp.innerHTML = html;
+  const text = tmp.textContent || tmp.innerText || "";
+  return text.replace(/\u00A0/g, " ").trim();
+};
 
-  const editor = useEditor({
-    extensions: [StarterKit],
-    content: initialContent,
-    editable: true,
-  });
-
-  // initialContent가 변경될 때 에디터 내용을 업데이트합니다.
-  useEffect(() => {
-    if (editor && initialContent !== editor.getHTML()) {
-      editor.commands.setContent(initialContent);
-    }
-  }, [initialContent, editor]);
-
-  const handleSave = async () => {
-    if (!postId || !editor) return;
-
-    setIsSaving(true);
-    setSaveStatus({ message: '', severity: 'info' });
+const Editor = ({ initialContent }) => {
+  const handleCopy = async () => {
     try {
-      await apiClient.put(`/posts/${postId}`, { content: editor.getHTML() });
-      setSaveStatus({ message: '성공적으로 저장되었습니다.', severity: 'success' });
-    } catch (error) {
-      console.error('포스트 저장 중 오류 발생:', error);
-      setSaveStatus({ message: error.response?.data?.error || '저장에 실패했습니다.', severity: 'error' });
-    } finally {
-      setIsSaving(false);
-      setTimeout(() => setSaveStatus({ message: '', severity: 'success' }), 3000);
+      await navigator.clipboard.writeText(htmlToText(initialContent || ""));
+      alert("본문을 클립보드에 복사했습니다.");
+    } catch {
+      alert("복사에 실패했습니다.");
     }
   };
 
-  if (!editor) {
-    return null;
-  }
-
   return (
-    <Paper sx={{ p: 3 }}>
-      <Typography variant="h6" gutterBottom>
-        원고 편집
-      </Typography>
-      <Box sx={{ border: '1px solid #ccc', borderRadius: 1, p: 1, minHeight: 400, mb: 2, '& .ProseMirror': { minHeight: '400px' } }}>
-        <EditorContent editor={editor} />
-      </Box>
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 2 }}>
-        {saveStatus.message && <Alert severity={saveStatus.severity} sx={{ py: 0.5 }}>{saveStatus.message}</Alert>}
-        {postId && (
-          <Button variant="contained" onClick={handleSave} disabled={isSaving}>
-            {isSaving ? <CircularProgress size={24} color="inherit" /> : '원고 저장'}
-          </Button>
-        )}
-      </Box>
-    </Paper>
+    <Box>
+      <Alert severity="info" sx={{ mb: 2 }}>
+        이 구성요소는 <strong>읽기 전용</strong>입니다. 수정 기능은 제공하지 않습니다.
+        복사 후 외부 편집기에서 수정하세요.
+      </Alert>
+
+      <Box
+        sx={{
+          border: "1px solid",
+          borderColor: "divider",
+          borderRadius: 1,
+          p: 2,
+          minHeight: 200,
+          "& img": { maxWidth: "100%" },
+          "& p": { m: 0, mb: 1.2 },
+          backgroundColor: "background.paper",
+        }}
+        dangerouslySetInnerHTML={{ __html: initialContent || "<p>(내용 없음)</p>" }}
+      />
+
+      <Stack direction="row" spacing={1} sx={{ mt: 2 }} justifyContent="flex-end">
+        <Button variant="contained" startIcon={<ContentCopyIcon />} onClick={handleCopy}>
+          본문 복사
+        </Button>
+      </Stack>
+    </Box>
   );
 };
 

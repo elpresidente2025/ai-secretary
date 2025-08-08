@@ -1,17 +1,18 @@
+// src/layouts/DashboardLayout.jsx
 import React, { useState } from 'react';
-import { 
-  Box, 
-  Drawer, 
-  AppBar, 
-  Toolbar, 
-  Typography, 
-  List, 
-  ListItem, 
-  ListItemButton, 
-  ListItemIcon, 
-  ListItemText, 
-  CssBaseline, 
-  Divider, 
+import {
+  Box,
+  Drawer,
+  AppBar,
+  Toolbar,
+  Typography,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  CssBaseline,
+  Divider,
   IconButton
 } from '@mui/material';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -26,13 +27,14 @@ import { useAuth } from '../hooks/useAuth';
 import { getUserFullTitle, getUserStatusIcon } from '../utils/userUtils';
 
 const drawerWidth = 240;
+const ICON_SIZE = 32; // ← 아이콘 표시 크기 (원하면 36, 40 등으로 키워도 됨)
 
 function DashboardLayout({ children, title }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { auth, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
-  
+
   const fullTitle = getUserFullTitle(auth?.user);
   const statusIcon = getUserStatusIcon(auth?.user);
 
@@ -52,23 +54,38 @@ function DashboardLayout({ children, title }) {
     { text: '프로필 수정', icon: <AccountCircleIcon />, path: '/profile' },
   ];
 
-  // 관리자일 경우, 관리자 메뉴를 추가합니다.
+  // 관리자 메뉴
   if (auth?.user?.role === 'admin') {
     menuItems.push({ text: '관리자 페이지', icon: <AdminPanelSettingsIcon />, path: '/admin' });
   }
 
   const drawerContent = (
     <>
+      {/* 상단 브랜드 영역: 큰 로고 + 텍스트 */}
       <Toolbar
         onClick={() => navigate('/dashboard')}
         sx={{
           cursor: 'pointer',
-          '&:hover': {
-            backgroundColor: 'action.hover',
-          },
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          '&:hover': { backgroundColor: 'action.hover' },
         }}
       >
-        <Typography variant="h6" sx={{ color: '#1976d2', fontWeight: 'bold' }}>
+        <Box
+          component="img"
+          src="/android-chrome-192x192.png?v=3" // public/ 파일 사용 + 캐시버스팅
+          alt=""
+          aria-hidden="true"
+          sx={{
+            width: ICON_SIZE,
+            height: ICON_SIZE,
+            borderRadius: 1, // 살짝 둥글게(원형 원하면 999로)
+            // 다크 모드에서 색 반전이 필요하면 아래 주석 해제
+            // filter: (theme) => theme.palette.mode === 'dark' ? 'brightness(0) invert(1)' : 'none',
+          }}
+        />
+        <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
           AI 비서관
         </Typography>
       </Toolbar>
@@ -88,7 +105,9 @@ function DashboardLayout({ children, title }) {
           ))}
         </List>
       </Box>
+
       <Divider />
+
       <List>
         <ListItem disablePadding>
           <ListItemButton onClick={handleLogout}>
@@ -138,12 +157,13 @@ function DashboardLayout({ children, title }) {
           )}
         </Toolbar>
       </AppBar>
+
       <Box
         component="nav"
         sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 } }}
         aria-label="navigation"
       >
-        {/* Temporary Drawer for Mobile/Tablet */}
+        {/* Mobile */}
         <Drawer
           variant="temporary"
           open={mobileOpen}
@@ -153,7 +173,8 @@ function DashboardLayout({ children, title }) {
         >
           {drawerContent}
         </Drawer>
-        {/* Permanent Drawer for Desktop */}
+
+        {/* Desktop */}
         <Drawer
           variant="permanent"
           sx={{ display: { xs: 'none', md: 'block' }, '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth } }}
@@ -162,10 +183,8 @@ function DashboardLayout({ children, title }) {
           {drawerContent}
         </Drawer>
       </Box>
-      <Box
-        component="main"
-        sx={{ flexGrow: 1, p: 3, width: { md: `calc(100% - ${drawerWidth}px)` } }}
-      >
+
+      <Box component="main" sx={{ flexGrow: 1, p: 3, width: { md: `calc(100% - ${drawerWidth}px)` } }}>
         <Toolbar />
         {children}
       </Box>

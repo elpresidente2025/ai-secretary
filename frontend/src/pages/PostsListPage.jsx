@@ -1,452 +1,288 @@
-import React, { useState, useEffect, useCallback } from 'react';
+// src/pages/PostsListPage.jsx
+import React, { useEffect, useMemo, useState } from "react";
 import {
-  Typography,
-  Paper,
-  Container,
   Box,
+  Paper,
+  Typography,
   Table,
-  TableBody,
-  TableCell,
-  TableContainer,
   TableHead,
+  TableBody,
   TableRow,
-  CircularProgress,
-  Alert,
-  Button,
-  IconButton,
+  TableCell,
   Chip,
+  IconButton,
+  Tooltip,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField,
-  Snackbar
-} from '@mui/material';
-import { useNavigate } from 'react-router-dom';
-import {
-  Edit as EditIcon,
-  Visibility as VisibilityIcon,
-  ContentCopy as ContentCopyIcon,
-  Delete as DeleteIcon,
-  Save as SaveIcon,
-  Close as CloseIcon
-} from '@mui/icons-material';
-import DashboardLayout from '../components/DashboardLayout';
-import { useAuth } from '../hooks/useAuth';
-import { usePostGenerator } from '../hooks/usePostGenerator';
+  Button,
+  CircularProgress,
+  Snackbar,
+  Alert,
+  Stack,
+} from "@mui/material";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import { getFunctions, httpsCallable } from "firebase/functions";
 
-// 날짜 포맷팅 함수
-const formatDate = (dateString) => {
-  if (!dateString) return '날짜 없음';
+// Functions 리전 고정
+const functions = getFunctions(undefined, "asia-northeast3");
+
+// 상태 → 칩 색상 매핑
+const statusToChip = (status) => {
+  switch ((status || "").toLowerCase()) {
+    case "published":
+      return <Chip label="published" color="success" size="small" />;
+    case "scheduled":
+      return <Chip label="scheduled" color="info" size="small" />;
+    case "review":
+      return <Chip label="review" color="warning" size="small" />;
+    case "archived":
+      return <Chip label="archived" color="default" size="small" />;
+    case "draft":
+    default:
+      return <Chip label="draft" size="small" />;
+  }
+};
+
+// HTML → 텍스트 변환 (복사용)
+const htmlToText = (html) => {
+  if (!html) return "";
+  // 간단 파서: 태그 제거 + &nbsp; 등 디코딩
+  const tmp = document.createElement("div");
+  tmp.innerHTML = html;
+  const text = tmp.textContent || tmp.innerText || "";
+  return text.replace(/\u00A0/g, " ").trim();
+};
+
+// 날짜 포맷
+const fmt = (iso) => {
   try {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('ko-KR', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    if (!iso) return "-";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "-";
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+      d.getDate()
+    ).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(
+      2,
+      "0"
+    )}`;
   } catch {
-    return '날짜 오류';
+    return "-";
   }
 };
 
-// 글자수 계산 함수
-const calculateWordCount = (text) => {
-  if (!text) return 0;
-  const cleanText = text.replace(/<[^>]*>/g, '').replace(/\s/g, '');
-  return cleanText.length;
-};
+export default function PostsListPage() {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [current, setCurrent] = useState(null);
+  const [snack, setSnack] = useState({ open: false, severity: "info", msg: "" });
+  const [busyId, setBusyId] = useState(null);
 
-function PostsListPage() {
-  const navigate = useNavigate();
-  const { auth } = useAuth();
-  const { 
-    loading, 
-    getUserPosts, 
-    updatePost, 
-    setError 
-  } = usePostGenerator();
-
-  const [posts, setPosts] = useState([]);
-  const [localError, setLocalError] = useState(null); // 로컬 에러 상태 추가
-  const [selectedPost, setSelectedPost] = useState(null);
-  const [editDialog, setEditDialog] = useState(false);
-  const [viewDialog, setViewDialog] = useState(false);
-  const [editData, setEditData] = useState({ title: '', content: '' });
-  const [snackbar, setSnackbar] = useState({
-    open: false,
-    message: '',
-    severity: 'success'
-  });
-
-  // 포스트 목록 로드 - useCallback으로 감싸서 의존성 문제 해결
-  const loadPosts = useCallback(async () => {
+  const loadPosts = async () => {
+    setLoading(true);
     try {
-      const result = await getUserPosts();
-      if (result.success) {
-        setPosts(result.posts);
-        console.log('포스트 목록 로드 성공:', result.posts);
-      }
-    } catch (err) {
-      console.error('포스트 목록 로드 실패:', err);
-      setError('포스트 목록을 불러오는데 실패했습니다.');
+      const call = httpsCallable(functions, "getUserPosts");
+      const { data } = await call();
+      setRows(Array.isArray(data?.posts) ? data.posts : []);
+    } catch (e) {
+      console.error(e);
+      setSnack({ open: true, severity: "error", msg: "목록을 불러오지 못했습니다." });
+    } finally {
+      setLoading(false);
     }
-  }, [getUserPosts, setError]);
+  };
 
-  // 포스트 목록 로드
   useEffect(() => {
-    if (auth?.user?.id) {
-      loadPosts();
-    }
-  }, [auth?.user?.id, loadPosts]);
+    loadPosts();
+  }, []);
 
-  // 포스트 보기
-  const handleView = (post) => {
-    setSelectedPost(post);
-    setViewDialog(true);
+  const handleOpenViewer = (row) => {
+    setCurrent(row);
+    setViewerOpen(true);
   };
 
-  // 포스트 수정 시작
-  const handleEditStart = (post) => {
-    setSelectedPost(post);
-    setEditData({
-      title: post.title || '',
-      content: post.content || ''
-    });
-    setEditDialog(true);
+  const handleCloseViewer = () => {
+    setViewerOpen(false);
+    setCurrent(null);
   };
 
-  // 포스트 수정 저장
-  const handleEditSave = async () => {
-    if (!selectedPost || !editData.title.trim() || !editData.content.trim()) {
-      setSnackbar({
-        open: true,
-        message: '제목과 내용을 모두 입력해주세요.',
-        severity: 'error'
-      });
-      return;
-    }
-
+  const handleCopy = async (row) => {
     try {
-      const result = await updatePost(selectedPost.id, editData.title, editData.content);
-      if (result.success) {
-        setSnackbar({
-          open: true,
-          message: '포스트가 성공적으로 수정되었습니다.',
-          severity: 'success'
-        });
-        setEditDialog(false);
-        setSelectedPost(null);
-        // 목록 새로고침
-        await loadPosts();
-      }
-    } catch (err) {
-      console.error('포스트 수정 실패:', err);
-      setSnackbar({
-        open: true,
-        message: '포스트 수정에 실패했습니다: ' + (err.message || '알 수 없는 오류'),
-        severity: 'error'
-      });
+      const text = htmlToText(row?.content || "");
+      await navigator.clipboard.writeText(text);
+      setSnack({ open: true, severity: "success", msg: "본문을 클립보드에 복사했습니다." });
+    } catch (e) {
+      console.error(e);
+      setSnack({ open: true, severity: "error", msg: "복사에 실패했습니다." });
     }
   };
 
-  // 복사하기
-  const handleCopy = (content) => {
+  const handleDelete = async (row) => {
+    if (!row?.id) return;
+    const ok = window.confirm(`정말 삭제하시겠습니까?\n제목: ${row.title || "(제목 없음)"}`);
+    if (!ok) return;
+
+    setBusyId(row.id);
     try {
-      const cleanContent = content.replace(/<[^>]*>/g, '');
-      navigator.clipboard.writeText(cleanContent);
-      setSnackbar({
-        open: true,
-        message: '클립보드에 복사되었습니다!',
-        severity: 'success'
-      });
-    } catch (error) {
-      console.error('복사 실패:', error);
-      setSnackbar({
-        open: true,
-        message: '복사에 실패했습니다.',
-        severity: 'error'
-      });
+      const call = httpsCallable(functions, "deletePost");
+      await call({ postId: row.id });
+      setSnack({ open: true, severity: "success", msg: "삭제했습니다." });
+      // 로컬 목록에서 제거
+      setRows((prev) => prev.filter((p) => p.id !== row.id));
+      if (current?.id === row.id) handleCloseViewer();
+    } catch (e) {
+      console.error(e);
+      setSnack({ open: true, severity: "error", msg: "삭제에 실패했습니다." });
+    } finally {
+      setBusyId(null);
     }
   };
 
-  // 다이얼로그 닫기
-  const handleCloseDialogs = () => {
-    setEditDialog(false);
-    setViewDialog(false);
-    setSelectedPost(null);
-    setEditData({ title: '', content: '' });
-  };
-
-  // 스낵바 닫기
-  const handleCloseSnackbar = (event, reason) => {
-    if (reason === 'clickaway') {
-      return;
-    }
-    setSnackbar(prev => ({ ...prev, open: false }));
-  };
-
-  const renderPostList = () => {
-    if (loading) {
-      return (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-          <CircularProgress />
-        </Box>
-      );
-    }
-
-    if (localError) {
-      return <Alert severity="error" onClose={() => setLocalError(null)}>{localError}</Alert>;
-    }
-
-    if (posts.length === 0) {
-      return (
-        <Paper sx={{ p: 4, textAlign: 'center', color: 'text.secondary' }}>
-          <Typography variant="h6" gutterBottom>
-            저장된 포스트가 없습니다
-          </Typography>
-          <Typography variant="body2" sx={{ mb: 3 }}>
-            AI 원고 생성 페이지에서 초안을 저장해보세요.
-          </Typography>
-          <Button
-            variant="contained"
-            onClick={() => navigate('/generate')}
-          >
-            원고 생성하러 가기
-          </Button>
-        </Paper>
-      );
-    }
-
-    return (
-      <TableContainer component={Paper}>
-        <Table sx={{ minWidth: 650 }} aria-label="posts table">
-          <TableHead>
-            <TableRow>
-              <TableCell>제목</TableCell>
-              <TableCell>카테고리</TableCell>
-              <TableCell align="center">글자수</TableCell>
-              <TableCell align="center">최종 수정일</TableCell>
-              <TableCell align="center">상태</TableCell>
-              <TableCell align="center">작업</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {posts.map((post) => (
-              <TableRow 
-                key={post.id} 
-                hover 
-                sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
-              >
-                <TableCell 
-                  component="th" 
-                  scope="row" 
-                  onClick={() => handleView(post)} 
-                  sx={{ cursor: 'pointer', fontWeight: 500 }}
-                >
-                  {post.title || '제목 없음'}
-                </TableCell>
-                <TableCell>
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Chip 
-                      label={post.category || '일반'} 
-                      size="small" 
-                      color="primary" 
-                      variant="outlined" 
-                    />
-                    {post.subCategory && (
-                      <Chip 
-                        label={post.subCategory} 
-                        size="small" 
-                        variant="outlined" 
-                      />
-                    )}
-                  </Box>
-                </TableCell>
-                <TableCell align="center">
-                  {calculateWordCount(post.content)}자
-                </TableCell>
-                <TableCell align="center">
-                  {formatDate(post.createdAt)}
-                </TableCell>
-                <TableCell align="center">
-                  <Chip 
-                    label={post.status || 'draft'} 
-                    size="small" 
-                    color={post.status === 'published' ? 'success' : 'default'}
-                  />
-                </TableCell>
-                <TableCell align="center">
-                  <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
-                    <IconButton 
-                      onClick={() => handleView(post)} 
-                      size="small" 
-                      title="보기"
-                    >
-                      <VisibilityIcon />
-                    </IconButton>
-                    <IconButton 
-                      onClick={() => handleEditStart(post)} 
-                      size="small" 
-                      title="수정"
-                    >
-                      <EditIcon />
-                    </IconButton>
-                    <IconButton 
-                      onClick={() => handleCopy(post.content)} 
-                      size="small" 
-                      title="복사"
-                    >
-                      <ContentCopyIcon />
-                    </IconButton>
-                  </Box>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-    );
-  };
-
-  // 인증되지 않은 사용자 처리
-  if (!auth?.user?.id) {
-    return (
-      <DashboardLayout title="포스트 목록">
-        <Container maxWidth="lg">
-          <Alert severity="error">
-            사용자 정보를 불러올 수 없습니다. 다시 로그인해주세요.
-          </Alert>
-        </Container>
-      </DashboardLayout>
-    );
-  }
+  const empty = useMemo(() => !loading && rows.length === 0, [loading, rows]);
 
   return (
-    <DashboardLayout title="포스트 목록">
-      <Container maxWidth="lg">
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Typography variant="h4" gutterBottom component="div">
-            내 포스트
-          </Typography>
-          <Button 
-            variant="contained" 
-            onClick={() => navigate('/generate')}
-          >
-            새 포스트 생성
-          </Button>
-        </Box>
-        
-        {renderPostList()}
+    <Box sx={{ p: 0 }}>
+      <Typography variant="h5" sx={{ mb: 2 }}>
+        포스트 목록
+      </Typography>
 
-        {/* 포스트 보기 다이얼로그 */}
-        <Dialog 
-          open={viewDialog} 
-          onClose={handleCloseDialogs}
-          maxWidth="md"
-          fullWidth
-        >
-          <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6">
-              {selectedPost?.title || '제목 없음'}
-            </Typography>
-            <IconButton onClick={handleCloseDialogs}>
-              <CloseIcon />
-            </IconButton>
-          </DialogTitle>
-          <DialogContent dividers>
-            <Box sx={{ mb: 2 }}>
-              <Chip label={selectedPost?.category || '일반'} size="small" sx={{ mr: 1 }} />
-              {selectedPost?.subCategory && (
-                <Chip label={selectedPost.subCategory} size="small" sx={{ mr: 1 }} />
-              )}
-              <Chip 
-                label={`${calculateWordCount(selectedPost?.content)}자`} 
-                size="small" 
-              />
-            </Box>
-            <Box 
-              sx={{ 
-                fontSize: '1rem',
-                lineHeight: 1.6,
-                '& p': { margin: '0.5rem 0' }
-              }}
-              dangerouslySetInnerHTML={{ __html: selectedPost?.content || '' }}
-            />
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => handleCopy(selectedPost?.content)} startIcon={<ContentCopyIcon />}>
-              복사
-            </Button>
-            <Button onClick={() => handleEditStart(selectedPost)} startIcon={<EditIcon />}>
-              수정
-            </Button>
-            <Button onClick={handleCloseDialogs}>
-              닫기
-            </Button>
-          </DialogActions>
-        </Dialog>
+      <Paper variant="outlined">
+        {loading ? (
+          <Box sx={{ p: 6, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <CircularProgress />
+          </Box>
+        ) : empty ? (
+          <Box sx={{ p: 6, textAlign: "center", color: "text.secondary" }}>
+            등록된 원고가 없습니다.
+          </Box>
+        ) : (
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ width: 56 }} />
+                <TableCell>제목</TableCell>
+                <TableCell>상태</TableCell>
+                <TableCell>작성</TableCell>
+                <TableCell>수정</TableCell>
+                <TableCell align="right" sx={{ width: 120 }}>
+                  작업
+                </TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {rows.map((row) => (
+                <TableRow
+                  key={row.id}
+                  hover
+                  sx={{ cursor: "pointer" }}
+                  onClick={() => handleOpenViewer(row)} // 👈 행 클릭으로 보기
+                >
+                  <TableCell>
+                    {/* 썸네일 자리 비워둠 */}
+                  </TableCell>
+                  <TableCell sx={{ maxWidth: 560 }}>
+                    <Typography variant="body1" noWrap title={row.title || ""}>
+                      {row.title || "제목 없음"}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>{statusToChip(row.status)}</TableCell>
+                  <TableCell>{fmt(row.createdAt)}</TableCell>
+                  <TableCell>{fmt(row.updatedAt)}</TableCell>
+                  <TableCell
+                    align="right"
+                    onClick={(e) => e.stopPropagation()} // 행 클릭과 분리
+                  >
+                    <Stack direction="row" spacing={1} justifyContent="flex-end">
+                      {/* 👇 보기(눈) 버튼 제거, 복사 + 삭제만 남김 */}
+                      <Tooltip title="본문 복사">
+                        <span>
+                          <IconButton size="small" onClick={() => handleCopy(row)}>
+                            <ContentCopyIcon fontSize="small" />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                      <Tooltip title="삭제">
+                        <span>
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => handleDelete(row)}
+                            disabled={busyId === row.id}
+                          >
+                            {busyId === row.id ? (
+                              <CircularProgress size={18} />
+                            ) : (
+                              <DeleteOutlineIcon fontSize="small" />
+                            )}
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    </Stack>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </Paper>
 
-        {/* 포스트 수정 다이얼로그 */}
-        <Dialog 
-          open={editDialog} 
-          onClose={handleCloseDialogs}
-          maxWidth="md"
-          fullWidth
-        >
-          <DialogTitle>포스트 수정</DialogTitle>
-          <DialogContent dividers>
-            <TextField
-              fullWidth
-              label="제목"
-              value={editData.title}
-              onChange={(e) => setEditData(prev => ({ ...prev, title: e.target.value }))}
-              sx={{ mb: 2 }}
-            />
-            <TextField
-              fullWidth
-              multiline
-              rows={10}
-              label="내용"
-              value={editData.content.replace(/<[^>]*>/g, '')} // HTML 태그 제거하여 표시
-              onChange={(e) => setEditData(prev => ({ ...prev, content: e.target.value }))}
-            />
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCloseDialogs}>
-              취소
-            </Button>
-            <Button 
-              onClick={handleEditSave} 
-              variant="contained" 
-              startIcon={<SaveIcon />}
-              disabled={loading}
-            >
-              저장
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* 스낵바 */}
-        <Snackbar
-          open={snackbar.open}
-          autoHideDuration={4000}
-          onClose={handleCloseSnackbar}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-        >
-          <Alert 
-            onClose={handleCloseSnackbar} 
-            severity={snackbar.severity}
-            sx={{ width: '100%' }}
-          >
-            {snackbar.message}
+      {/* 읽기 전용 보기 다이얼로그 */}
+      <Dialog open={viewerOpen} onClose={handleCloseViewer} fullWidth maxWidth="md">
+        <DialogTitle>원고 보기</DialogTitle>
+        <DialogContent dividers>
+          {/* 안내 문구 */}
+          <Alert severity="info" sx={{ mb: 2 }}>
+            이 화면은 <strong>읽기 전용</strong>입니다. 내용을 수정하려면 아래 <b>복사</b> 버튼으로
+            클립보드에 복사한 뒤, 메모장 등 외부 편집기에서 수정하세요.
           </Alert>
-        </Snackbar>
-      </Container>
-    </DashboardLayout>
+
+          <Typography variant="h6" sx={{ mb: 1 }}>
+            {current?.title || "제목 없음"}
+          </Typography>
+
+          {/* 본문: HTML 그대로 표시 (읽기 전용) */}
+          <Box
+            sx={{
+              border: "1px solid",
+              borderColor: "divider",
+              borderRadius: 1,
+              p: 2,
+              minHeight: 200,
+              "& img": { maxWidth: "100%" },
+              "& p": { m: 0, mb: 1.2 },
+            }}
+            dangerouslySetInnerHTML={{ __html: current?.content || "<p>(내용 없음)</p>" }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseViewer}>닫기</Button>
+          <Button
+            variant="contained"
+            onClick={() => current && handleCopy(current)}
+            startIcon={<ContentCopyIcon />}
+          >
+            본문 복사
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar
+        open={snack.open}
+        autoHideDuration={2200}
+        onClose={() => setSnack((s) => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert
+          severity={snack.severity}
+          onClose={() => setSnack((s) => ({ ...s, open: false }))}
+          sx={{ width: "100%" }}
+        >
+          {snack.msg}
+        </Alert>
+      </Snackbar>
+    </Box>
   );
 }
-
-export default PostsListPage;
