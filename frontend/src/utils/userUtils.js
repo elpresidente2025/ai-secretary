@@ -10,11 +10,7 @@ export const getUserDisplayTitle = (user) => {
     return '';
   }
 
-  // 규칙 1: 사용자가 'admin' 역할일 경우, 다른 모든 규칙을 무시하고 '관리자'를 반환합니다.
-  if (user.role === 'admin') {
-    return '관리자';
-  }
-
+  // ✅ 변경사항: 관리자도 동일 규칙 적용 (더 이상 '관리자'로 고정하지 않음)
   const { position, regionMetro, regionLocal, status } = user;
 
   // 직책 정보가 없으면 빈 문자열 반환
@@ -25,54 +21,40 @@ export const getUserDisplayTitle = (user) => {
   // 🔥 기본 직책 호칭 결정
   let baseTitle = '';
 
-  // 규칙 2: 직책이 '국회의원'일 경우
+  // 규칙: 직책별 호칭
   if (position === '국회의원') {
     baseTitle = '국회의원';
-  }
-  // 규칙 3: 직책이 '광역의원'일 경우
-  else if (position === '광역의원') {
+  } else if (position === '광역의원') {
     if (!regionMetro) {
-      baseTitle = '광역의원'; // 지역 정보가 없는 경우
-    } else if (regionMetro.endsWith('시')) {
-      // 특별시, 광역시, 특별자치시의 경우 '시의원'
+      baseTitle = '광역의원';
+    } else if (String(regionMetro).endsWith('시')) {
       baseTitle = '시의원';
-    } else if (regionMetro.endsWith('도')) {
-      // 일반 도, 특별자치도의 경우 '도의원'
+    } else if (String(regionMetro).endsWith('도')) {
       baseTitle = '도의원';
     } else {
-      // 예외 케이스 (향후 새로운 행정구역 형태를 위해)
       baseTitle = '광역의원';
     }
-  }
-  // 규칙 4: 직책이 '기초의원'일 경우
-  else if (position === '기초의원') {
+  } else if (position === '기초의원') {
     if (!regionLocal) {
-      baseTitle = '기초의원'; // 지역 정보가 없는 경우
-    } else if (regionLocal.endsWith('시')) {
-      // 일반시, 특례시의 경우 '시의원'
+      baseTitle = '기초의원';
+    } else if (String(regionLocal).endsWith('시')) {
       baseTitle = '시의원';
-    } else if (regionLocal.endsWith('구')) {
-      // 자치구의 경우 '구의원'
+    } else if (String(regionLocal).endsWith('구')) {
       baseTitle = '구의원';
-    } else if (regionLocal.endsWith('군')) {
-      // 군의 경우 '군의원'
+    } else if (String(regionLocal).endsWith('군')) {
       baseTitle = '군의원';
     } else {
-      // 예외 케이스 처리
       baseTitle = '기초의원';
     }
-  }
-  // 위의 규칙에 해당하지 않는 경우, 원래 직책명을 그대로 사용
-  else {
-    baseTitle = position;
+  } else {
+    baseTitle = position; // 기타 직책은 원문 사용
   }
 
-  // 🔥 규칙 5: 현역/예비 상태에 따른 최종 호칭 결정
+  // 🔥 현역/예비 상태 반영
   if (status === '예비') {
     return `${baseTitle} 후보`;
   } else {
-    // status가 '현역'이거나 설정되지 않은 경우 기본 호칭 사용
-    return baseTitle;
+    return baseTitle; // 현역/미지정은 기본 호칭
   }
 };
 
@@ -90,7 +72,7 @@ export const getUserFullTitle = (user) => {
 
   const name = user.name || '이름 없음';
   const displayTitle = getUserDisplayTitle(user);
-  
+
   if (displayTitle) {
     return `${name} ${displayTitle}님`;
   } else {
@@ -111,7 +93,7 @@ export const getUserRegionInfo = (user) => {
 
   const { regionMetro, regionLocal, electoralDistrict } = user;
   const regions = [regionMetro, regionLocal, electoralDistrict].filter(Boolean);
-  
+
   return regions.length > 0 ? regions.join(' > ') : '';
 };
 
@@ -126,19 +108,16 @@ export const getUserPositionColor = (user) => {
     return 'default';
   }
 
-  if (user.role === 'admin') {
-    return 'error'; // 빨간색
-  }
-
+  // ✅ 변경사항: 관리자 전용 색상 제거(다른 규칙과 동일)
   switch (user.position) {
     case '국회의원':
-      return 'primary'; // 파란색
+      return 'primary';   // 파란색
     case '광역의원':
       return 'secondary'; // 보라색
     case '기초의원':
-      return 'success'; // 초록색
+      return 'success';   // 초록색
     default:
-      return 'default'; // 회색
+      return 'default';   // 회색
   }
 };
 
@@ -153,6 +132,7 @@ export const getUserStatusIcon = (user) => {
     return '👤';
   }
 
+  // ✅ 요구사항: 관리자만 아이콘을 왕관으로 고정
   if (user.role === 'admin') {
     return '👑';
   }

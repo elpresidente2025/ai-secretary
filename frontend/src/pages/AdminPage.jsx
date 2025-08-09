@@ -1,148 +1,125 @@
-import React, { useState, useEffect } from 'react';
+// frontend/src/pages/AdminPage.jsx
+import React, { useEffect, useState, useCallback } from 'react';
 import {
-  Typography,
-  Paper,
-  Container,
-  Grid,
-  Box,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  CircularProgress,
-  Alert,
-  Chip
+  Box, Container, Paper, Typography, TextField, Button,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  CircularProgress, Alert, Snackbar, Stack
 } from '@mui/material';
-import { httpsCallable } from 'firebase/functions';
 import DashboardLayout from '../components/DashboardLayout';
-import { functions } from '../config/firebase';
+import { useAuth } from '../hooks/useAuth';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 
-// 역할(role)에 대한 정의
-const ROLE_DEFINITIONS = {
-  admin: { label: '👑 관리자', color: 'error' },
-  opinion_leader: { label: '👑 오피니언 리더', color: 'warning' },
-  region_influencer: { label: '🌆 리전 인플루언서', color: 'info' },
-  local_blogger: { label: '📝 로컬 블로거', color: 'success' },
-  user: { label: '👤 일반 사용자', color: 'default' }
-};
+const functions = getFunctions(undefined, 'asia-northeast3');
 
-function AdminPage() {
+export default function AdminPage() {
+  const { auth } = useAuth();
+  const [search, setSearch] = useState('');
   const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [page] = useState(1);
+  const [pageSize] = useState(50);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState('');
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setErr('');
+    try {
+      const call = httpsCallable(functions, 'getUserList');
+      const { data } = await call({ page, pageSize, query: search.trim() });
+      setUsers(data.users || []);
+    } catch (e) {
+      console.error(e);
+      setErr('사용자 목록을 불러오지 못했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  }, [page, pageSize, search]);
 
   useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        // Firebase Functions 호출
-        const getUserList = httpsCallable(functions, 'getUserList');
-        const result = await getUserList();
-        
-        setUsers(result.data.users || []);
-      } catch (err) {
-        console.error('사용자 목록 조회 실패:', err);
-        setError(err.message || '사용자 목록을 불러오는 데 실패했습니다.');
-      } finally {
-        setLoading(false);
-      }
-    };
+    load();
+  }, [load]);
 
-    fetchUsers();
-  }, []);
-
-  const getRoleChipProps = (role) => {
-    return ROLE_DEFINITIONS[role] || { label: role || '미정', color: 'default' };
-  };
-
-  const renderUserList = () => {
-    if (loading) {
-      return (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-          <CircularProgress />
-        </Box>
-      );
-    }
-
-    if (error) {
-      return <Alert severity="error">{error}</Alert>;
-    }
-
-    if (users.length === 0) {
-      return <Alert severity="info">등록된 사용자가 없습니다.</Alert>;
-    }
-
+  if (!auth?.user) {
     return (
-      <TableContainer component={Paper}>
-        <Table sx={{ minWidth: 650 }} aria-label="사용자 목록">
-          <TableHead>
-            <TableRow>
-              <TableCell>ID</TableCell>
-              <TableCell>이름</TableCell>
-              <TableCell>이메일</TableCell>
-              <TableCell>직책</TableCell>
-              <TableCell>지역</TableCell>
-              <TableCell>역할</TableCell>
-              <TableCell>가입일</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {users.map((user) => (
-              <TableRow key={user.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                <TableCell>{user.id}</TableCell>
-                <TableCell component="th" scope="row">{user.name || '-'}</TableCell>
-                <TableCell>{user.email || '-'}</TableCell>
-                <TableCell>{user.position || '-'}</TableCell>
-                <TableCell>
-                  {[user.regionMetro, user.regionLocal, user.electoralDistrict]
-                    .filter(Boolean)
-                    .join(' > ') || '-'}
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    label={getRoleChipProps(user.role).label}
-                    color={getRoleChipProps(user.role).color}
-                    size="small" 
-                  />
-                </TableCell>
-                <TableCell>
-                  {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '-'}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+      <DashboardLayout title="관리자">
+        <Container maxWidth="lg">
+          <Alert severity="error" sx={{ mt: 4 }}>로그인이 필요합니다.</Alert>
+        </Container>
+      </DashboardLayout>
     );
-  };
+  }
 
   return (
-    <DashboardLayout title="관리자 페이지">
-      <Container maxWidth="lg">
-        <Typography variant="h4" gutterBottom>
-          시스템 관리
-        </Typography>
-        <Typography paragraph color="text.secondary">
-          등록된 사용자 목록을 확인할 수 있습니다.
-        </Typography>
-        
-        <Grid container spacing={3}>
-          <Grid item xs={12}>
-            <Paper sx={{ p: 2 }}>
-              <Typography variant="h6" gutterBottom>
-                사용자 목록
-              </Typography>
-              {renderUserList()}
-            </Paper>
-          </Grid>
-        </Grid>
+    <DashboardLayout title="관리자: 사용자 목록">
+      <Container maxWidth="lg" sx={{ py: 3 }}>
+        <Paper sx={{ p: 3, mb: 3 }}>
+          <Stack direction="row" spacing={2} alignItems="center">
+            <Typography variant="h6" sx={{ flexGrow: 1 }}>사용자 목록</Typography>
+            <TextField
+              size="small"
+              placeholder="이름/이메일 검색"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') load(); }}
+            />
+            <Button variant="contained" onClick={load} disabled={loading}>
+              {loading ? <CircularProgress size={20} /> : '검색/새로고침'}
+            </Button>
+          </Stack>
+        </Paper>
+
+        <Paper>
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>이름</TableCell>
+                  <TableCell>이메일</TableCell>
+                  <TableCell>직책</TableCell>
+                  <TableCell>지역</TableCell>
+                  <TableCell>선거구</TableCell>
+                  <TableCell>상태</TableCell>
+                  <TableCell>활성화</TableCell>
+                  <TableCell>관리자</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {users.map((u) => (
+                  <TableRow key={u.id} hover>
+                    <TableCell>{u.name || '-'}</TableCell>
+                    <TableCell>{u.email || '-'}</TableCell>
+                    <TableCell>{u.position || '-'}</TableCell>
+                    <TableCell>{[u.regionMetro, u.regionLocal].filter(Boolean).join(' ') || '-'}</TableCell>
+                    <TableCell>{u.electoralDistrict || '-'}</TableCell>
+                    <TableCell>{u.status || '-'}</TableCell>
+                    <TableCell>{u.isActive ? '✅' : '❌'}</TableCell>
+                    <TableCell>{u.isAdmin ? '✅' : '—'}</TableCell>
+                  </TableRow>
+                ))}
+                {!loading && users.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={8} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                      검색 결과가 없습니다.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          {loading && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
+              <CircularProgress />
+            </Box>
+          )}
+        </Paper>
+
+        <Snackbar
+          open={!!err}
+          autoHideDuration={5000}
+          onClose={() => setErr('')}
+          message={err}
+        />
       </Container>
     </DashboardLayout>
   );
 }
-
-export default AdminPage;

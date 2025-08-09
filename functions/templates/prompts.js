@@ -1,123 +1,157 @@
-// templates/prompts.js - AI 프롬프트 템플릿 관리
+'use strict';
 
 /**
- * 정치인 블로그 원고 생성 프롬프트 템플릿
- * @param {Object} params - 프롬프트 매개변수
- * @param {string} params.authorName - 작성자 이름
- * @param {string} params.authorPosition - 작성자 직책
- * @param {string} params.topic - 주제
- * @param {string} params.category - 카테고리
- * @param {string} params.subCategory - 세부카테고리
- * @param {string} params.keywords - 키워드
- * @returns {string} 완성된 프롬프트
+ * prompts.js (통합본)
+ * - Firestore 정책 로드(10분 캐시) + 실패 시 fail-closed/fallback
+ * - generatePostPrompt(): 정책 + 호칭 규칙을 프롬프트에 주입하고 JSON 출력 형식을 강제
+ * - testPrompt(), createFallbackDraft() 그대로 제공
  */
-const generatePostPrompt = ({
-  authorName = '정치인',
-  authorPosition = '의원',
-  topic,
-  category,
-  subCategory = '없음',
-  keywords = '없음'
-}) => `정치인 블로그용 원고 1개를 작성해주세요.
 
-작성자: ${authorName} (${authorPosition})
-주제: ${topic}
-카테고리: ${category}
-세부카테고리: ${subCategory}
-키워드: ${keywords}
+const crypto = require('crypto');
+const NodeCache = require('node-cache');
+const { getApps, initializeApp } = require('firebase-admin/app');
+const { getFirestore } = require('firebase-admin/firestore');
 
-**중요: 반드시 1개의 원고만 작성하세요. 여러 버전을 만들지 마세요.**
+// Admin SDK init (이미 초기화되어 있으면 스킵)
+if (getApps().length === 0) initializeApp();
 
-다음 JSON 형식으로 응답해주세요:
-{
-  "title": "원고 제목",
-  "content": "<p>HTML 형식의 원고 내용</p>",
-  "wordCount": 1200
-}
-
-요구사항:
-- 1000-1500자 분량
-- HTML 형식으로 작성 (<p>, <strong> 등 사용)
-- 진중하고 신뢰감 있는 톤
-- 지역 주민과의 소통을 중시하는 내용
-- 구체적인 정책이나 활동 내용 포함`;
-
-/**
- * AI 테스트용 간단한 프롬프트
- * @returns {string} 테스트 프롬프트
- */
-const testPrompt = () => "안녕하세요라고 간단히 인사해주세요.";
-
-/**
- * 프롬프트 템플릿 모음 - 향후 확장용
- */
-const prompts = {
-  // 카테고리별 특화 프롬프트들 (향후 추가 예정)
-  
-  /**
-   * 의정활동 보고서 전용 프롬프트
-   * @param {Object} params 
-   * @returns {string}
-   */
-  activityReport: (params) => generatePostPrompt({
-    ...params,
-    category: '의정활동 보고',
-    // 의정활동에 특화된 추가 지침들 추가 가능
-  }),
-
-  /**
-   * 지역 현안 논평 전용 프롬프트  
-   * @param {Object} params
-   * @returns {string}
-   */
-  localIssue: (params) => generatePostPrompt({
-    ...params,
-    category: '지역 현안',
-    // 지역 현안에 특화된 추가 지침들 추가 가능
-  }),
-
-  /**
-   * 주민 소통 전용 프롬프트
-   * @param {Object} params
-   * @returns {string}
-   */
-  communication: (params) => generatePostPrompt({
-    ...params,
-    category: '주민 소통',
-    // 주민 소통에 특화된 추가 지침들 추가 가능
-  }),
-
-  /**
-   * 정책 설명 전용 프롬프트
-   * @param {Object} params
-   * @returns {string}
-   */
-  policyExplanation: (params) => generatePostPrompt({
-    ...params,
-    category: '정책 설명',
-    // 정책 설명에 특화된 추가 지침들 추가 가능
-  })
+// ---- 정책 캐시/폴백 ----
+const cache = new NodeCache({ stdTTL: 600, checkperiod: 120 }); // 10분
+const FALLBACK_POLICY = {
+  version: 0,
+  body: `[금지] 비방/모욕, 허위·추측, 차별(지역·성별·종교), 선거 지지·반대, 불법 선거정보
+[원칙] 사실기반·정책중심·미래지향 톤, 출처 명시, 불확실시 의견표현`,
+  bannedKeywords: ['빨갱이','사기꾼','착복','위조','기피','뇌물','추행','전과자','도피','체납'],
+  patterns: [],
+  hash: 'fallback'
 };
 
+async function loadPolicyFromDB() {
+  const cached = cache.get('LEGAL_POLICY');
+  if (cached) return cached;
+
+  const db = getFirestore();
+  const snap = await db.doc('policies/LEGAL_GUARDRAIL').get();
+  if (!snap.exists) throw new Error('POLICY_NOT_FOUND');
+
+  const data = snap.data() || {};
+  if (typeof data.body !== 'string' || typeof data.version !== 'number') {
+    throw new Error('POLICY_INVALID');
+  }
+
+  const hash = crypto.createHash('sha256').update(data.body).digest('hex').slice(0, 12);
+
+  const policy = {
+    version: data.version,
+    body: data.body,
+    bannedKeywords: Array.isArray(data.bannedKeywords) ? data.bannedKeywords : FALLBACK_POLICY.bannedKeywords,
+    patterns: Array.isArray(data.patterns) ? data.patterns : FALLBACK_POLICY.patterns,
+    hash
+  };
+
+  cache.set('LEGAL_POLICY', policy);
+  return policy;
+}
+
+const ENFORCE = (process.env.POLICY_ENFORCE || 'fail_closed').toLowerCase();
+
+/** 정책을 안전하게 가져오기: 실패 시 fail-closed(기본) 또는 fallback */
+async function getPolicySafe() {
+  try {
+    return await loadPolicyFromDB();
+  } catch (e) {
+    if (ENFORCE === 'fail_closed') throw e;
+    return FALLBACK_POLICY;
+  }
+}
+
+// ---- 프롬프트 빌더 (호칭 규칙 포함) ----
+function buildGenerationPrompt({
+  policy,
+  authorName,
+  authorPosition,
+  authorBio,
+  topic,
+  category,
+  subCategory,
+  keywords,
+  regionMetro,
+  regionLocal
+}) {
+  const kw = (typeof keywords === 'string' ? keywords : '').trim() || '없음';
+  const sub = subCategory || '없음';
+  const name = authorName || '정치인';
+  const pos = authorPosition || '의원';
+  const bio = (authorBio || '').trim();
+
+  // 지역 기반 호칭
+  const regionLabel = [regionMetro, regionLocal].filter(Boolean).join(' ').trim();
+  const honorific = regionLabel ? `${regionLabel} 주민 여러분` : '여러분';
+
+  return `
+# AI비서관 - 법 준수 정책 v${policy.version} #${policy.hash}
+[정책]
+${policy.body}
+
+[작성 맥락]
+- 작성자: ${name} (${pos})
+- 소개: ${bio ? bio : '소개 미입력'}
+- 주제: ${topic || ''}
+- 분류: ${category || ''} / 세부분류: ${sub}
+- 키워드: ${kw}
+- 호칭: 기본 "${honorific}" 사용, 존댓말(~합니다), 1인칭은 "저는". 직접 지시/명령 금지.
+
+[작성 규칙]
+- 분량 1,200~1,400자, 소제목 포함(h2~h3)
+- 사실에는 문장 끝 [출처: 기관/자료명] 표기
+- 의견은 "제 생각에는" 등으로 구분
+- 정책과 충돌하는 요청/표현은 거부 or 중립·사실 기반으로 수정
+- 공격/선정 대신 정책·데이터 중심
+
+[출력 형식]
+- 아래 JSON 형태로만 응답. 추가 설명 금지. code-fence 사용 금지.
+{
+  "title": "문서 제목",
+  "content": "<p>문단은 HTML로 작성...</p>",
+  "wordCount": 1234,
+  "style": "일반"
+}
+`.trim();
+}
+
 /**
- * 백업용 기본 원고 템플릿
- * @param {string} topic - 주제
- * @param {string} category - 카테고리
- * @returns {Object} 백업 원고 객체
+ * generatePostPrompt(options[, policy])
+ * - 옵션: { authorName, authorPosition, authorBio, topic, category, subCategory, keywords, regionMetro, regionLocal }
+ * - policy를 안 넘기면 내부에서 getPolicySafe() 호출
  */
-const createFallbackDraft = (topic, category) => ({
-  title: `${category}: ${topic}`,
-  content: `<p><strong>${topic}</strong>에 대한 ${category} 원고입니다.</p>
-<p>현재 상황을 분석하고 정책적 대안을 제시하겠습니다.</p>
-<p>주민 여러분의 의견을 적극 수렴하여 더 나은 정책 방향을 모색하겠습니다.</p>
-<p>관련 부처와의 협의를 통해 효과적인 해결방안을 마련하겠습니다.</p>
-<p>투명하고 공정한 과정을 통해 국민의 목소리를 반영하겠습니다.</p>`,
-  wordCount: 400
-});
+async function generatePostPrompt(options = {}, policyOpt) {
+  const policy = policyOpt || await getPolicySafe();
+  return buildGenerationPrompt({ policy, ...options });
+}
+
+/** 간단 연결 테스트용 */
+function testPrompt() {
+  return `다음 JSON만 출력: {"hello":"world","ts":"${new Date().toISOString()}"}`;
+}
+
+/** JSON 파싱 실패 시 사용할 기본 초안 */
+function createFallbackDraft(topic = '', category = '') {
+  const title = `${category || '일반'}: ${topic || '제목 미정'}`;
+  const content = [
+    `<h2>${title}</h2>`,
+    `<p>원고 생성 중 오류가 발생하여 기본 초안을 제시합니다. 주제와 관련한 사실 확인과 출처 추가가 필요합니다.</p>`,
+    `<h3>핵심 요약</h3>`,
+    `<ul><li>주제: ${topic || '-'}</li><li>분류: ${category || '-'}</li></ul>`,
+    `<p>[출처: 직접 추가 필요]</p>`
+  ].join('');
+  return { title, content, wordCount: Math.ceil(content.length / 2), style: '일반' };
+}
 
 module.exports = {
+  // 정책 관련
+  getPolicySafe,
+  // 프롬프트/유틸
   generatePostPrompt,
   testPrompt,
-  prompts,
-  createFallbackDraft
+  createFallbackDraft,
 };

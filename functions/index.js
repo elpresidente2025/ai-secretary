@@ -1,13 +1,17 @@
 // functions/index.js
-
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { setGlobalOptions } = require('firebase-functions/v2');
 const { defineSecret } = require('firebase-functions/params');
 const admin = require('firebase-admin');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-// 🎯 프롬프트 템플릿
-const { generatePostPrompt, testPrompt, createFallbackDraft } = require('./templates/prompts');
+// 🎯 프롬프트/정책 유틸 (호칭 규칙 포함)
+const {
+  generatePostPrompt,   // async
+  testPrompt,
+  createFallbackDraft,
+  getPolicySafe,        // 정책 강제 로드
+} = require('./templates/prompts');
 
 // 🔐 Gemini API 키 (Firebase Secrets)
 const geminiApiKey = defineSecret('GEMINI_API_KEY');
@@ -19,7 +23,10 @@ setGlobalOptions({
   timeoutSeconds: 540,
 });
 
-admin.initializeApp();
+// ✅ 중복 초기화 가드
+if (admin.apps.length === 0) {
+  admin.initializeApp();
+}
 const db = admin.firestore();
 
 const functionOptions = {
@@ -58,6 +65,28 @@ const AI_MODELS = [
   { name: 'gemini-1.5-pro', priority: 2 },
   { name: 'gemini-pro', priority: 3 },
 ];
+
+// 표시용 직함(프론트 userUtils와 동일 컨셉)
+function getDisplayTitleFromProfile(p = {}) {
+  const { position, regionMetro, regionLocal, status } = p || {};
+  let base = '';
+  if (position === '국회의원') base = '국회의원';
+  else if (position === '광역의원') {
+    if (!regionMetro) base = '광역의원';
+    else if (String(regionMetro).endsWith('시')) base = '시의원';
+    else if (String(regionMetro).endsWith('도')) base = '도의원';
+    else base = '광역의원';
+  } else if (position === '기초의원') {
+    if (!regionLocal) base = '기초의원';
+    else if (String(regionLocal).endsWith('시')) base = '시의원';
+    else if (String(regionLocal).endsWith('구')) base = '구의원';
+    else if (String(regionLocal).endsWith('군')) base = '군의원';
+    else base = '기초의원';
+  } else {
+    base = position || '';
+  }
+  return status === '예비' && base ? `${base} 후보` : base;
+}
 
 async function callGeminiWithBackup(prompt) {
   const genAI = new GoogleGenerativeAI(geminiApiKey.value());
@@ -134,7 +163,58 @@ async function callGeminiWithBackup(prompt) {
   throw new HttpsError('unavailable', 'AI 서비스에 일시적 문제가 발생했습니다. 잠시 후 다시 시도해주세요.');
 }
 
-// ------------------------ Functions ------------------------
+// ------------------------ 관리자: 사용자 목록 ------------------------
+exports.getUserList = wrap(async (req) => {
+  const { uid, token } = auth(req);
+  const { page = 1, pageSize = 50, query = '' } = req.data || {};
+
+  // 관리자 권한 확인
+  let isAdmin = !!token?.admin;
+  if (!isAdmin) {
+    const meDoc = await db.collection('users').doc(uid).get();
+    const me = meDoc.exists ? meDoc.data() : {};
+    isAdmin = me?.isAdmin === true || me?.role === 'admin';
+  }
+  if (!isAdmin) throw new HttpsError('permission-denied', '관리자만 접근 가능합니다.');
+
+  const snap = await db
+    .collection('users')
+    .orderBy('updatedAt', 'desc')
+    .limit(pageSize)
+    .offset(Math.max(0, (page - 1) * pageSize))
+    .get();
+
+  let users = snap.docs.map((d) => {
+    const data = d.data() || {};
+    return {
+      id: d.id,
+      email: data.email || '',
+      name: data.name || '',
+      position: data.position || '',
+      regionMetro: data.regionMetro || '',
+      regionLocal: data.regionLocal || '',
+      electoralDistrict: data.electoralDistrict || '',
+      status: data.status || '현역',
+      isActive: !!data.isActive,
+      isAdmin: !!data.isAdmin || data.role === 'admin',
+      updatedAt: data.updatedAt?.toDate?.()?.toISOString() || null,
+      createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
+    };
+  });
+
+  if (query && typeof query === 'string') {
+    const qLower = query.toLowerCase();
+    users = users.filter(
+      (u) =>
+        u.email.toLowerCase().includes(qLower) ||
+        (u.name || '').toLowerCase().includes(qLower)
+    );
+  }
+
+  return ok({ users, page, pageSize, count: users.length });
+});
+
+// ------------------------ 기존 함수들 ------------------------
 
 // 대시보드
 exports.getDashboardData = wrap(async (req) => {
@@ -169,7 +249,7 @@ exports.getDashboardData = wrap(async (req) => {
   }
 });
 
-// 프로필 조회 (✅ bio & isActive 포함)
+// 프로필 조회
 exports.getUserProfile = wrap(async (req) => {
   const { uid, token } = auth(req);
   log('PROFILE', 'getUserProfile 호출', uid);
@@ -185,12 +265,11 @@ exports.getUserProfile = wrap(async (req) => {
     regionLocal: '',
     electoralDistrict: '',
     status: '현역',
-    bio: '',         // ✅ 자기소개
-    isActive: false, // ✅ 활성화 여부
+    bio: '',
+    isActive: false,
     ...fromDb,
   };
 
-  // 과거 데이터 호환
   if (profile.isActive === undefined || profile.isActive === null) {
     profile.isActive = !!(profile.bio && String(profile.bio).trim());
   }
@@ -240,7 +319,7 @@ exports.getUserPosts = wrap(async (req) => {
 // 포스트 저장 (초안)
 exports.savePost = wrap(async (req) => {
   const { uid } = auth(req);
-  const { post, metadata } = req.data;
+  const { post, metadata = {} } = req.data;
 
   if (!post?.title?.trim() || !post?.content?.trim()) {
     throw new HttpsError('invalid-argument', '제목과 내용을 입력해주세요.');
@@ -257,7 +336,7 @@ exports.savePost = wrap(async (req) => {
     wordCount: post.content.replace(/<[^>]*>/g, '').replace(/\s/g, '').length,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    metadata: metadata || {},
+    metadata,
   });
 
   log('POST', 'savePost 성공', docRef.id);
@@ -331,7 +410,7 @@ exports.deletePost = wrap(async (req) => {
   return ok({ message: '포스트가 성공적으로 삭제되었습니다.' });
 });
 
-// 프로필 업데이트 (✅ bio 필수 & isActive 자동 반영)
+// 프로필 업데이트
 exports.updateProfile = wrap(async (req) => {
   const { uid } = auth(req);
   const profileData = req.data;
@@ -374,10 +453,8 @@ exports.testGenerate = wrap(async (req) => {
   auth(req);
   log('TEST', 'testGenerate 시작');
 
-  log('TEST', 'API 키 확인 중...');
   const apiKey = geminiApiKey.value();
   if (!apiKey) throw new HttpsError('internal', 'Gemini API 키가 설정되지 않았습니다.');
-  log('TEST', 'API 키 확인 완료');
 
   log('TEST', '간단한 AI 호출 테스트 중...');
   const response = await callGeminiWithBackup(testPrompt());
@@ -395,7 +472,7 @@ exports.testGenerate = wrap(async (req) => {
   });
 });
 
-// 원고 생성 (✅ bio 없으면 차단)
+// 원고 생성 (bio 없으면 차단)
 exports.generatePosts = wrap(async (req) => {
   const startTime = Date.now();
   const { uid } = auth(req);
@@ -434,21 +511,34 @@ exports.generatePosts = wrap(async (req) => {
     };
   }
 
-  // ✅ 활성화 가드: bio가 없으면 생성 불가
+  // 활성화 가드
   const isActive = !!(userProfile.bio && String(userProfile.bio).trim());
   if (!isActive) {
     throw new HttpsError('failed-precondition', '프로필의 자기소개(필수)를 작성해야 원고를 생성할 수 있습니다.');
   }
 
-  // 프롬프트 생성 (개인화: authorBio 포함)
-  const prompt = generatePostPrompt({
+  // ✅ 법 정책 강제: 정책을 못 읽으면 생성 자체를 멈춤 (fail-closed)
+  let policy;
+  try {
+    policy = await getPolicySafe(); // 10분 캐시 + fail_closed/fallback 처리
+    log('POLICY', `로드 성공 v${policy.version} #${policy.hash}`);
+  } catch (e) {
+    log('POLICY', '로드 실패 - 생성 중단', e.message);
+    throw new HttpsError('unavailable', '법 준수 정책을 불러오지 못해 생성이 중단되었습니다. 잠시 후 다시 시도해주세요.');
+  }
+
+  // 프롬프트 생성 (개인화 + 호칭 규칙 + 지역 전달)
+  const displayTitle = getDisplayTitleFromProfile(userProfile);
+  const prompt = await generatePostPrompt({
     authorName: userProfile.name || '정치인',
-    authorPosition: userProfile.position || '의원',
+    authorPosition: displayTitle || userProfile.position || '의원',
     authorBio: userProfile.bio || '',
     topic,
     category,
     subCategory: data.subCategory || '없음',
     keywords: data.keywords || '없음',
+    regionMetro: userProfile.regionMetro || '',
+    regionLocal: userProfile.regionLocal || '',
   });
 
   log('AI', 'AI 호출 시작 (1개 원고 생성)...');
@@ -510,11 +600,14 @@ exports.generatePosts = wrap(async (req) => {
       inputTopic: topic,
       inputCategory: category,
       userProfile: userProfile.name || 'Unknown',
+      // 감사 추적(정책 버전)
+      policyVersion: policy?.version ?? null,
+      policyHash: policy?.hash ?? null,
     },
   });
 });
 
-// (옵션) 별칭 엔드포인트 유지가 필요하다면 사용
+// (옵션) 별칭 유지
 exports.generatePostDrafts = wrap(async (request) => {
   return exports.generatePosts.run(request);
 });
