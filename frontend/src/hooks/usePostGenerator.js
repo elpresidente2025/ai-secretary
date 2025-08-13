@@ -1,106 +1,27 @@
+// frontend/src/hooks/usePostGenerator.js
 import { useState, useCallback, useMemo } from 'react';
 import { httpsCallable } from 'firebase/functions';
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { db, functions as firebaseFunctions } from '../config/firebase';
+import { collection, addDoc, serverTimestamp, query, where, orderBy, getDocs, doc, updateDoc, deleteDoc, getDoc } from 'firebase/firestore';
+import { functions as firebaseFunctions, db as firestore } from '../services/firebase';
 import { useAuth } from './useAuth';
+
+// 요청 제한 상수
+const MIN_REQUEST_INTERVAL = 3000; // 3초
+const MAX_REQUESTS_PER_HOUR = 15;
 
 export const usePostGenerator = () => {
   const { auth } = useAuth();
-  
+
+  // 핵심 상태
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [progress, setProgress] = useState(0);
-  const [drafts, setDrafts] = useState([]);
+  const [drafts, setDrafts] = useState([]); // 최대 3개까지만 저장
   const [generationMetadata, setGenerationMetadata] = useState(null);
-
-  // 🔥 요청 제한을 위한 상태 관리
-  const [lastRequestTime, setLastRequestTime] = useState(0);
+  
+  // 요청 제한 상태
   const [requestCount, setRequestCount] = useState(0);
-  const MIN_REQUEST_INTERVAL = 30000; // 30초
-  const MAX_REQUESTS_PER_HOUR = 15;
-
-  /**
-   * 🔥 개선된 Firebase Functions 에러 처리
-   */
-  const handleFirebaseError = useCallback((err) => {
-    console.error('Firebase 에러 상세:', err);
-    
-    // 🔥 할당량 관련 오류 처리 개선
-    if (err.message.includes('429') || 
-        err.message.includes('quota') ||
-        err.message.includes('QUOTA_EXCEEDED') ||
-        err.code === 'functions/resource-exhausted') {
-      return {
-        type: 'quota_exceeded',
-        title: 'AI 서비스 사용량 초과',
-        message: 'Gemini API 할당량을 초과했습니다.\n\n해결방법:\n1. 5-10분 후 다시 시도\n2. Google Cloud Console에서 유료 플랜 활성화\n3. 잠시 기다린 후 재시도',
-        action: 'retry_later',
-        retryDelay: 300000, // 5분
-        canRetry: true
-      };
-    }
-    
-    if (err.message.includes('overloaded') || 
-        err.message.includes('503') ||
-        err.code === 'functions/unavailable') {
-      return {
-        type: 'service_overloaded', 
-        title: 'AI 서비스 과부하',
-        message: 'AI 서비스가 일시적으로 과부하 상태입니다.\n1-2분 후 다시 시도해주세요.',
-        action: 'retry_later',
-        retryDelay: 60000, // 1분
-        canRetry: true
-      };
-    }
-    
-    if (err.message.includes('SAFETY') || 
-        err.message.includes('안전') ||
-        err.code === 'functions/invalid-argument') {
-      return {
-        type: 'safety_violation',
-        title: 'AI 안전 정책 위반', 
-        message: '입력하신 내용이 AI 안전 정책에 위배됩니다.\n다른 주제나 표현으로 다시 시도해주세요.',
-        action: 'change_content',
-        canRetry: false
-      };
-    }
-
-    // 기본 Firebase 에러 코드 처리
-    switch (err.code) {
-      case 'functions/unauthenticated':
-        return {
-          type: 'auth_error',
-          title: '인증 오류',
-          message: '로그인이 필요합니다. 다시 로그인해주세요.',
-          action: 'login',
-          canRetry: false
-        };
-      case 'functions/permission-denied':
-        return {
-          type: 'permission_error',
-          title: '권한 오류',
-          message: '이 작업을 수행할 권한이 없습니다.',
-          action: 'contact_admin',
-          canRetry: false
-        };
-      case 'functions/deadline-exceeded':
-        return {
-          type: 'timeout_error',
-          title: '요청 시간 초과',
-          message: '요청 처리 시간이 초과되었습니다. 다시 시도해주세요.',
-          action: 'retry',
-          canRetry: true
-        };
-      default:
-        return {
-          type: 'unknown_error',
-          title: '알 수 없는 오류',
-          message: err.message || '알 수 없는 오류가 발생했습니다.',
-          action: 'retry',
-          canRetry: true
-        };
-    }
-  }, []);
+  const [lastRequestTime, setLastRequestTime] = useState(0);
 
   /**
    * 요청 제한 체크
@@ -111,35 +32,30 @@ export const usePostGenerator = () => {
     
     if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
       const waitTime = Math.ceil((MIN_REQUEST_INTERVAL - timeSinceLastRequest) / 1000);
-      throw new Error(`너무 빈번한 요청입니다. ${waitTime}초 후 다시 시도해주세요.`);
+      throw new Error(`너무 빠른 요청입니다. ${waitTime}초 후 다시 시도해주세요.`);
     }
     
     if (requestCount >= MAX_REQUESTS_PER_HOUR) {
-      throw new Error('시간당 요청 제한을 초과했습니다. 1시간 후 다시 시도해주세요.');
+      throw new Error('시간당 요청 제한을 초과했습니다. 나중에 다시 시도해주세요.');
     }
-  }, [lastRequestTime, requestCount]);
+  }, [requestCount, lastRequestTime]);
 
   /**
-   * 입력 데이터 검증 함수
+   * 입력 데이터 검증
    */
   const validateFormData = useCallback((formData) => {
     const errors = [];
     
-    if (!formData) {
-      errors.push('폼 데이터가 없습니다.');
-      return errors;
-    }
-    
-    if (!formData.prompt?.trim()) {
+    if (!formData.prompt || !formData.prompt.trim()) {
       errors.push('주제를 입력해주세요.');
-    } else if (formData.prompt.trim().length < 5) {
-      errors.push('주제는 최소 5자 이상 입력해주세요.');
-    } else if (formData.prompt.trim().length > 500) {
-      errors.push('주제는 500자 이하로 입력해주세요.');
     }
     
-    if (!formData.category?.trim()) {
-      errors.push('카테고리를 선택해주세요.');
+    if (formData.prompt && formData.prompt.trim().length < 5) {
+      errors.push('주제는 최소 5자 이상 입력해주세요.');
+    }
+    
+    if (formData.prompt && formData.prompt.trim().length > 500) {
+      errors.push('주제는 500자 이하로 입력해주세요.');
     }
     
     if (formData.keywords && formData.keywords.trim().length > 200) {
@@ -150,10 +66,10 @@ export const usePostGenerator = () => {
   }, []);
 
   /**
-   * 응답 데이터 검증 및 정규화
+   * 응답 데이터 검증 및 정규화 (단일 원고용)
    */
   const validateAndNormalizeResponse = useCallback((responseData) => {
-    console.log('🔍 validateAndNormalizeResponse 시작:', responseData);
+    console.log('🔍 응답 검증 시작:', responseData);
 
     if (!responseData) {
       throw new Error('서버에서 응답을 받지 못했습니다.');
@@ -163,52 +79,41 @@ export const usePostGenerator = () => {
       throw new Error(responseData.message || '원고 생성에 실패했습니다.');
     }
     
-    // drafts 필드를 먼저 확인
-    let draftsArray = null;
+    // 단일 원고 데이터 추출
+    let singlePost = null;
     
-    if (responseData.drafts && Array.isArray(responseData.drafts)) {
-      console.log('✅ drafts 필드 발견');
-      draftsArray = responseData.drafts;
-    } else if (responseData.posts && Array.isArray(responseData.posts)) {
-      console.log('✅ posts 필드 발견');
-      draftsArray = responseData.posts;
-    } else if (responseData.results && Array.isArray(responseData.results)) {
-      console.log('✅ results 필드 발견');
-      draftsArray = responseData.results;
-    } else if (Array.isArray(responseData)) {
-      console.log('✅ 응답 자체가 배열');
-      draftsArray = responseData;
+    if (responseData.post) {
+      singlePost = responseData.post;
+    } else if (responseData.draft) {
+      singlePost = responseData.draft;
+    } else if (responseData.content) {
+      singlePost = responseData;
+    } else {
+      throw new Error('생성된 원고를 찾을 수 없습니다.');
     }
 
-    if (!draftsArray || draftsArray.length === 0) {
-      throw new Error('생성된 원고가 없습니다.');
-    }
-
-    console.log(`📋 원고 ${draftsArray.length}개 발견`);
-
-    const normalized = draftsArray.map((draft, index) => {
-      console.log(`📝 Draft ${index + 1} 정규화:`, draft);
-      
-      return {
-        id: draft.id || `draft_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        title: draft.title || draft.subject || draft.heading || `원고 ${index + 1}`,
-        content: draft.content || draft.body || draft.text || '<p>내용이 생성되지 않았습니다.</p>',
-        wordCount: draft.wordCount || draft.length || Math.ceil((draft.content || draft.body || draft.text || '').length / 2),
-        tags: draft.tags || draft.keywords || [],
-        category: draft.category || '일반',
-        subCategory: draft.subCategory || '',
-        style: draft.style || '일반',
-        metadata: draft.metadata || {},
-        generatedAt: new Date()
-      };
-    });
+    console.log('📝 단일 원고 정규화:', singlePost);
+    
+    // 정규화된 단일 원고 반환
+    const normalized = {
+      id: singlePost.id || `draft_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      title: singlePost.title || singlePost.subject || singlePost.heading || '생성된 원고',
+      content: singlePost.content || singlePost.body || singlePost.text || '<p>내용이 생성되지 않았습니다.</p>',
+      wordCount: singlePost.wordCount || singlePost.length || Math.ceil((singlePost.content || singlePost.body || singlePost.text || '').length / 2),
+      tags: singlePost.tags || singlePost.keywords || [],
+      category: singlePost.category || '일반',
+      subCategory: singlePost.subCategory || '',
+      style: singlePost.style || '일반',
+      metadata: singlePost.metadata || {},
+      generatedAt: new Date()
+    };
 
     console.log('✅ 정규화 완료:', normalized);
     return normalized;
   }, []);
 
   /**
-   * 🔥 자동 재시도 로직이 포함된 생성 함수
+   * 재시도 로직이 포함된 단일 원고 생성 함수
    */
   const generateWithRetry = useCallback(async (formData, maxRetries = 2) => {
     let lastError = null;
@@ -217,30 +122,28 @@ export const usePostGenerator = () => {
       try {
         if (attempt > 0) {
           console.log(`🔄 재시도 ${attempt}/${maxRetries}`);
-          setError(prev => ({
-            ...prev,
-            message: `재시도 중... (${attempt}/${maxRetries})`
-          }));
+          setError(`재시도 중... (${attempt}/${maxRetries})`);
           
           // 재시도 전 대기 (지수 백오프)
           const delay = Math.min(1000 * Math.pow(2, attempt), 10000);
           await new Promise(resolve => setTimeout(resolve, delay));
         }
         
-        // Firebase Functions 호출
-        const generatePostsFn = httpsCallable(firebaseFunctions, 'generatePosts');
+        // Firebase Functions 호출 - 단일 원고 생성
+        const generatePostFn = httpsCallable(firebaseFunctions, 'generateSinglePost');
         
         const requestPayload = {
           prompt: formData.prompt.trim(),
           category: formData.category,
           subCategory: formData.subCategory || '',
           keywords: formData.keywords || '',
+          generateSingle: true, // 단일 생성 플래그
           userId: auth.user.id,
           userName: auth.user.name || '작성자'
         };
 
-        console.log(`📡 Firebase Functions 호출 (시도 ${attempt + 1}):`, requestPayload);
-        const result = await generatePostsFn(requestPayload);
+        console.log(`📡 단일 원고 생성 요청 (시도 ${attempt + 1}):`, requestPayload);
+        const result = await generatePostFn(requestPayload);
         
         return result;
         
@@ -268,10 +171,15 @@ export const usePostGenerator = () => {
   }, [auth, setError]);
 
   /**
-   * 🔥 메인 원고 생성 함수 - 개선된 에러 처리와 재시도 로직
+   * 🔥 메인 단일 원고 생성 함수 (핵심 요구사항에 맞게 수정)
    */
-  const generatePosts = useCallback(async (formData, authData) => {
+  const generateSinglePost = useCallback(async (formData, authData) => {
     try {
+      // 최대 3개 제한 체크
+      if (drafts.length >= 3) {
+        throw new Error('최대 3개까지만 생성할 수 있습니다.');
+      }
+
       // 요청 제한 체크
       checkRateLimit();
       
@@ -279,10 +187,9 @@ export const usePostGenerator = () => {
       setError('');
       setProgress(0);
 
-      console.log('=== usePostGenerator 원고 생성 요청 ===');
+      console.log('=== 단일 원고 생성 요청 ===');
       console.log('1. 입력 formData:', JSON.stringify(formData, null, 2));
-      console.log('2. authData:', JSON.stringify(authData, null, 2));
-      console.log('3. 현재 drafts 개수:', drafts.length);
+      console.log('2. 현재 drafts 개수:', drafts.length);
       
       if (!authData?.user?.id) {
         throw new Error('사용자 정보가 없습니다.');
@@ -309,100 +216,74 @@ export const usePostGenerator = () => {
 
       setProgress(50);
 
-      console.log('5. 재시도 로직이 포함된 생성 시작...');
+      console.log('🚀 단일 원고 생성 시작...');
       const result = await generateWithRetry(formData);
-      console.log('6. Firebase Functions 응답:', result.data);
+      console.log('📨 Firebase Functions 응답:', result.data);
 
       setProgress(75);
 
-      console.log('7. 응답 데이터 정규화 시작...');
-      const normalizedDrafts = validateAndNormalizeResponse(result.data);
-      console.log('8. 정규화된 drafts:', normalizedDrafts);
-      
-      // 기존 drafts에 새로운 draft 추가 (누적)
+      // 응답 정규화 (단일 원고)
+      const normalizedPost = validateAndNormalizeResponse(result.data);
+      console.log('📋 정규화된 단일 원고:', normalizedPost);
+
+      // 새 원고를 배열 앞쪽에 추가 (좌측으로 밀어내기 효과)
       setDrafts(prevDrafts => {
-        const newDrafts = [...prevDrafts, ...normalizedDrafts];
-        console.log('9. 누적된 drafts:', newDrafts);
+        const newDrafts = [normalizedPost, ...prevDrafts];
+        console.log(`✅ 새 원고 추가 완료. 총 ${newDrafts.length}개`);
         return newDrafts;
       });
-      
-      setGenerationMetadata(result.data.metadata || {});
+
+      // 메타데이터 업데이트
+      setGenerationMetadata({
+        requestTime,
+        totalAttempts: drafts.length + 1,
+        lastCategory: formData.category,
+        lastPrompt: formData.prompt.slice(0, 50) + '...'
+      });
+
       setProgress(100);
+      setError('');
 
-      console.log('✅ 원고 생성 완료! (누적)');
+      console.log('🎉 단일 원고 생성 완료!');
+      return normalizedPost;
 
-    } catch (err) {
-      console.error('❌ usePostGenerator 원고 생성 실패:', err);
-      
-      const errorInfo = handleFirebaseError(err);
-      setError(errorInfo);
-      
-      // 자동 재시도가 가능한 경우 사용자에게 알림
-      if (errorInfo.action === 'retry_later') {
-        setTimeout(() => {
-          setError(prev => ({
-            ...prev,
-            message: `${prev.message}\n\n자동 재시도 가능한 상태입니다.`
-          }));
-        }, errorInfo.retryDelay);
-      }
-      
+    } catch (error) {
+      console.error('❌ 단일 원고 생성 실패:', error);
+      setError(error.message || '원고 생성에 실패했습니다.');
+      throw error;
     } finally {
       setLoading(false);
-      setTimeout(() => setProgress(0), 1000);
+      setProgress(0);
     }
-  }, [validateFormData, generateWithRetry, handleFirebaseError, checkRateLimit, drafts.length, validateAndNormalizeResponse]);
+  }, [drafts.length, checkRateLimit, validateFormData, generateWithRetry, validateAndNormalizeResponse]);
 
   /**
-   * 초안 저장 함수
+   * 초안 저장
    */
   const saveDraft = useCallback(async (draft, index, formData, metadata) => {
     try {
-      const currentUserId = auth?.user?.id;
-      const currentUserName = auth?.user?.name;
+      console.log('💾 초안 저장 시작:', { draft, index, formData });
       
-      console.log('초안 저장 시작:', { 
-        draft, 
-        index, 
-        formData, 
-        metadata,
-        currentUserId,
-        currentUserName,
-        authState: auth
+      if (!draft || !draft.content) {
+        throw new Error('저장할 초안 데이터가 유효하지 않습니다.');
+      }
+
+      if (!auth?.user?.id) {
+        throw new Error('사용자 정보가 없습니다.');
+      }
+
+      const docRef = await addDoc(collection(firestore, 'posts'), {
+        ...draft,
+        originalFormData: formData,
+        generationMetadata: metadata,
+        confirmed: true,
+        userId: auth.user.id,
+        userName: auth.user.name || '작성자',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
       });
 
-      if (!currentUserId) {
-        throw new Error('사용자 정보가 없습니다. 다시 로그인해주세요.');
-      }
-
-      if (!draft || !draft.content) {
-        throw new Error('저장할 초안 내용이 없습니다.');
-      }
-
-      const postData = {
-        userId: currentUserId,
-        title: draft.title || `원고 ${index + 1}`,
-        content: draft.content,
-        wordCount: draft.wordCount || Math.ceil(draft.content.length / 2),
-        category: formData?.category || '일반',
-        subCategory: formData?.subCategory || '',
-        keywords: formData?.keywords || '',
-        status: 'draft',
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        metadata: {
-          generatedAt: draft.generatedAt || new Date(),
-          originalIndex: index,
-          ...metadata
-        }
-      };
-
-      console.log('📝 Firestore에 저장할 데이터:', postData);
-
-      const docRef = await addDoc(collection(db, 'posts'), postData);
-      
-      console.log('✅ 초안 저장 완료:', docRef.id);
-      
+      console.log('✅ 초안 저장 성공:', docRef.id);
       return {
         success: true,
         message: '초안이 성공적으로 저장되었습니다.',
@@ -436,12 +317,12 @@ export const usePostGenerator = () => {
   }, []);
 
   /**
-   * 재생성 함수 (기존 generatePosts와 동일)
+   * 재생성 함수 (기존 generateSinglePost와 동일)
    */
   const regenerate = useCallback(async (formData, authData) => {
-    console.log('🔄 재생성 요청 - generatePosts 호출');
-    return await generatePosts(formData, authData);
-  }, [generatePosts]);
+    console.log('🔄 재생성 요청 - generateSinglePost 호출');
+    return await generateSinglePost(formData, authData);
+  }, [generateSinglePost]);
 
   /**
    * 🔥 사용자 포스트 목록 조회
@@ -450,14 +331,31 @@ export const usePostGenerator = () => {
     try {
       setLoading(true);
       
-      const getUserPostsFn = httpsCallable(firebaseFunctions, 'getUserPosts');
-      const result = await getUserPostsFn();
+      if (!auth?.user?.id) {
+        throw new Error('사용자 정보가 없습니다.');
+      }
+
+      const q = query(
+        collection(firestore, 'posts'),
+        where('userId', '==', auth.user.id),
+        orderBy('createdAt', 'desc')
+      );
+
+      const querySnapshot = await getDocs(q);
+      const posts = [];
       
-      console.log('사용자 포스트 조회 성공:', result.data);
+      querySnapshot.forEach((doc) => {
+        posts.push({
+          id: doc.id,
+          ...doc.data()
+        });
+      });
+
+      console.log('사용자 포스트 조회 성공:', posts.length, '개');
       
       return {
         success: true,
-        posts: result.data.posts || []
+        posts: posts
       };
       
     } catch (err) {
@@ -466,7 +364,7 @@ export const usePostGenerator = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [auth]);
 
   /**
    * 🔥 특정 포스트 조회
@@ -475,14 +373,27 @@ export const usePostGenerator = () => {
     try {
       setLoading(true);
       
-      const getPostFn = httpsCallable(firebaseFunctions, 'getPost');
-      const result = await getPostFn({ postId });
-      
-      console.log('포스트 조회 성공:', result.data);
+      if (!postId) {
+        throw new Error('포스트 ID가 필요합니다.');
+      }
+
+      const docRef = doc(firestore, 'posts', postId);
+      const docSnap = await getDoc(docRef);
+
+      if (!docSnap.exists()) {
+        throw new Error('포스트를 찾을 수 없습니다.');
+      }
+
+      const post = {
+        id: docSnap.id,
+        ...docSnap.data()
+      };
+
+      console.log('포스트 조회 성공:', post.id);
       
       return {
         success: true,
-        post: result.data.post
+        post: post
       };
       
     } catch (err) {
@@ -500,14 +411,29 @@ export const usePostGenerator = () => {
     try {
       setLoading(true);
       
-      const updatePostFn = httpsCallable(firebaseFunctions, 'updatePost');
-      const result = await updatePostFn({ postId, updates });
+      if (!postId) {
+        throw new Error('포스트 ID가 필요합니다.');
+      }
+
+      if (!auth?.user?.id) {
+        throw new Error('사용자 정보가 없습니다.');
+      }
+
+      const docRef = doc(firestore, 'posts', postId);
       
-      console.log('포스트 업데이트 성공:', result.data);
+      // 업데이트할 데이터 준비
+      const updateData = {
+        ...updates,
+        updatedAt: serverTimestamp()
+      };
+
+      await updateDoc(docRef, updateData);
+
+      console.log('포스트 업데이트 성공:', postId);
       
       return {
         success: true,
-        message: result.data.message
+        message: '포스트가 성공적으로 업데이트되었습니다.'
       };
       
     } catch (err) {
@@ -516,7 +442,7 @@ export const usePostGenerator = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [auth]);
 
   /**
    * 🔥 포스트 삭제
@@ -525,14 +451,22 @@ export const usePostGenerator = () => {
     try {
       setLoading(true);
       
-      const deletePostFn = httpsCallable(firebaseFunctions, 'deletePost');
-      const result = await deletePostFn({ postId });
+      if (!postId) {
+        throw new Error('포스트 ID가 필요합니다.');
+      }
+
+      if (!auth?.user?.id) {
+        throw new Error('사용자 정보가 없습니다.');
+      }
+
+      const docRef = doc(firestore, 'posts', postId);
+      await deleteDoc(docRef);
       
-      console.log('포스트 삭제 성공:', result.data);
+      console.log('포스트 삭제 성공:', postId);
       
       return {
         success: true,
-        message: result.data.message
+        message: '포스트가 성공적으로 삭제되었습니다.'
       };
       
     } catch (err) {
@@ -541,7 +475,7 @@ export const usePostGenerator = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [auth]);
 
   /**
    * 에러 설정 함수
@@ -564,23 +498,26 @@ export const usePostGenerator = () => {
     console.log('✅ 전체 상태 초기화 완료');
   }, []);
 
-  // 🔧 수정: getRateLimitInfo를 useMemo로 메모이제이션
+  /**
+   * 요청 제한 정보 조회
+   */
   const getRateLimitInfo = useMemo(() => {
     return () => {
       const now = Date.now();
       const timeSinceLastRequest = now - lastRequestTime;
-      const canRequest = timeSinceLastRequest >= MIN_REQUEST_INTERVAL && requestCount < MAX_REQUESTS_PER_HOUR;
+      const canRequest = timeSinceLastRequest >= MIN_REQUEST_INTERVAL && requestCount < MAX_REQUESTS_PER_HOUR && drafts.length < 3;
       const waitTime = canRequest ? 0 : Math.ceil((MIN_REQUEST_INTERVAL - timeSinceLastRequest) / 1000);
       
       return {
         canRequest,
         waitTime,
-        requestsRemaining: Math.max(0, MAX_REQUESTS_PER_HOUR - requestCount)
+        requestsRemaining: Math.max(0, MAX_REQUESTS_PER_HOUR - requestCount),
+        attemptsRemaining: Math.max(0, 3 - drafts.length)
       };
     };
-  }, [lastRequestTime, requestCount]);
+  }, [lastRequestTime, requestCount, drafts.length]);
 
-  // 🔧 수정: process.env를 import.meta.env로 변경 (Vite 환경)
+  // 개발 환경에서 디버깅 정보
   if (import.meta.env.DEV) {
     console.log('usePostGenerator - 현재 상태:', {
       isAuthenticated: !!auth?.user,
@@ -588,7 +525,8 @@ export const usePostGenerator = () => {
       userName: auth?.user?.name,
       draftsCount: drafts.length,
       loading,
-      error: !!error
+      error: !!error,
+      canGenerateMore: drafts.length < 3
     });
   }
 
@@ -600,8 +538,8 @@ export const usePostGenerator = () => {
     drafts,
     generationMetadata,
     
-    // 생성 관련
-    generatePosts,
+    // 핵심 함수 (이름 변경: generatePosts → generateSinglePost)
+    generateSinglePost,
     regenerate,
     
     // 초안 관리
@@ -619,8 +557,6 @@ export const usePostGenerator = () => {
     setError: setErrorMessage,
     resetState,
     getRateLimitInfo,
-    
-    // 검증 함수 (필요 시 외부에서 사용)
     validateFormData
   };
 };

@@ -17,7 +17,7 @@ import {
   MenuItem,
 } from '@mui/material';
 import { httpsCallable } from 'firebase/functions';
-import { functions } from '../lib/firebase';
+import { functions } from '../services/firebase';
 import DashboardLayout from '../components/DashboardLayout';
 
 // 최소 지역 데이터(필요하면 실제 데이터로 교체)

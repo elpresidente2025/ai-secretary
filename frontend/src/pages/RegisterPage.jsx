@@ -22,9 +22,9 @@ import {
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
-import allLocations from '../data/location/locations.index';
+import allLocations from '../data/location/locations.index.js';
 import { httpsCallable } from 'firebase/functions';
-import { functions } from '../config/firebase';
+import { functions } from '../services/firebase';
 
 function RegisterPage() {
   const [formData, setFormData] = useState({

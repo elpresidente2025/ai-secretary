@@ -13,10 +13,9 @@ import {
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { useParams, useNavigate } from "react-router-dom";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { httpsCallable } from "firebase/functions";
 import DashboardLayout from "../components/DashboardLayout";
-
-const functions = getFunctions(undefined, "asia-northeast3");
+import { functions } from '../services/firebase';
 
 const htmlToText = (html) => {
   if (!html) return "";

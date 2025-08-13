@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Box, Typography, Button, Paper, List, ListItemButton, ListItemText, LinearProgress, Grid, CircularProgress, Alert } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout';
-import { useAuth } from '../hooks/useAuth'; // 🔥 경로 변경
-import { functions } from '../config/firebase.js';
+import { useAuth } from '../hooks/useAuth';
+import { functions } from '../services/firebase.js';
 import { httpsCallable } from 'firebase/functions';
 
 const Dashboard = () => {

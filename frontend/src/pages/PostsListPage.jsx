@@ -26,7 +26,8 @@ import {
 import { ContentCopy, DeleteOutline, Assignment } from '@mui/icons-material';
 import DashboardLayout from '../components/DashboardLayout';
 import { useAuth } from '../hooks/useAuth';
-import { getFunctions, httpsCallable } from 'firebase/functions';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../services/firebase';
 
 function formatDate(iso) {
   try {
@@ -61,7 +62,6 @@ export default function PostsListPage() {
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerPost, setViewerPost] = useState(null);
 
-  const functions = getFunctions(undefined, 'asia-northeast3');
   const callGetUserPosts = httpsCallable(functions, 'getUserPosts');
   const callDeletePost = httpsCallable(functions, 'deletePost');
 

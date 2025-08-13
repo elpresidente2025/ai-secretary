@@ -39,7 +39,7 @@ import {
 } from '@mui/icons-material';
 import { httpsCallable } from 'firebase/functions';
 import DashboardLayout from '../components/DashboardLayout';
-import { functions } from '../config/firebase';
+import { functions } from '../services/firebase';
 
 // 역할(role)에 대한 정의
 const ROLE_DEFINITIONS = {
