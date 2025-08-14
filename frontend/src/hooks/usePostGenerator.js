@@ -1,16 +1,14 @@
-// frontend/src/hooks/usePostGenerator.js
+// src/hooks/usePostGenerator.js
 import { useState, useCallback, useMemo } from 'react';
-import { httpsCallable } from 'firebase/functions';
-import { collection, addDoc, serverTimestamp, query, where, orderBy, getDocs, doc, updateDoc, deleteDoc, getDoc } from 'firebase/firestore';
-import { functions as firebaseFunctions, db as firestore } from '../services/firebase';
-import { useAuth } from './useAuth';
+import { api } from '../services/api';
+import { useAuth } from './useAuth.jsx'; // 기존 Firebase Auth 사용
 
 // 요청 제한 상수
 const MIN_REQUEST_INTERVAL = 3000; // 3초
 const MAX_REQUESTS_PER_HOUR = 15;
 
 export const usePostGenerator = () => {
-  const { auth } = useAuth();
+  const { auth } = useAuth(); // 기존 Firebase Auth 사용
 
   // 핵심 상태
   const [loading, setLoading] = useState(false);
@@ -92,7 +90,7 @@ export const usePostGenerator = () => {
       throw new Error('생성된 원고를 찾을 수 없습니다.');
     }
 
-    console.log('📝 단일 원고 정규화:', singlePost);
+    console.log('🔍 단일 원고 정규화:', singlePost);
     
     // 정규화된 단일 원고 반환
     const normalized = {
@@ -129,21 +127,18 @@ export const usePostGenerator = () => {
           await new Promise(resolve => setTimeout(resolve, delay));
         }
         
-        // Firebase Functions 호출 - 단일 원고 생성
-        const generatePostFn = httpsCallable(firebaseFunctions, 'generateSinglePost');
-        
+        // API 호출 - 단일 원고 생성
         const requestPayload = {
           prompt: formData.prompt.trim(),
           category: formData.category,
           subCategory: formData.subCategory || '',
           keywords: formData.keywords || '',
-          generateSingle: true, // 단일 생성 플래그
-          userId: auth.user.id,
-          userName: auth.user.name || '작성자'
+          userId: auth.user?.id || 'user',
+          userName: auth.user?.name || '작성자'
         };
 
         console.log(`📡 단일 원고 생성 요청 (시도 ${attempt + 1}):`, requestPayload);
-        const result = await generatePostFn(requestPayload);
+        const result = await api.generatePost(requestPayload);
         
         return result;
         
@@ -171,7 +166,7 @@ export const usePostGenerator = () => {
   }, [auth, setError]);
 
   /**
-   * 🔥 메인 단일 원고 생성 함수 (핵심 요구사항에 맞게 수정)
+   * 메인 단일 원고 생성 함수
    */
   const generateSinglePost = useCallback(async (formData, authData) => {
     try {
@@ -191,7 +186,7 @@ export const usePostGenerator = () => {
       console.log('1. 입력 formData:', JSON.stringify(formData, null, 2));
       console.log('2. 현재 drafts 개수:', drafts.length);
       
-      if (!authData?.user?.id) {
+      if (!authData?.user?.id && !auth?.user?.id) {
         throw new Error('사용자 정보가 없습니다.');
       }
 
@@ -218,12 +213,12 @@ export const usePostGenerator = () => {
 
       console.log('🚀 단일 원고 생성 시작...');
       const result = await generateWithRetry(formData);
-      console.log('📨 Firebase Functions 응답:', result.data);
+      console.log('📨 API 응답:', result);
 
       setProgress(75);
 
       // 응답 정규화 (단일 원고)
-      const normalizedPost = validateAndNormalizeResponse(result.data);
+      const normalizedPost = validateAndNormalizeResponse(result);
       console.log('📋 정규화된 단일 원고:', normalizedPost);
 
       // 새 원고를 배열 앞쪽에 추가 (좌측으로 밀어내기 효과)
@@ -255,7 +250,7 @@ export const usePostGenerator = () => {
       setLoading(false);
       setProgress(0);
     }
-  }, [drafts.length, checkRateLimit, validateFormData, generateWithRetry, validateAndNormalizeResponse]);
+  }, [drafts.length, checkRateLimit, validateFormData, generateWithRetry, validateAndNormalizeResponse, auth]);
 
   /**
    * 초안 저장
@@ -272,23 +267,19 @@ export const usePostGenerator = () => {
         throw new Error('사용자 정보가 없습니다.');
       }
 
-      const docRef = await addDoc(collection(firestore, 'posts'), {
+      // metadata 포함하여 저장
+      const postDataWithMetadata = {
         ...draft,
         originalFormData: formData,
         generationMetadata: metadata,
         confirmed: true,
-        userId: auth.user.id,
-        userName: auth.user.name || '작성자',
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
-
-      console.log('✅ 초안 저장 성공:', docRef.id);
-      return {
-        success: true,
-        message: '초안이 성공적으로 저장되었습니다.',
-        postId: docRef.id
+        savedAt: new Date().toISOString()
       };
+
+      const result = await api.savePost(postDataWithMetadata, auth.user.id);
+
+      console.log('✅ 초안 저장 성공:', result);
+      return result;
 
     } catch (error) {
       console.error('❌ 초안 저장 실패:', error);
@@ -325,7 +316,7 @@ export const usePostGenerator = () => {
   }, [generateSinglePost]);
 
   /**
-   * 🔥 사용자 포스트 목록 조회
+   * 사용자 포스트 조회
    */
   const getUserPosts = useCallback(async () => {
     try {
@@ -335,28 +326,10 @@ export const usePostGenerator = () => {
         throw new Error('사용자 정보가 없습니다.');
       }
 
-      const q = query(
-        collection(firestore, 'posts'),
-        where('userId', '==', auth.user.id),
-        orderBy('createdAt', 'desc')
-      );
-
-      const querySnapshot = await getDocs(q);
-      const posts = [];
+      const result = await api.getUserPosts(auth.user.id);
       
-      querySnapshot.forEach((doc) => {
-        posts.push({
-          id: doc.id,
-          ...doc.data()
-        });
-      });
-
-      console.log('사용자 포스트 조회 성공:', posts.length, '개');
-      
-      return {
-        success: true,
-        posts: posts
-      };
+      console.log('사용자 포스트 조회 성공:', result.posts?.length, '개');
+      return result;
       
     } catch (err) {
       console.error('사용자 포스트 조회 실패:', err);
@@ -367,115 +340,23 @@ export const usePostGenerator = () => {
   }, [auth]);
 
   /**
-   * 🔥 특정 포스트 조회
+   * 요청 제한 정보 조회
    */
-  const getPost = useCallback(async (postId) => {
-    try {
-      setLoading(true);
-      
-      if (!postId) {
-        throw new Error('포스트 ID가 필요합니다.');
-      }
-
-      const docRef = doc(firestore, 'posts', postId);
-      const docSnap = await getDoc(docRef);
-
-      if (!docSnap.exists()) {
-        throw new Error('포스트를 찾을 수 없습니다.');
-      }
-
-      const post = {
-        id: docSnap.id,
-        ...docSnap.data()
-      };
-
-      console.log('포스트 조회 성공:', post.id);
+  const getRateLimitInfo = useMemo(() => {
+    return () => {
+      const now = Date.now();
+      const timeSinceLastRequest = now - lastRequestTime;
+      const canRequest = timeSinceLastRequest >= MIN_REQUEST_INTERVAL && requestCount < MAX_REQUESTS_PER_HOUR && drafts.length < 3;
+      const waitTime = canRequest ? 0 : Math.ceil((MIN_REQUEST_INTERVAL - timeSinceLastRequest) / 1000);
       
       return {
-        success: true,
-        post: post
+        canRequest,
+        waitTime,
+        requestsRemaining: Math.max(0, MAX_REQUESTS_PER_HOUR - requestCount),
+        attemptsRemaining: Math.max(0, 3 - drafts.length)
       };
-      
-    } catch (err) {
-      console.error('포스트 조회 실패:', err);
-      throw new Error('포스트를 불러오는데 실패했습니다: ' + (err.message || '알 수 없는 오류'));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  /**
-   * 🔥 포스트 업데이트
-   */
-  const updatePost = useCallback(async (postId, updates) => {
-    try {
-      setLoading(true);
-      
-      if (!postId) {
-        throw new Error('포스트 ID가 필요합니다.');
-      }
-
-      if (!auth?.user?.id) {
-        throw new Error('사용자 정보가 없습니다.');
-      }
-
-      const docRef = doc(firestore, 'posts', postId);
-      
-      // 업데이트할 데이터 준비
-      const updateData = {
-        ...updates,
-        updatedAt: serverTimestamp()
-      };
-
-      await updateDoc(docRef, updateData);
-
-      console.log('포스트 업데이트 성공:', postId);
-      
-      return {
-        success: true,
-        message: '포스트가 성공적으로 업데이트되었습니다.'
-      };
-      
-    } catch (err) {
-      console.error('포스트 업데이트 실패:', err);
-      throw new Error('포스트 업데이트에 실패했습니다: ' + (err.message || '알 수 없는 오류'));
-    } finally {
-      setLoading(false);
-    }
-  }, [auth]);
-
-  /**
-   * 🔥 포스트 삭제
-   */
-  const deletePost = useCallback(async (postId) => {
-    try {
-      setLoading(true);
-      
-      if (!postId) {
-        throw new Error('포스트 ID가 필요합니다.');
-      }
-
-      if (!auth?.user?.id) {
-        throw new Error('사용자 정보가 없습니다.');
-      }
-
-      const docRef = doc(firestore, 'posts', postId);
-      await deleteDoc(docRef);
-      
-      console.log('포스트 삭제 성공:', postId);
-      
-      return {
-        success: true,
-        message: '포스트가 성공적으로 삭제되었습니다.'
-      };
-      
-    } catch (err) {
-      console.error('포스트 삭제 실패:', err);
-      throw new Error('포스트 삭제에 실패했습니다: ' + (err.message || '알 수 없는 오류'));
-    } finally {
-      setLoading(false);
-    }
-  }, [auth]);
+    };
+  }, [lastRequestTime, requestCount, drafts.length]);
 
   /**
    * 에러 설정 함수
@@ -498,25 +379,6 @@ export const usePostGenerator = () => {
     console.log('✅ 전체 상태 초기화 완료');
   }, []);
 
-  /**
-   * 요청 제한 정보 조회
-   */
-  const getRateLimitInfo = useMemo(() => {
-    return () => {
-      const now = Date.now();
-      const timeSinceLastRequest = now - lastRequestTime;
-      const canRequest = timeSinceLastRequest >= MIN_REQUEST_INTERVAL && requestCount < MAX_REQUESTS_PER_HOUR && drafts.length < 3;
-      const waitTime = canRequest ? 0 : Math.ceil((MIN_REQUEST_INTERVAL - timeSinceLastRequest) / 1000);
-      
-      return {
-        canRequest,
-        waitTime,
-        requestsRemaining: Math.max(0, MAX_REQUESTS_PER_HOUR - requestCount),
-        attemptsRemaining: Math.max(0, 3 - drafts.length)
-      };
-    };
-  }, [lastRequestTime, requestCount, drafts.length]);
-
   // 개발 환경에서 디버깅 정보
   if (import.meta.env.DEV) {
     console.log('usePostGenerator - 현재 상태:', {
@@ -538,7 +400,7 @@ export const usePostGenerator = () => {
     drafts,
     generationMetadata,
     
-    // 핵심 함수 (이름 변경: generatePosts → generateSinglePost)
+    // 핵심 함수
     generateSinglePost,
     regenerate,
     
@@ -549,9 +411,6 @@ export const usePostGenerator = () => {
     
     // 포스트 CRUD
     getUserPosts,
-    getPost,
-    updatePost,
-    deletePost,
     
     // 유틸리티
     setError: setErrorMessage,

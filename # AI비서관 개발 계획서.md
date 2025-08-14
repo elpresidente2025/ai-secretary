@@ -1,5 +1,64 @@
 # AI비서관 개발 계획서
 
+## ⚠️ 핵심 개발 요구사항 (CRITICAL REQUIREMENTS)
+
+### 원고 생성 워크플로우
+- **1회 시도 = 1개 원고 생성** (절대 한 번에 여러 개 생성 금지)
+- **최대 3회 시도 가능**
+- **새 원고는 기존 원고들을 좌측으로 밀어내며 추가**
+- **총 화면 표시 원고는 최대 3개**
+
+### 설계 취지 (Design Philosophy)
+1. **점진적 개선 기회 제공**
+   - 사용자가 첫 원고를 보고 세부 조정할 수 있어야 함
+   - 3개 동시 생성 시 조정 기회가 사라짐
+   - 학습-개선 사이클을 통한 품질 향상
+
+2. **가챠 시스템 심리학 활용**
+   - "이번엔 더 좋은 게 나올까?" 하는 기대감 조성
+   - 새 원고가 마음에 들거나 이전보다 나아졌을 때 도파민 분비
+   - 단순 선택보다 강한 몰입감과 성취감 제공
+   - 사용자 주도권과 참여감 극대화
+
+### 금지사항
+- ❌ 한 번에 여러 개 원고 생성
+- ❌ `generateCount` 같은 파라미터 사용
+- ❌ 응답에서 `drafts` 배열로 여러 개 받기
+- ❌ API 호출 시 복수 생성 요청
+
+### 올바른 구현 패턴
+```javascript
+// ✅ 올바른 방식
+const generateSinglePost = async (formData) => {
+  // 1개만 생성하는 API 호출
+  const response = await callGeminiAPI(formData);
+  return response.singlePost; // 단일 객체 반환
+};
+
+// ✅ 상태 관리
+const addNewDraft = (newDraft) => {
+  setDrafts(prev => [newDraft, ...prev]); // 앞에 추가
+  // 3개 초과 불가능 (최대 3회 시도 제한으로)
+};
+```
+
+### 잘못된 구현 패턴
+```javascript
+// ❌ 잘못된 방식
+const generatePosts = async (formData) => {
+  const response = await callGeminiAPI({
+    ...formData,
+    generateCount: 3 // 🚫 금지
+  });
+  return response.drafts; // 🚫 배열 반환 금지
+};
+
+// ❌ 잘못된 상태 관리
+setDrafts(prev => [...prev, ...normalized]); // 🚫 여러 개 추가 금지
+```
+
+---
+
 ## 1. 개발 목표
 
 더불어민주당 소속 기초·광역의원 및 예비 정치인을 대상으로 의정활동, 지역 현안, 공약, 주민소통 관련 블로그 원고를 자동 생성하는 웹 애플리케이션을 개발한다. **제미나이 기반 텍스트 생성과 voyage-context-3 RAG 시스템을 단계적으로 도입**하여 사실에 기반한 고품질 정치 콘텐츠 생성 서비스를 구현한다.
@@ -126,7 +185,7 @@ graph TD
   const { GoogleGenerativeAI } = require('@google/generative-ai');
   
   exports.generatePost = async (category, content, userProfile) => {
-    // Gemini API 호출 로직
+    // Gemini API 호출 로직 - 1개만 생성
   };
   
   // firebase/functions/src/index.js
@@ -143,14 +202,16 @@ graph TD
 #### 3개월: 데이터 관리 및 재생성 시스템
 - **Week 1-2:** Firestore 연동 및 3회 재생성 시스템
   ```javascript
-  // 재생성 로직 구현
+  // 재생성 로직 구현 - 1개씩 추가
   const usePostGenerator = () => {
     const [attempts, setAttempts] = useState(0);
-    const [currentPost, setCurrentPost] = useState('');
+    const [drafts, setDrafts] = useState([]);
     
-    const regenerate = async () => {
+    const generateSingle = async () => {
       if (attempts < 3) {
-        // 재생성 로직
+        const newDraft = await callAPI(); // 1개만 생성
+        setDrafts(prev => [newDraft, ...prev]); // 앞에 추가
+        setAttempts(prev => prev + 1);
       }
     };
   };
@@ -309,53 +370,67 @@ export default defineConfig({
 })
 ```
 
-### 프로젝트 구조
+### 실제 프로젝트 구조 (현재 상태)
 ```
 ai-secretary/
-├── 📂 firebase/         # Firebase 백엔드 관련 파일
-│   ├── 📂 functions/    # Cloud Functions 소스 코드
-│   │   ├── 📂 src/
-│   │   │   ├── index.js                  # Cloud Functions 진입점
-│   │   │   ├── services/                 # 외부 API 연동 로직
-│   │   │   │   ├── geminiService.js      # Gemini API 연동
-│   │   │   │   ├── voyageService.js      # voyage-context-3 연동
-│   │   │   │   └── tossPaymentsService.js # 토스페이먼츠 연동
-│   │   │   └── utils/                    # 백엔드 유틸리티
-│   │   ├── package.json                  # 백엔드 의존성
-│   │   └── .eslintrc.js                  # 백엔드 코드 스타일
-│   ├── firestore.rules                   # Firestore 보안 규칙
-│   ├── storage.rules                     # Storage 보안 규칙
-│   └── firebase.json                     # Firebase 배포 설정
+├── 📁 temp_backup/              # 백업 및 임시 파일들
+│   ├── 📁 frontend/             # 프론트엔드 백업
+│   │   ├── 📁 src/
+│   │   │   ├── 📁 components/   # UI 컴포넌트
+│   │   │   ├── 📁 constants/    # 상수 정의
+│   │   │   │   └── formConstants.js  # 폼 관련 상수
+│   │   │   ├── 📁 data/         # 정적 데이터
+│   │   │   │   └── 📁 location/ # 지역/선거구 데이터
+│   │   │   │       ├── locations.index.js    # 지역 데이터 통합
+│   │   │   │       └── locations.*.js        # 각 지역별 데이터
+│   │   │   ├── 📁 hooks/        # 커스텀 훅
+│   │   │   │   └── usePostGenerator.js       # 원고 생성 훅
+│   │   │   └── 📁 pages/        # 페이지 컴포넌트
+│   │   │       ├── GeneratePage.jsx          # 원고 생성 페이지 (현재)
+│   │   │       └── GeneratePage.legacy.jsx   # 원고 생성 페이지 (레거시)
+│   │   └── .gitignore           # 프론트엔드 gitignore
+│   ├── 📁 functions/            # Firebase Functions 백업
+│   │   ├── 📁 scripts/          # 스크립트
+│   │   │   └── bootstrap-admin.js            # 관리자 부트스트랩
+│   │   ├── 📁 services/         # 서비스 로직
+│   │   │   └── district.js      # 선거구 관리 서비스
+│   │   └── package-lock.json    # 의존성 잠금
+│   ├── .gitignore               # 프로젝트 gitignore
+│   └── 개발계획서/사업계획서.md  # 각종 기획 문서들
 │
-├── 📂 frontend/         # React 프론트엔드
-│   ├── 📂 public/
-│   │   ├── index.html                    # HTML 템플릿
-│   │   └── favicon.ico
-│   ├── 📂 src/
-│   │   ├── 📂 assets/                    # 정적 에셋
-│   │   ├── 📂 components/                # 재사용 컴포넌트
-│   │   │   ├── ui/                       # shadcn/ui 컴포넌트
-│   │   │   ├── DashboardLayout.jsx       # 레이아웃 컴포넌트
-│   │   │   └── PostGenerator.jsx         # 원고 생성 컴포넌트
-│   │   ├── 📂 context/                   # 전역 상태
-│   │   │   └── AuthContext.jsx           # 인증 컨텍스트
-│   │   ├── 📂 hooks/                     # 커스텀 훅
-│   │   │   ├── usePostGenerator.js       # 원고 생성 훅
-│   │   │   └── useAuth.js                # 인증 훅
-│   │   ├── 📂 pages/                     # 페이지 컴포넌트
-│   │   │   ├── GeneratePage.jsx          # 원고 생성 페이지
-│   │   │   ├── HistoryPage.jsx           # 히스토리 페이지
-│   │   │   └── LoginPage.jsx             # 로그인 페이지
-│   │   ├── 📂 services/                  # API 클라이언트
-│   │   │   ├── firebase.js               # Firebase 초기화
-│   │   │   └── api.js                    # API 호출 함수
-│   │   ├── App.jsx                       # 메인 앱 및 라우터
-│   │   └── main.jsx                      # React 진입점
-│   ├── package.json                      # 프론트엔드 의존성
-│   ├── vite.config.js                    # Vite 설정
-│   └── .eslintrc.cjs                     # 프론트엔드 코드 스타일
+├── 📄 # AI비서관 개발 계획서.md  # 메인 개발 계획서 (이 문서)
+└── 📄 .firebaserc              # Firebase 프로젝트 설정
+```
+
+### 표준 구조로 정리 예정
+```
+ai-secretary/
+├── 📁 functions/               # Firebase Functions (서버리스 백엔드)
+│   ├── 📁 src/
+│   │   ├── index.js           # Functions 진입점
+│   │   ├── 📁 services/       # 핵심 비즈니스 로직
+│   │   │   ├── geminiService.js       # Gemini API 연동
+│   │   │   ├── district.js            # 선거구 관리
+│   │   │   └── userService.js         # 사용자 관리
+│   │   └── 📁 utils/          # 유틸리티
+│   ├── 📁 scripts/            # 관리 스크립트
+│   └── package.json
 │
-└── .firebaserc                           # Firebase 프로젝트 연결
+├── 📁 frontend/               # React 프론트엔드
+│   ├── 📁 public/
+│   ├── 📁 src/
+│   │   ├── 📁 components/     # 재사용 컴포넌트
+│   │   ├── 📁 constants/      # 상수 (formConstants.js 등)
+│   │   ├── 📁 data/          # 정적 데이터 (지역 정보 등)
+│   │   ├── 📁 hooks/         # 커스텀 훅 (usePostGenerator 등)
+│   │   ├── 📁 pages/         # 페이지 컴포넌트
+│   │   └── 📁 services/      # API 클라이언트
+│   ├── package.json
+│   └── vite.config.js
+│
+├── 📄 firebase.json           # Firebase 프로젝트 설정
+├── 📄 firestore.rules        # Firestore 보안 규칙
+└── 📄 .firebaserc            # Firebase 연결 설정
 ```
 
 ## 7. 품질 관리 및 테스트

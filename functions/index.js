@@ -37,7 +37,7 @@ async function callGeminiAPI(prompt, apiKey) {
   
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' }); // 🔧 수정: 최신 모델로 변경
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
     
     const result = await model.generateContent(prompt);
     const response = await result.response;
@@ -51,10 +51,10 @@ async function callGeminiAPI(prompt, apiKey) {
 }
 
 // ============================================================================
-// generatePosts Function - 실제 Gemini API 사용
+// generateSinglePost Function - 🔥 핵심 요구사항에 맞게 수정
 // ============================================================================
 
-exports.generatePosts = onCall({
+exports.generateSinglePost = onCall({
   ...functionOptions,
   secrets: [geminiApiKey]
 }, async (request) => {
@@ -64,9 +64,14 @@ exports.generatePosts = onCall({
     }
 
     const userId = request.auth.uid;
-    const { prompt, category, subCategory, keywords, userName } = request.data;
+    const { prompt, category, subCategory, keywords, userName, generateSingle } = request.data;
 
-    console.log('🔥 generatePosts 호출:', { userId, prompt, category });
+    console.log('🔥 generateSinglePost 호출:', { userId, prompt, category, generateSingle });
+
+    // 단일 생성 플래그 확인
+    if (!generateSingle) {
+      throw new HttpsError('invalid-argument', '단일 생성 모드가 아닙니다. generateSingle 플래그가 필요합니다.');
+    }
 
     // 입력값 검증
     if (!prompt || !prompt.trim()) {
@@ -81,7 +86,7 @@ exports.generatePosts = onCall({
       throw new HttpsError('invalid-argument', '주제는 500자를 초과할 수 없습니다.');
     }
 
-    // Gemini API 프롬프트 구성
+    // 🚀 단일 원고 생성을 위한 프롬프트 구성
     const systemPrompt = `당신은 더불어민주당 소속 정치인의 전문 원고 작성자입니다.
 
 사용자 정보:
@@ -90,36 +95,28 @@ exports.generatePosts = onCall({
 - 세부카테고리: ${subCategory || ''}
 - 키워드: ${keywords || ''}
 
-다음 주제에 대해 3개의 서로 다른 스타일의 블로그 원고를 작성해주세요:
+다음 주제에 대해 정확히 1개의 블로그 원고를 작성해주세요:
 
 주제: ${prompt}
 
 요구사항:
-1. 각 원고는 500-800자 분량
+1. 500-800자 분량
 2. HTML 태그로 구조화 (<p>, <strong>, <br> 등 사용)
 3. 정치인답게 신중하고 책임감 있는 어조
 4. 시민과의 소통을 중시하는 내용
 5. 구체적이고 실용적인 해결방안 제시
 
+⚠️ 중요: 반드시 1개의 원고만 생성하세요. 여러 버전이나 선택지를 제공하지 마세요.
+
 다음 JSON 형식으로 응답해주세요:
 {
-  "drafts": [
-    {
-      "title": "제목1",
-      "content": "<p>HTML 형식의 내용1</p>",
-      "style": "스타일1"
-    },
-    {
-      "title": "제목2", 
-      "content": "<p>HTML 형식의 내용2</p>",
-      "style": "스타일2"
-    },
-    {
-      "title": "제목3",
-      "content": "<p>HTML 형식의 내용3</p>",
-      "style": "스타일3"
-    }
-  ]
+  "title": "원고 제목",
+  "content": "<p>HTML 형식의 본문 내용</p>",
+  "category": "${category}",
+  "subCategory": "${subCategory || ''}",
+  "wordCount": 숫자,
+  "tags": ["태그1", "태그2"],
+  "style": "스타일명"
 }
 
 JSON 형식만 응답하고 다른 설명은 포함하지 마세요.`;
@@ -145,54 +142,63 @@ JSON 형식만 응답하고 다른 설명은 포함하지 마세요.`;
       console.error('JSON 파싱 오류:', parseError);
       console.log('원본 응답:', geminiResponse);
       
-      // 파싱 실패 시 백업 응답
+      // 파싱 실패 시 백업 응답 (단일 원고)
       parsedResponse = {
-        drafts: [
-          {
-            title: `${category} - ${prompt.slice(0, 20)}에 대한 입장`,
-            content: `<p><strong>${userName || '의원'}님의 ${category} 관련 의견</strong></p><p>안녕하세요, ${userName || '의원'}입니다.</p><p>${prompt}에 대해 말씀드리고자 합니다.</p><p>시민 여러분의 불편을 덜어드리기 위해 최선을 다하겠습니다.</p>`,
-            style: "입장문"
-          }
-        ]
+        title: `${category} - ${prompt.slice(0, 20)}에 대한 입장`,
+        content: `<p><strong>${userName || '의원'}님의 ${category} 관련 의견</strong></p><p>안녕하세요, ${userName || '의원'}입니다.</p><p>${prompt}에 대해 말씀드리고자 합니다.</p><p>시민 여러분의 불편을 덜어드리기 위해 최선을 다하겠습니다.</p>`,
+        category: category,
+        subCategory: subCategory || '',
+        wordCount: 150,
+        tags: keywords ? keywords.split(',').map(k => k.trim()).filter(k => k) : [],
+        style: "입장문"
       };
     }
 
-    // 응답 데이터 정규화
-    const normalizedDrafts = parsedResponse.drafts.map((draft, index) => ({
-      id: `draft_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      title: draft.title || `원고 ${index + 1}`,
-      content: draft.content || '<p>내용이 생성되지 않았습니다.</p>',
-      wordCount: (draft.content || '').replace(/<[^>]*>/g, '').replace(/\s/g, '').length,
-      tags: keywords ? keywords.split(',').map(k => k.trim()).filter(k => k) : [],
-      category: category || '일반',
-      subCategory: subCategory || '',
-      style: draft.style || '일반',
+    // 🔥 단일 원고 데이터 정규화
+    const normalizedPost = {
+      id: `post_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      title: parsedResponse.title || `${category} 원고`,
+      content: parsedResponse.content || '<p>내용이 생성되지 않았습니다.</p>',
+      wordCount: parsedResponse.wordCount || (parsedResponse.content || '').replace(/<[^>]*>/g, '').replace(/\s/g, '').length,
+      tags: Array.isArray(parsedResponse.tags) ? parsedResponse.tags : (keywords ? keywords.split(',').map(k => k.trim()).filter(k => k) : []),
+      category: parsedResponse.category || category || '일반',
+      subCategory: parsedResponse.subCategory || subCategory || '',
+      style: parsedResponse.style || '일반',
       metadata: {
         generatedAt: new Date(),
         model: 'gemini-1.5-flash',
         userId: userId,
-        originalPrompt: prompt
+        originalPrompt: prompt,
+        generateMode: 'single' // 단일 생성 모드 표시
       },
       generatedAt: new Date()
-    }));
+    };
 
-    console.log(`✅ generatePosts 성공: ${normalizedDrafts.length}개 원고 생성`);
+    console.log(`✅ generateSinglePost 성공: 단일 원고 생성 완료`);
+    console.log('📋 생성된 원고:', {
+      id: normalizedPost.id,
+      title: normalizedPost.title,
+      wordCount: normalizedPost.wordCount
+    });
 
+    // 🎯 단일 원고 반환 (배열이 아닌 객체)
     return {
       success: true,
-      drafts: normalizedDrafts,
+      post: normalizedPost, // 단일 객체 반환
+      message: '원고가 성공적으로 생성되었습니다.',
       metadata: {
         requestId: `req_${Date.now()}`,
         generatedAt: new Date(),
         model: 'gemini-1.5-flash',
         promptLength: prompt.length,
         category: category,
-        userId: userId
+        userId: userId,
+        generateMode: 'single'
       }
     };
 
   } catch (error) {
-    console.error('❌ generatePosts 오류:', error);
+    console.error('❌ generateSinglePost 오류:', error);
     
     if (error instanceof HttpsError) {
       throw error;
@@ -212,7 +218,22 @@ JSON 형식만 응답하고 다른 설명은 포함하지 마세요.`;
 });
 
 // ============================================================================
-// 기존 사용자 함수들
+// 기존 generatePosts Function - 🚫 사용 중단 또는 제거
+// ============================================================================
+
+exports.generatePosts = onCall({
+  ...functionOptions,
+  secrets: [geminiApiKey]
+}, async (request) => {
+  // 기존 함수 사용 방지
+  throw new HttpsError(
+    'unimplemented', 
+    '이 함수는 더 이상 사용되지 않습니다. generateSinglePost를 사용해주세요. 핵심 요구사항: 1회 시도 = 1개 원고 생성'
+  );
+});
+
+// ============================================================================
+// 기존 사용자 함수들 (변경 없음)
 // ============================================================================
 
 // getDashboardData Function

@@ -1,7 +1,7 @@
 import React, { lazy } from 'react';
 import ReactDOM from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider } from './hooks/useAuth.jsx'; // ✅ 경로 수정
 import { ThemeProvider } from '@mui/material/styles';
 import theme from './theme';
 import App from './App.jsx';

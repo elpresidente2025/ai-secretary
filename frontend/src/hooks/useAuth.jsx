@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-// frontend/src/hooks/useAuth.jsx
+// src/hooks/useAuth.jsx
 import { useState, useEffect, createContext, useContext } from 'react';
 import { 
   onAuthStateChanged, 
