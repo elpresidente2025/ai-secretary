@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth'; // 실제 useAuth 훅의 경로를 확인해주세요.
+import { useAuth } from '../hooks/useAuth';
 import {
   Container,
   Box,
@@ -14,9 +14,8 @@ import {
 } from '@mui/material';
 
 const HomePage = () => {
-  // 사용자님의 useAuth.jsx 구조에 맞게 수정합니다.
-  const { auth: authState, login } = useAuth();
-  const { user, loading: authLoading } = authState;
+  // ✅ 젠스파크 수정: 올바른 구조로 수정
+  const { user, loading: authLoading, login } = useAuth();
 
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
@@ -41,17 +40,35 @@ const HomePage = () => {
     setError('');
     setIsSubmitting(true);
 
-    // login 함수가 반환하는 결과 객체를 확인합니다.
-    const result = await login(email, password);
-
-    // try...catch 대신, 반환된 객체의 success 속성을 확인합니다.
-    if (!result.success) {
-      // 실패 시, 결과 객체에 담긴 에러 메시지를 화면에 표시합니다.
-      setError(result.error || '로그인 중 오류가 발생했습니다.');
+    try {
+      // ✅ 젠스파크 수정: try-catch 블록으로 에러 처리 개선
+      await login(email, password);
+      // 성공 시에는 useEffect가 알아서 대시보드로 이동시킵니다.
+    } catch (err) {
+      // ✅ 젠스파크 수정: Firebase 에러 코드에 따른 사용자 친화적인 메시지 표시
+      const getErrorMessage = (errorCode) => {
+        switch (errorCode) {
+          case 'auth/user-not-found':
+            return '등록되지 않은 이메일입니다.';
+          case 'auth/wrong-password':
+            return '비밀번호가 잘못되었습니다.';
+          case 'auth/invalid-email':
+            return '올바른 이메일 형식이 아닙니다.';
+          case 'auth/user-disabled':
+            return '비활성화된 계정입니다.';
+          case 'auth/too-many-requests':
+            return '너무 많은 로그인 시도가 있었습니다. 잠시 후 다시 시도해주세요.';
+          case 'auth/invalid-credential':
+            return '이메일 또는 비밀번호가 잘못되었습니다.';
+          default:
+            return '로그인 중 오류가 발생했습니다.';
+        }
+      };
+      
+      setError(getErrorMessage(err.code));
+    } finally {
+      setIsSubmitting(false);
     }
-    // 성공 시에는 useEffect가 알아서 대시보드로 이동시킵니다.
-
-    setIsSubmitting(false);
   };
 
   // 초기 인증 확인 중일 때 로딩 화면 표시

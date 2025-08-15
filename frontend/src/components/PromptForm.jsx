@@ -15,8 +15,8 @@ import {
   Paper,
   Divider
 } from '@mui/material';
-import { useAuth } from '../hooks/useAuth'; // 🔥 경로 변경
-import { CATEGORIES, CATEGORY_DESCRIPTIONS } from '../constants/formConstants'; // 🔥 상수 import
+import { useAuth } from '../hooks/useAuth';
+import { CATEGORIES, CATEGORY_DESCRIPTIONS } from '../constants/formConstants';
 
 /**
  * @description AI 포스트 생성을 위한 프롬프트 입력 폼 컴포넌트
@@ -36,7 +36,8 @@ const PromptForm = ({
   validation = {}
 }) => {
   
-  const { auth } = useAuth();
+  // 🔧 수정: 올바른 구조로 변경
+  const { user } = useAuth();
   
   // 카테고리 변경 시 세부 카테고리 초기화
   const handleCategoryChange = (event) => {
@@ -74,27 +75,30 @@ const PromptForm = ({
 
   const buttonText = isGenerated ? '초안 다시 생성하기' : 'AI 초안 생성하기';
 
-  // 🔥 사용자 정보: 지역 정보 구성 (districtInfo 제거)
-  const regionInfo = auth?.user ? 
-    `${auth.user.regionMetro || ''} ${auth.user.regionLocal || ''}`.trim() : '';
+  // 🔧 수정: user 사용으로 변경
+  const regionInfo = user ? [
+    user.regionMetro,
+    user.regionLocal,
+    user.electoralDistrict
+  ].filter(Boolean).join(' > ') : '';
 
   return (
-    <Paper sx={{ p: 3, mb: 3 }}>
+    <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
       <Typography variant="h6" gutterBottom>
-        원고 생성 설정
+        📝 AI 원고 생성
       </Typography>
       
-      {/* 🔥 사용자 정보 디버깅 표시 */}
-      {auth?.user && (
+      {/* 사용자 정보 표시 */}
+      {user && (
         <Alert severity="info" sx={{ mb: 2 }}>
           <Typography variant="body2">
-            <strong>작성자:</strong> {auth.user.name || '이름 없음'} 
-            {auth.user.position && ` (${auth.user.position})`}
+            <strong>{user.name || '이름 없음'}</strong> 
+            {user.position && ` (${user.position})`}
             {regionInfo && ` | ${regionInfo}`}
           </Typography>
         </Alert>
       )}
-      
+
       <Box component="form" onSubmit={handleFormSubmit}>
         <Stack spacing={3}>
           {/* 카테고리 선택 */}
@@ -102,33 +106,31 @@ const PromptForm = ({
             <InputLabel>카테고리</InputLabel>
             <Select
               value={category}
-              onChange={handleCategoryChange}
               label="카테고리"
+              onChange={handleCategoryChange}
               disabled={isLoading}
             >
               {Object.keys(CATEGORIES).map((cat) => (
                 <MenuItem key={cat} value={cat}>
-                  <Box>
-                    <Typography>{cat}</Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {CATEGORY_DESCRIPTIONS[cat]}
-                    </Typography>
-                  </Box>
+                  {cat}
                 </MenuItem>
               ))}
             </Select>
           </FormControl>
 
           {/* 세부 카테고리 선택 */}
-          {category && CATEGORIES[category] && (
+          {CATEGORIES[category] && CATEGORIES[category].length > 0 && (
             <FormControl fullWidth>
               <InputLabel>세부 카테고리</InputLabel>
               <Select
                 value={subCategory}
-                onChange={(e) => setSubCategory(e.target.value)}
                 label="세부 카테고리"
+                onChange={(e) => setSubCategory(e.target.value)}
                 disabled={isLoading}
               >
+                <MenuItem value="">
+                  <em>선택 안함</em>
+                </MenuItem>
                 {CATEGORIES[category].map((subCat) => (
                   <MenuItem key={subCat} value={subCat}>
                     {subCat}
@@ -138,54 +140,62 @@ const PromptForm = ({
             </FormControl>
           )}
 
-          <Divider />
+          {/* 카테고리 설명 */}
+          {CATEGORY_DESCRIPTIONS[category] && (
+            <Alert severity="info">
+              <Typography variant="body2">
+                {CATEGORY_DESCRIPTIONS[category]}
+              </Typography>
+            </Alert>
+          )}
 
           {/* 주제 입력 */}
           <TextField
-            fullWidth
+            label="주제 및 내용"
             multiline
             rows={4}
-            label="주제 및 내용"
-            placeholder="어떤 내용의 원고를 작성하고 싶으신가요? 상세할수록 더 정확한 원고가 생성됩니다."
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            disabled={isLoading}
             error={!!promptError}
             helperText={promptError || `${prompt.length}/500자`}
+            placeholder="어떤 내용의 원고를 작성하시겠습니까? 구체적으로 설명해주세요."
+            disabled={isLoading}
+            fullWidth
+            required
           />
 
           {/* 키워드 입력 */}
           <TextField
-            fullWidth
-            label="키워드 (선택사항)"
-            placeholder="원고에 포함되길 원하는 키워드를 쉼표로 구분해서 입력하세요"
+            label="핵심 키워드 (선택사항)"
             value={keywords}
             onChange={(e) => setKeywords(e.target.value)}
-            disabled={isLoading}
             error={!!keywordsError}
-            helperText={keywordsError || `${keywords.length}/200자`}
+            helperText={keywordsError || `${keywords.length}/200자 | 쉼표로 구분하여 입력하세요`}
+            placeholder="예: 경제정책, 일자리 창출, 청년 지원"
+            disabled={isLoading}
+            fullWidth
           />
 
-          {/* 키워드 표시 */}
-          {keywords && (
+          {/* 키워드 미리보기 */}
+          {keywords.trim() && (
             <Box>
               <Typography variant="body2" color="text.secondary" gutterBottom>
-                입력된 키워드:
+                키워드 미리보기:
               </Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                 {keywords.split(',').map((keyword, index) => (
-                  keyword.trim() && (
-                    <Chip 
-                      key={index} 
-                      label={keyword.trim()} 
-                      size="small" 
-                      variant="outlined" 
-                    />
-                  )
+                  <Chip 
+                    key={index} 
+                    label={keyword.trim()} 
+                    size="small" 
+                    variant="outlined"
+                  />
                 ))}
               </Box>
             </Box>
           )}
+
+          <Divider />
 
           {/* 생성 버튼 */}
           <Button
@@ -193,16 +203,10 @@ const PromptForm = ({
             variant="contained"
             size="large"
             disabled={hasErrors || !prompt.trim() || isLoading}
-            sx={{ py: 1.5 }}
+            startIcon={isLoading ? <CircularProgress size={20} /> : null}
+            fullWidth
           >
-            {isLoading ? (
-              <>
-                <CircularProgress size={20} sx={{ mr: 1 }} />
-                AI가 원고를 생성하고 있습니다...
-              </>
-            ) : (
-              buttonText
-            )}
+            {isLoading ? '생성 중...' : buttonText}
           </Button>
         </Stack>
       </Box>
