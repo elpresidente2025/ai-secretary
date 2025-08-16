@@ -37,6 +37,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout';
+import NoticeBanner from '../components/NoticeBanner';
 import { useAuth } from '../hooks/useAuth';
 import { getUserFullTitle, getUserDisplayTitle, getUserRegionInfo, getUserStatusIcon } from '../utils/userUtils';
 import { functions } from '../services/firebase';
@@ -185,6 +186,9 @@ const Dashboard = () => {
   return (
     <DashboardLayout>
       <Container maxWidth="xl" sx={{ py: 4, px: { xs: 2, md: 4 } }}>
+        {/* 공지사항 배너 - 최상단에 위치 */}
+        <NoticeBanner />
+        
         {/* 인사말 + 플랜 카드 */}
         <Paper 
           elevation={2} 
@@ -494,24 +498,6 @@ const Dashboard = () => {
                 </Box>
               )}
             </Paper>
-
-            {/* 공지사항 */}
-            <Paper elevation={1}>
-              <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
-                <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                  공지사항
-                </Typography>
-              </Box>
-              
-              <Box sx={{ p: 3, textAlign: 'center' }}>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  새로운 공지사항이 있을 때 여기에 표시됩니다.
-                </Typography>
-                <Typography variant="caption" color="text.disabled">
-                  공지 시스템 준비 중...
-                </Typography>
-              </Box>
-            </Paper>
           </Box>
         ) : (
           /* PC - 2컬럼 레이아웃 */
@@ -588,24 +574,6 @@ const Dashboard = () => {
                     >
                       인증 관리
                     </Button>
-                  </Box>
-                </Paper>
-
-                {/* 공지사항 */}
-                <Paper elevation={1}>
-                  <Box sx={{ p: 3, borderBottom: '1px solid', borderColor: 'divider' }}>
-                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                      공지사항
-                    </Typography>
-                  </Box>
-                  
-                  <Box sx={{ p: 3, textAlign: 'center' }}>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                      새로운 공지사항이 있을 때 여기에 표시됩니다.
-                    </Typography>
-                    <Typography variant="caption" color="text.disabled">
-                      공지 시스템 준비 중...
-                    </Typography>
                   </Box>
                 </Paper>
               </Box>

@@ -98,156 +98,106 @@ exports.generateSinglePost = onCall({
       throw new HttpsError('invalid-argument', '단일 생성 모드가 아닙니다. generateSingle 플래그가 필요합니다.');
     }
 
-    // 입력값 검증
-    if (!prompt || !prompt.trim()) {
-      throw new HttpsError('invalid-argument', '주제를 입력해주세요.');
+    // 사용자 정보 조회
+    const userDoc = await db.collection('users').doc(userId).get();
+    if (!userDoc.exists) {
+      throw new HttpsError('not-found', '사용자 정보를 찾을 수 없습니다.');
     }
 
-    if (prompt.trim().length < 5) {
-      throw new HttpsError('invalid-argument', '주제는 최소 5자 이상 입력해주세요.');
-    }
+    const userData = userDoc.data();
+    const displayName = userData.name || userName || '정치인';
 
-    if (prompt.trim().length > 500) {
-      throw new HttpsError('invalid-argument', '주제는 500자를 초과할 수 없습니다.');
-    }
-
-    // 🚀 단일 원고 생성을 위한 프롬프트 구성
-    const systemPrompt = `당신은 더불어민주당 소속 정치인의 전문 원고 작성자입니다.
-
-사용자 정보:
-- 이름: ${userName || '의원'}
-- 카테고리: ${category}
-- 세부카테고리: ${subCategory || ''}
-- 키워드: ${keywords || ''}
-
-다음 주제에 대해 정확히 1개의 블로그 원고를 작성해주세요:
-
-주제: ${prompt}
-
-요구사항:
-1. 500-800자 분량
-2. HTML 태그로 구조화 (<p>, <strong>, <br> 등 사용)
-3. 정치인답게 신중하고 책임감 있는 어조
-4. 시민과의 소통을 중시하는 내용
-5. 구체적이고 실용적인 해결방안 제시
-
-⚠️ 중요: 반드시 1개의 원고만 생성하세요. 여러 버전이나 선택지를 제공하지 마세요.
-
-다음 JSON 형식으로 응답해주세요:
-{
-  "title": "원고 제목",
-  "content": "<p>HTML 형식의 본문 내용</p>",
-  "category": "${category}",
-  "subCategory": "${subCategory || ''}",
-  "wordCount": 숫자,
-  "tags": ["태그1", "태그2"],
-  "style": "스타일명"
-}
-
-JSON 형식만 응답하고 다른 설명은 포함하지 마세요.`;
-
-    console.log('📡 Gemini API 호출 시작...');
-    
-    // Gemini API 호출
-    const geminiResponse = await callGeminiAPI(systemPrompt, geminiApiKey.value());
-    
-    console.log('✅ Gemini API 응답 수신');
-
-    // JSON 파싱
-    let parsedResponse;
-    try {
-      // Gemini 응답에서 JSON 부분만 추출
-      const jsonMatch = geminiResponse.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        throw new Error('JSON 형식을 찾을 수 없습니다');
+    // 사용량 제한 확인 (관리자는 제외)
+    if (userData.role !== 'admin') {
+      const checkUsageFn = require('./handlers/posts').checkUsageLimit;
+      const usageResult = await checkUsageFn.handler({ auth: { uid: userId } });
+      
+      if (!usageResult.canGenerate) {
+        throw new HttpsError('resource-exhausted', usageResult.message);
       }
-      
-      parsedResponse = JSON.parse(jsonMatch[0]);
-    } catch (parseError) {
-      console.error('JSON 파싱 오류:', parseError);
-      console.log('원본 응답:', geminiResponse);
-      
-      // 파싱 실패 시 백업 응답 (단일 원고)
-      parsedResponse = {
-        title: `${category} - ${prompt.slice(0, 20)}에 대한 입장`,
-        content: `<p><strong>${userName || '의원'}님의 ${category} 관련 의견</strong></p><p>안녕하세요, ${userName || '의원'}입니다.</p><p>${prompt}에 대해 말씀드리고자 합니다.</p><p>시민 여러분의 불편을 덜어드리기 위해 최선을 다하겠습니다.</p>`,
-        category: category,
-        subCategory: subCategory || '',
-        wordCount: 150,
-        tags: keywords ? keywords.split(',').map(k => k.trim()).filter(k => k) : [],
-        style: "입장문"
-      };
     }
 
-    // 🔥 단일 원고 데이터 정규화
-    const normalizedPost = {
-      id: `post_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      title: parsedResponse.title || `${category} 원고`,
-      content: parsedResponse.content || '<p>내용이 생성되지 않았습니다.</p>',
-      wordCount: parsedResponse.wordCount || (parsedResponse.content || '').replace(/<[^>]*>/g, '').replace(/\s/g, '').length,
-      tags: Array.isArray(parsedResponse.tags) ? parsedResponse.tags : (keywords ? keywords.split(',').map(k => k.trim()).filter(k => k) : []),
-      category: parsedResponse.category || category || '일반',
-      subCategory: parsedResponse.subCategory || subCategory || '',
-      style: parsedResponse.style || '일반',
-      metadata: {
-        generatedAt: new Date(),
-        model: 'gemini-1.5-flash',
-        userId: userId,
-        originalPrompt: prompt,
-        generateMode: 'single' // 단일 생성 모드 표시
-      },
-      generatedAt: new Date()
+    // 프롬프트 구성
+    const fullPrompt = `
+당신은 전문적인 정치 연설문 작성자입니다. 다음 조건에 맞는 연설문을 작성해주세요.
+
+**작성 조건:**
+- 작성자: ${displayName}
+- 주제: ${prompt}
+- 카테고리: ${category || '일반'}
+${subCategory ? `- 세부 카테고리: ${subCategory}` : ''}
+${keywords ? `- 포함할 키워드: ${keywords}` : ''}
+
+**작성 요구사항:**
+1. 정중하고 품격 있는 어조로 작성
+2. 구체적이고 실용적인 내용 포함
+3. 청중의 공감을 이끌어낼 수 있는 메시지
+4. 적절한 길이 (300-800자 내외)
+5. 명확한 논리 구조와 설득력 있는 내용
+
+연설문만 작성해주세요. 다른 설명은 불필요합니다.
+    `;
+
+    console.log('🔥 Gemini API 호출 중...');
+    const generatedContent = await callGeminiAPI(fullPrompt, geminiApiKey.value());
+
+    if (!generatedContent) {
+      throw new HttpsError('internal', 'AI 응답이 비어있습니다.');
+    }
+
+    // 단일 포스트 응답 구성
+    const singlePost = {
+      title: `${category || '일반'} 연설문`,
+      content: generatedContent.trim(),
+      category: category || '일반',
+      subCategory: subCategory || '',
+      keywords: keywords || '',
+      timestamp: new Date().toISOString(),
+      wordCount: generatedContent.replace(/\s/g, '').length
     };
 
-    console.log(`✅ generateSinglePost 성공: 단일 원고 생성 완료`);
-    console.log('📋 생성된 원고:', {
-      id: normalizedPost.id,
-      title: normalizedPost.title,
-      wordCount: normalizedPost.wordCount
-    });
+    console.log('✅ 단일 포스트 생성 완료');
 
-    // 🎯 단일 원고 반환 (배열이 아닌 객체)
     return {
-      success: true,
-      post: normalizedPost, // 단일 객체 반환
-      message: '원고가 성공적으로 생성되었습니다.',
-      metadata: {
-        requestId: `req_${Date.now()}`,
-        generatedAt: new Date(),
-        model: 'gemini-1.5-flash',
-        promptLength: prompt.length,
-        category: category,
-        userId: userId,
-        generateMode: 'single'
+      singlePost,
+      usage: {
+        promptTokens: Math.ceil(fullPrompt.length / 4),
+        completionTokens: Math.ceil(generatedContent.length / 4)
       }
     };
 
   } catch (error) {
-    console.error('❌ generateSinglePost 오류:', error);
+    console.error('❌ generateSinglePost 실패:', error);
     
     if (error instanceof HttpsError) {
       throw error;
     }
     
-    // Gemini API 관련 에러 처리
-    if (error.message.includes('API_KEY') || error.message.includes('quota')) {
-      throw new HttpsError('resource-exhausted', 'AI 서비스 할당량이 초과되었습니다. 잠시 후 다시 시도해주세요.');
+    if (error.message.includes('quota') || error.message.includes('limit')) {
+      throw new HttpsError('resource-exhausted', 'AI 서비스 사용량이 한도에 도달했습니다. 5-10분 후 다시 시도하거나 유료 플랜으로 업그레이드해주세요.');
     }
     
-    if (error.message.includes('SAFETY')) {
-      throw new HttpsError('invalid-argument', '입력하신 내용이 AI 안전 정책에 위배됩니다. 다른 표현으로 다시 시도해주세요.');
+    if (error.message.includes('overloaded') || error.message.includes('unavailable')) {
+      throw new HttpsError('unavailable', 'AI 서비스가 현재 과부하 상태입니다. 1-2분 후 다시 시도해주세요.');
     }
     
-    throw new HttpsError('internal', 'AI 원고 생성에 실패했습니다. 다시 시도해주세요.');
+    if (error.message.includes('timeout') || error.message.includes('타임아웃')) {
+      throw new HttpsError('deadline-exceeded', 'AI 응답 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.');
+    }
+    
+    throw new HttpsError('internal', `원고 생성 실패: ${error.message}`);
   }
 });
 
-// generatePosts는 handlers/posts.js에서 import함
+// 🔥 generatePostDrafts 별칭 함수도 동일하게 수정
+exports.generatePostDrafts = onCall(functionOptions, async (request) => {
+  // generatePosts와 동일한 로직 호출
+  return exports.generatePosts.run(request);
+});
 
 // ============================================================================
-// getDashboardData Function
+// getDashboardData Function - 대시보드 데이터 제공
 // ============================================================================
-
 exports.getDashboardData = onCall(functionOptions, async (request) => {
   try {
     if (!request.auth) {
@@ -257,68 +207,70 @@ exports.getDashboardData = onCall(functionOptions, async (request) => {
     const userId = request.auth.uid;
     console.log('🔥 getDashboardData 호출:', userId);
 
-    const usage = {
-      postsGenerated: 0,
-      monthlyLimit: 50,
-      lastGenerated: null
-    };
-
-    try {
-      const now = new Date();
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      
-      const postsSnapshot = await db.collection('posts')
-        .where('userId', '==', userId)
-        .where('createdAt', '>=', admin.firestore.Timestamp.fromDate(monthStart))
-        .get();
-
-      usage.postsGenerated = postsSnapshot.size;
-
-      const recentPosts = [];
-      const recentSnapshot = await db.collection('posts')
-        .where('userId', '==', userId)
-        .orderBy('createdAt', 'desc')
-        .limit(5)
-        .get();
-
-      recentSnapshot.forEach(doc => {
-        const data = doc.data();
-        recentPosts.push({
-          id: doc.id,
-          title: data.title || '제목 없음',
-          category: data.category || '일반',
-          createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString()
-        });
-      });
-
-      console.log('✅ Dashboard 데이터 성공:', { usage, postsCount: recentPosts.length });
-
-      return {
-        success: true,
-        data: {
-          usage,
-          recentPosts
-        }
-      };
-
-    } catch (firestoreError) {
-      console.error('Firestore 조회 오류:', firestoreError);
-      return {
-        success: true,
-        data: {
-          usage,
-          recentPosts: []
-        }
-      };
+    // 사용자 정보 조회
+    const userDoc = await db.collection('users').doc(userId).get();
+    if (!userDoc.exists) {
+      throw new HttpsError('not-found', '사용자 정보를 찾을 수 없습니다.');
     }
 
+    const userData = userDoc.data();
+
+    // 사용량 정보 조회
+    const now = new Date();
+    const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    
+    const postsQuery = await db.collection('posts')
+      .where('userId', '==', userId)
+      .where('createdAt', '>=', admin.firestore.Timestamp.fromDate(thisMonth))
+      .get();
+
+    const postsGenerated = postsQuery.size;
+    const monthlyLimit = userData.monthlyLimit || 50;
+
+    // 최근 포스트 조회 (최대 5개)
+    const recentPostsQuery = await db.collection('posts')
+      .where('userId', '==', userId)
+      .orderBy('createdAt', 'desc')
+      .limit(5)
+      .get();
+
+    const recentPosts = recentPostsQuery.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        title: data.title || '제목 없음',
+        category: data.category || '일반',
+        createdAt: data.createdAt?.toDate()?.toISOString() || new Date().toISOString()
+      };
+    });
+
+    const dashboardData = {
+      usage: {
+        postsGenerated,
+        monthlyLimit
+      },
+      recentPosts
+    };
+
+    console.log('✅ getDashboardData 성공');
+    
+    return {
+      success: true,
+      data: dashboardData
+    };
+
   } catch (error) {
-    console.error('❌ getDashboardData 오류:', error);
-    throw new HttpsError('internal', '데이터를 불러오는데 실패했습니다.');
+    console.error('❌ getDashboardData 실패:', error);
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    throw new HttpsError('internal', '대시보드 데이터 조회에 실패했습니다.');
   }
 });
 
-// getUserProfile Function
+// ============================================================================
+// getUserProfile Function - 사용자 프로필 조회
+// ============================================================================
 exports.getUserProfile = onCall(functionOptions, async (request) => {
   try {
     if (!request.auth) {
@@ -328,52 +280,47 @@ exports.getUserProfile = onCall(functionOptions, async (request) => {
     const userId = request.auth.uid;
     console.log('🔥 getUserProfile 호출:', userId);
 
-    try {
-      const userDoc = await db.collection('users').doc(userId).get();
-
-      let profile = {
-        name: request.auth.token.name || '',
-        email: request.auth.token.email || '',
-        position: '',
-        regionMetro: '',
-        regionLocal: '',
-        electoralDistrict: '',
-        status: '현역'
-      };
-
-      if (userDoc.exists) {
-        profile = { ...profile, ...userDoc.data() };
-      }
-
-      console.log('✅ getUserProfile 성공');
-      return {
-        success: true,
-        profile
-      };
-
-    } catch (firestoreError) {
-      console.error('Firestore 조회 오류:', firestoreError);
-      return {
-        success: true,
-        profile: {
-          name: request.auth.token.name || '',
-          email: request.auth.token.email || '',
-          position: '',
-          regionMetro: '',
-          regionLocal: '',
-          electoralDistrict: '',
-          status: '현역'
-        }
-      };
+    const userDoc = await db.collection('users').doc(userId).get();
+    if (!userDoc.exists) {
+      throw new HttpsError('not-found', '사용자 정보를 찾을 수 없습니다.');
     }
 
+    const userData = userDoc.data();
+    
+    // 민감한 정보 제외하고 반환
+    const profileData = {
+      name: userData.name || '',
+      email: userData.email || '',
+      position: userData.position || '',
+      regionMetro: userData.regionMetro || '',
+      regionLocal: userData.regionLocal || '',
+      electoralDistrict: userData.electoralDistrict || '',
+      role: userData.role || 'user',
+      isActive: userData.isActive !== false,
+      monthlyLimit: userData.monthlyLimit || 50,
+      createdAt: userData.createdAt?.toDate()?.toISOString(),
+      updatedAt: userData.updatedAt?.toDate()?.toISOString()
+    };
+
+    console.log('✅ getUserProfile 성공');
+    
+    return {
+      success: true,
+      data: profileData
+    };
+
   } catch (error) {
-    console.error('❌ getUserProfile 오류:', error);
-    throw new HttpsError('internal', '프로필을 불러오는데 실패했습니다.');
+    console.error('❌ getUserProfile 실패:', error);
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    throw new HttpsError('internal', '프로필 조회에 실패했습니다.');
   }
 });
 
-// updateProfile Function
+// ============================================================================
+// updateProfile Function - 프로필 업데이트
+// ============================================================================
 exports.updateProfile = onCall(functionOptions, async (request) => {
   try {
     if (!request.auth) {
@@ -381,29 +328,26 @@ exports.updateProfile = onCall(functionOptions, async (request) => {
     }
 
     const userId = request.auth.uid;
-    const profileData = request.data;
+    const updateData = request.data;
 
-    console.log('🔥 updateProfile 호출:', { userId, profileData });
+    console.log('🔥 updateProfile 호출:', { userId, updateData });
 
-    if (!profileData || typeof profileData !== 'object') {
-      throw new HttpsError('invalid-argument', '올바른 프로필 데이터를 입력해주세요.');
-    }
+    // 허용된 필드만 업데이트
+    const allowedFields = ['name', 'position', 'regionMetro', 'regionLocal', 'electoralDistrict'];
+    const updates = {
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    };
 
-    const allowedFields = ['name', 'position', 'regionMetro', 'regionLocal', 'electoralDistrict', 'status'];
-    const sanitizedData = {};
-    
     allowedFields.forEach(field => {
-      if (profileData[field] !== undefined) {
-        sanitizedData[field] = profileData[field];
+      if (updateData[field] !== undefined) {
+        updates[field] = updateData[field];
       }
     });
 
-    await db.collection('users').doc(userId).set({
-      ...sanitizedData,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
+    await db.collection('users').doc(userId).update(updates);
 
     console.log('✅ updateProfile 성공');
+    
     return {
       success: true,
       message: '프로필이 성공적으로 업데이트되었습니다.'
@@ -481,3 +425,21 @@ exports.diagWhoami = diagWhoami;
 
 // AdminPage.jsx 호환성을 위한 별칭
 exports.getUserList = getUsers;
+
+// ============================================================================
+// 공지사항 핸들러 import & export
+// ============================================================================
+const { 
+  createNotice, 
+  updateNotice, 
+  deleteNotice, 
+  getNotices, 
+  getActiveNotices 
+} = require('./handlers/notices');
+
+// 공지 함수들 export
+exports.createNotice = createNotice;
+exports.updateNotice = updateNotice;
+exports.deleteNotice = deleteNotice;
+exports.getNotices = getNotices;
+exports.getActiveNotices = getActiveNotices;
