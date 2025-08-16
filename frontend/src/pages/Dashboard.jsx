@@ -17,13 +17,23 @@ import {
   useTheme,
   useMediaQuery,
   Divider,
-  Chip
+  Chip,
+  LinearProgress,
+  Card,
+  CardContent
 } from '@mui/material';
 import {
   Create,
   KeyboardArrowRight,
   MoreVert,
-  Settings
+  Settings,
+  TrendingUp,
+  CalendarToday,
+  Notifications,
+  CheckCircle,
+  Warning,
+  CreditCard,
+  Schedule
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout';
@@ -59,6 +69,18 @@ const Dashboard = () => {
     if (limit >= 30) return '리전 인플루언서';
     return '로컬 블로거';
   }
+
+  // 플랜별 색상 가져오기
+  function getPlanColor(planName) {
+    switch(planName) {
+      case '로컬 블로거': return '#003a87';
+      case '리전 인플루언서': return '#55207d';
+      case '오피니언 리더': return '#006261';
+      default: return '#003a87';
+    }
+  }
+
+  const planColor = getPlanColor(planName);
 
   // 실제 데이터 로딩
   useEffect(() => {
@@ -124,6 +146,10 @@ const Dashboard = () => {
     navigate(`/post/${postId}`);
   };
 
+  const handleViewBilling = () => {
+    navigate('/billing');
+  };
+
   // 사용량 퍼센트 계산
   const usagePercentage = isAdmin ? 100 : 
     usage.monthlyLimit > 0 ? (usage.postsGenerated / usage.monthlyLimit) * 100 : 0;
@@ -165,7 +191,7 @@ const Dashboard = () => {
           sx={{ 
             p: 3, 
             mb: 3, 
-            background: `linear-gradient(135deg, ${theme.palette.primary.main}15, ${theme.palette.secondary.main}08)`
+            background: `linear-gradient(135deg, ${planColor}15, ${planColor}08)`
           }}
         >
           {/* 모바일 버전 - 수직 스택 */}
@@ -186,7 +212,7 @@ const Dashboard = () => {
               {/* 플랜 정보 */}
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
                 <Typography variant="body1">
-                  플랜: <strong>{planName}</strong>
+                  플랜: <strong style={{ color: planColor }}>{planName}</strong>
                 </Typography>
                 {!isAdmin && (
                   <Typography variant="body2" color="text.secondary">
@@ -194,18 +220,22 @@ const Dashboard = () => {
                   </Typography>
                 )}
                 {isAdmin && (
-                  <Chip label="무제한" color="primary" size="small" />
+                  <Chip label="무제한" sx={{ bgcolor: planColor, color: 'white' }} size="small" />
                 )}
               </Box>
               
               {/* 액션 버튼들 */}
-              <Box sx={{ display: 'flex', gap: 2, flexDirection: 'column' }}>
+              <Box sx={{ display: 'flex', gap: 2, flexDirection: 'column', mb: 3 }}>
                 <Button 
                   variant="contained" 
                   size="large" 
                   startIcon={<Create />}
                   onClick={handleGeneratePost}
                   fullWidth
+                  sx={{ 
+                    bgcolor: planColor,
+                    '&:hover': { bgcolor: planColor, filter: 'brightness(0.9)' }
+                  }}
                 >
                   새 원고 생성
                 </Button>
@@ -215,10 +245,56 @@ const Dashboard = () => {
                   startIcon={<Settings />}
                   onClick={handleChangePlan}
                   fullWidth
+                  sx={{ 
+                    color: planColor, 
+                    borderColor: planColor,
+                    '&:hover': { borderColor: planColor, bgcolor: `${planColor}08` }
+                  }}
                 >
-                  플랜 변경
+                  프로필 수정
                 </Button>
               </Box>
+
+              {/* 사용량 현황 */}
+              {!isAdmin && (
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
+                    이번 달 사용량
+                  </Typography>
+                  <Box sx={{ mb: 1 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        원고 생성
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {usage.postsGenerated}/{usage.monthlyLimit}회
+                      </Typography>
+                    </Box>
+                    <LinearProgress 
+                      variant="determinate" 
+                      value={usagePercentage} 
+                      sx={{ 
+                        height: 8, 
+                        borderRadius: 4,
+                        '& .MuiLinearProgress-bar': {
+                          bgcolor: planColor
+                        }
+                      }}
+                    />
+                  </Box>
+                  <Button 
+                    variant="text" 
+                    size="small" 
+                    onClick={handleViewBilling}
+                    sx={{ 
+                      color: planColor,
+                      fontSize: '0.75rem'
+                    }}
+                  >
+                    플랜 관리
+                  </Button>
+                </Box>
+              )}
               
               {/* 사용 안내 */}
               <Alert severity="info" sx={{ mt: 2 }}>
@@ -245,7 +321,7 @@ const Dashboard = () => {
                   {/* 플랜 정보 */}
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
                     <Typography variant="h6">
-                      플랜: <strong>{planName}</strong>
+                      플랜: <strong style={{ color: planColor }}>{planName}</strong>
                     </Typography>
                     {!isAdmin && (
                       <Typography variant="body1" color="text.secondary">
@@ -253,7 +329,7 @@ const Dashboard = () => {
                       </Typography>
                     )}
                     {isAdmin && (
-                      <Chip label="무제한" color="primary" />
+                      <Chip label="무제한" sx={{ bgcolor: planColor, color: 'white' }} />
                     )}
                   </Box>
                   
@@ -271,6 +347,10 @@ const Dashboard = () => {
                       startIcon={<Create />}
                       onClick={handleGeneratePost}
                       fullWidth
+                      sx={{ 
+                        bgcolor: planColor,
+                        '&:hover': { bgcolor: planColor, filter: 'brightness(0.9)' }
+                      }}
                     >
                       새 원고 생성
                     </Button>
@@ -280,9 +360,55 @@ const Dashboard = () => {
                       startIcon={<Settings />}
                       onClick={handleChangePlan}
                       fullWidth
+                      sx={{ 
+                        color: planColor, 
+                        borderColor: planColor,
+                        '&:hover': { borderColor: planColor, bgcolor: `${planColor}08` }
+                      }}
                     >
-                      플랜 변경
+                      프로필 수정
                     </Button>
+
+                    {/* PC용 사용량 현황 */}
+                    {!isAdmin && (
+                      <Box sx={{ mt: 1 }}>
+                        <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                          이번 달 사용량
+                        </Typography>
+                        <Box sx={{ mb: 1 }}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                            <Typography variant="body2" color="text.secondary">
+                              원고 생성
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              {usage.postsGenerated}/{usage.monthlyLimit}회
+                            </Typography>
+                          </Box>
+                          <LinearProgress 
+                            variant="determinate" 
+                            value={usagePercentage} 
+                            sx={{ 
+                              height: 6, 
+                              borderRadius: 3,
+                              '& .MuiLinearProgress-bar': {
+                                bgcolor: planColor
+                              }
+                            }}
+                          />
+                        </Box>
+                        <Button 
+                          variant="text" 
+                          size="small" 
+                          onClick={handleViewBilling}
+                          sx={{ 
+                            color: planColor,
+                            fontSize: '0.75rem'
+                          }}
+                        >
+                          플랜 관리
+                        </Button>
+                      </Box>
+                    )}
                   </Box>
                 </Grid>
               </Grid>
@@ -294,6 +420,35 @@ const Dashboard = () => {
         {isMobile ? (
           /* 모바일 - 수직 스택 */
           <Box>
+            {/* 다음 인증 일정 카드 */}
+            <Paper elevation={1} sx={{ mb: 3 }}>
+              <Box sx={{ p: 3 }}>
+                <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
+                  <Schedule sx={{ mr: 1, color: '#55207d' }} />
+                  당원 인증 상태
+                </Typography>
+                <Alert severity="success" sx={{ mb: 2 }}>
+                  <Typography variant="body2">
+                    2025년 1분기 인증 완료
+                  </Typography>
+                </Alert>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  다음 인증 예정: 2025년 4월 1일
+                </Typography>
+                <Button 
+                  variant="outlined" 
+                  size="small" 
+                  onClick={handleViewBilling}
+                  sx={{ 
+                    color: '#55207d', 
+                    borderColor: '#55207d' 
+                  }}
+                >
+                  인증 관리
+                </Button>
+              </Box>
+            </Paper>
+
             {/* 최근 생성한 글 */}
             <Paper elevation={1} sx={{ mb: 3 }}>
               <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
@@ -326,7 +481,7 @@ const Dashboard = () => {
                     ))}
                   </List>
                   <Box sx={{ p: 2, textAlign: 'center' }}>
-                    <Button variant="text" color="primary" onClick={handleViewAllPosts}>
+                    <Button variant="text" onClick={handleViewAllPosts} sx={{ color: planColor }}>
                       전체 보기
                     </Button>
                   </Box>
@@ -336,19 +491,11 @@ const Dashboard = () => {
                   <Typography variant="body2" color="text.secondary">
                     아직 생성한 원고가 없습니다.
                   </Typography>
-                  <Button 
-                    variant="outlined" 
-                    startIcon={<Create />}
-                    onClick={handleGeneratePost}
-                    sx={{ mt: 2 }}
-                  >
-                    첫 원고 작성하기
-                  </Button>
                 </Box>
               )}
             </Paper>
 
-            {/* 공지사항 - 추후 구현 예정 */}
+            {/* 공지사항 */}
             <Paper elevation={1}>
               <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
                 <Typography variant="h6" sx={{ fontWeight: 600 }}>
@@ -356,7 +503,6 @@ const Dashboard = () => {
                 </Typography>
               </Box>
               
-              {/* 임시 공지사항 (실제 구현 전까지) */}
               <Box sx={{ p: 3, textAlign: 'center' }}>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                   새로운 공지사항이 있을 때 여기에 표시됩니다.
@@ -371,8 +517,8 @@ const Dashboard = () => {
           /* PC - 2컬럼 레이아웃 */
           <Grid container spacing={3}>
             {/* 좌측: 최근 생성한 글 */}
-            <Grid item xs={12} md={7}>
-              <Paper elevation={1}>
+            <Grid item xs={12} md={6}>
+              <Paper elevation={1} sx={{ height: 'fit-content' }}>
                 <Box sx={{ p: 3, borderBottom: '1px solid', borderColor: 'divider' }}>
                   <Typography variant="h6" sx={{ fontWeight: 600 }}>
                     최근 생성한 글
@@ -394,7 +540,6 @@ const Dashboard = () => {
                           <ListItemSecondaryAction>
                             <IconButton edge="end" onClick={(e) => {
                               e.stopPropagation();
-                              // 추가 옵션 메뉴
                             }}>
                               <MoreVert />
                             </IconButton>
@@ -406,40 +551,64 @@ const Dashboard = () => {
                   </List>
                 ) : (
                   <Box sx={{ p: 3, textAlign: 'center' }}>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    <Typography variant="body2" color="text.secondary">
                       아직 생성한 원고가 없습니다.
                     </Typography>
-                    <Button 
-                      variant="outlined" 
-                      startIcon={<Create />}
-                      onClick={handleGeneratePost}
-                    >
-                      첫 원고 작성하기
-                    </Button>
                   </Box>
                 )}
               </Paper>
             </Grid>
 
-            {/* 우측: 공지사항 - 추후 구현 예정 */}
-            <Grid item xs={12} md={5}>
-              <Paper elevation={1}>
-                <Box sx={{ p: 3, borderBottom: '1px solid', borderColor: 'divider' }}>
-                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                    공지사항
-                  </Typography>
-                </Box>
-                
-                {/* 임시 공지사항 (실제 구현 전까지) */}
-                <Box sx={{ p: 3, textAlign: 'center' }}>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    새로운 공지사항이 있을 때 여기에 표시됩니다.
-                  </Typography>
-                  <Typography variant="caption" color="text.disabled">
-                    공지 시스템 준비 중...
-                  </Typography>
-                </Box>
-              </Paper>
+            {/* 우측: 사이드바 카드들 */}
+            <Grid item xs={12} md={6}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                {/* 당원 인증 상태 */}
+                <Paper elevation={1}>
+                  <Box sx={{ p: 3 }}>
+                    <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
+                      <Schedule sx={{ mr: 1, color: '#55207d' }} />
+                      당원 인증 상태
+                    </Typography>
+                    <Alert severity="success" sx={{ mb: 2 }}>
+                      <Typography variant="body2">
+                        2025년 1분기 인증 완료
+                      </Typography>
+                    </Alert>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      다음 인증 예정: 2025년 4월 1일
+                    </Typography>
+                    <Button 
+                      variant="outlined" 
+                      size="small" 
+                      onClick={handleViewBilling}
+                      sx={{ 
+                        color: '#55207d', 
+                        borderColor: '#55207d' 
+                      }}
+                    >
+                      인증 관리
+                    </Button>
+                  </Box>
+                </Paper>
+
+                {/* 공지사항 */}
+                <Paper elevation={1}>
+                  <Box sx={{ p: 3, borderBottom: '1px solid', borderColor: 'divider' }}>
+                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                      공지사항
+                    </Typography>
+                  </Box>
+                  
+                  <Box sx={{ p: 3, textAlign: 'center' }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      새로운 공지사항이 있을 때 여기에 표시됩니다.
+                    </Typography>
+                    <Typography variant="caption" color="text.disabled">
+                      공지 시스템 준비 중...
+                    </Typography>
+                  </Box>
+                </Paper>
+              </Box>
             </Grid>
           </Grid>
         )}

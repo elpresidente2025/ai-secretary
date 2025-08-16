@@ -54,13 +54,18 @@ function stripHtml(html = '') {
 }
 
 export default function PostsListPage() {
-  const { auth } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [posts, setPosts] = useState([]);
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
   const [error, setError] = useState('');
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerPost, setViewerPost] = useState(null);
+
+  // 디버깅 로그
+  console.log('🔍 user:', user);
+  console.log('🔍 user?.uid:', user?.uid);
+  console.log('🔍 authLoading:', authLoading);
 
   const callGetUserPosts = httpsCallable(functions, 'getUserPosts');
   const callDeletePost = httpsCallable(functions, 'deletePost');
@@ -70,7 +75,7 @@ export default function PostsListPage() {
     (async () => {
       try {
         setLoading(true);
-        if (!auth?.user?.id) {
+        if (!user?.uid) {
           setError('사용자 정보를 불러올 수 없습니다. 다시 로그인해주세요.');
           return;
         }
@@ -86,7 +91,7 @@ export default function PostsListPage() {
       }
     })();
     return () => { mounted = false; };
-  }, [auth?.user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user?.uid]);
 
   const handleCopy = (content, e) => {
     if (e) e.stopPropagation();
@@ -109,7 +114,6 @@ export default function PostsListPage() {
       await callDeletePost({ postId });
       setPosts((prev) => prev.filter((p) => p.id !== postId));
       setSnack({ open: true, message: '삭제되었습니다.', severity: 'info' });
-      // 모달에서 삭제했을 수도 있으니 닫기
       if (viewerPost?.id === postId) {
         setViewerOpen(false);
         setViewerPost(null);
@@ -130,8 +134,19 @@ export default function PostsListPage() {
     setViewerPost(null);
   };
 
-  // 인증 안 된 경우도 레이아웃은 유지해서 사이드바 보이게
-  if (!auth?.user?.id) {
+  if (authLoading) {
+    return (
+      <DashboardLayout title="포스트 목록">
+        <Container maxWidth="xl" sx={{ mt: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+            <CircularProgress />
+          </Box>
+        </Container>
+      </DashboardLayout>
+    );
+  }
+
+  if (!user?.uid) {
     return (
       <DashboardLayout title="포스트 목록">
         <Container maxWidth="xl" sx={{ mt: 2 }}>
@@ -219,7 +234,7 @@ export default function PostsListPage() {
                               WebkitBoxOrient: 'vertical',
                               overflow: 'hidden',
                               wordBreak: 'break-word',
-                              minHeight: 84, // 두 줄 이상 높이 확보(미관)
+                              minHeight: 84,
                             }}
                           >
                             {preview || '내용 미리보기가 없습니다.'}
@@ -258,7 +273,6 @@ export default function PostsListPage() {
           )}
         </Paper>
 
-        {/* 뷰어 다이얼로그 */}
         <Dialog open={viewerOpen} onClose={closeViewer} fullWidth maxWidth="md">
           <DialogTitle sx={{ pr: 2 }}>
             {viewerPost?.title || '제목 없음'}

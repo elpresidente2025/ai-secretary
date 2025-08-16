@@ -16,9 +16,14 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 
-// 공통 함수 옵션
+// 공통 함수 옵션 - CORS 설정 강화
 const functionOptions = {
-  cors: true,
+  cors: {
+    origin: true,
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
+  },
   maxInstances: 5,
   timeoutSeconds: 60,
   memory: '512MiB'
@@ -49,6 +54,26 @@ async function callGeminiAPI(prompt, apiKey) {
     throw new Error('AI 서비스 호출에 실패했습니다: ' + error.message);
   }
 }
+
+// ============================================================================
+// 포스트 관련 함수들 import & export
+// ============================================================================
+
+const { 
+  generatePosts,
+  getUserPosts, 
+  getPost,
+  updatePost, 
+  deletePost,
+  checkUsageLimit 
+} = require('./handlers/posts');
+
+exports.generatePosts = generatePosts;
+exports.getUserPosts = getUserPosts;
+exports.getPost = getPost;
+exports.updatePost = updatePost;
+exports.deletePost = deletePost;
+exports.checkUsageLimit = checkUsageLimit;
 
 // ============================================================================
 // generateSinglePost Function - 🔥 핵심 요구사항에 맞게 수정
@@ -217,26 +242,12 @@ JSON 형식만 응답하고 다른 설명은 포함하지 마세요.`;
   }
 });
 
-// ============================================================================
-// 기존 generatePosts Function - 🚫 사용 중단 또는 제거
-// ============================================================================
-
-exports.generatePosts = onCall({
-  ...functionOptions,
-  secrets: [geminiApiKey]
-}, async (request) => {
-  // 기존 함수 사용 방지
-  throw new HttpsError(
-    'unimplemented', 
-    '이 함수는 더 이상 사용되지 않습니다. generateSinglePost를 사용해주세요. 핵심 요구사항: 1회 시도 = 1개 원고 생성'
-  );
-});
+// generatePosts는 handlers/posts.js에서 import함
 
 // ============================================================================
-// 기존 사용자 함수들 (변경 없음)
-// ============================================================================
-
 // getDashboardData Function
+// ============================================================================
+
 exports.getDashboardData = onCall(functionOptions, async (request) => {
   try {
     if (!request.auth) {
@@ -404,65 +415,6 @@ exports.updateProfile = onCall(functionOptions, async (request) => {
       throw error;
     }
     throw new HttpsError('internal', '프로필 업데이트에 실패했습니다.');
-  }
-});
-
-// getUserPosts Function
-exports.getUserPosts = onCall(functionOptions, async (request) => {
-  try {
-    if (!request.auth) {
-      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
-    }
-
-    const userId = request.auth.uid;
-    console.log('🔥 getUserPosts 호출:', userId);
-
-    try {
-      const postsSnapshot = await db.collection('posts')
-        .where('userId', '==', userId)
-        .orderBy('createdAt', 'desc')
-        .limit(50)
-        .get();
-
-      const posts = [];
-      postsSnapshot.forEach(doc => {
-        const data = doc.data();
-        posts.push({
-          id: doc.id,
-          title: data.title || '제목 없음',
-          content: data.content || '',
-          status: data.status || 'draft',
-          category: data.category || '일반',
-          createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
-          updatedAt: data.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString()
-        });
-      });
-
-      console.log(`✅ getUserPosts 성공: ${posts.length}개 포스트 조회`);
-      return {
-        success: true,
-        posts: posts
-      };
-
-    } catch (firestoreError) {
-      console.error('❌ Firestore 조회 오류:', firestoreError);
-      if (firestoreError.code === 'failed-precondition' || 
-          firestoreError.code === 'not-found') {
-        console.log('⚠️ posts 컬렉션 또는 인덱스 없음, 빈 결과 반환');
-        return {
-          success: true,
-          posts: []
-        };
-      }
-      throw firestoreError;
-    }
-
-  } catch (error) {
-    console.error('❌ getUserPosts 최종 오류:', error);
-    if (error instanceof HttpsError) {
-      throw error;
-    }
-    throw new HttpsError('internal', `포스트 목록을 불러오는데 실패했습니다.`);
   }
 });
 

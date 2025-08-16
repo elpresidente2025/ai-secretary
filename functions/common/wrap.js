@@ -2,9 +2,14 @@
 
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 
-// 공통 함수 옵션
+// 공통 함수 옵션 - CORS 설정 강화
 const functionOptions = {
-  cors: true,
+  cors: {
+    origin: true,
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
+  },
   maxInstances: 5,
   timeoutSeconds: 60,
   memory: '512MiB'

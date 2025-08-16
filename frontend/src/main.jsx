@@ -1,3 +1,4 @@
+// frontend/src/main.jsx (수정된 부분)
 import React, { lazy } from 'react';
 import ReactDOM from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
@@ -19,6 +20,7 @@ const ProfilePage = lazy(() => import('./pages/ProfilePage.jsx'));
 const AdminPage = lazy(() => import('./pages/AdminPage.jsx'));
 const PostDetailPage = lazy(() => import('./pages/PostDetailPage.jsx'));
 const PostsListPage = lazy(() => import('./pages/PostsListPage.jsx'));
+const Billing = lazy(() => import('./pages/Billing.jsx')); // 🆕 추가
 
 const router = createBrowserRouter([
   {
@@ -42,6 +44,10 @@ const router = createBrowserRouter([
         element: <ProtectedRoute><ProfilePage /></ProtectedRoute>,
       },
       {
+        path: 'billing', // 🆕 추가
+        element: <ProtectedRoute><Billing /></ProtectedRoute>,
+      },
+      {
         path: 'admin',
         element: <AdminRoute><AdminPage /></AdminRoute>,
       },
@@ -60,7 +66,6 @@ const router = createBrowserRouter([
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ThemeProvider theme={theme}>
-      {/* AuthProvider가 RouterProvider를 감싸도록 수정합니다. */}
       <AuthProvider>
         <RouterProvider router={router} />
       </AuthProvider>

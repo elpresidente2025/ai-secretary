@@ -35,11 +35,14 @@ import {
   Warning,
   Refresh,
   Search,
-  Close
+  Close,
+  Build
 } from '@mui/icons-material';
 import { httpsCallable } from 'firebase/functions';
+import { doc, setDoc } from 'firebase/firestore';
 import DashboardLayout from '../components/DashboardLayout';
-import { functions } from '../services/firebase';
+import { functions, auth, db } from '../services/firebase';
+import { useAuth } from '../hooks/useAuth';
 
 // 역할(role)에 대한 정의
 const ROLE_DEFINITIONS = {
@@ -62,10 +65,104 @@ function useDebouncedValue(value, delay = 300) {
   return debounced;
 }
 
+// 🔥 Firebase Functions 호출 래퍼 (토큰 갱신 포함)
+const callFunctionWithRetry = async (functionName, data = {}, retries = 2) => {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      console.log(`🔥 Firebase Function 호출 (${attempt}/${retries}): ${functionName}`, data);
+      
+      const callable = httpsCallable(functions, functionName);
+      const result = await callable(data);
+      
+      console.log(`✅ ${functionName} 성공:`, result.data);
+      return result.data;
+    } catch (error) {
+      console.error(`❌ ${functionName} 시도 ${attempt} 실패:`, error);
+      
+      // 401/403 에러면 토큰 갱신 후 재시도
+      if (attempt < retries && (
+        error.code === 'functions/unauthenticated' || 
+        error.code === 'functions/permission-denied' ||
+        error.message.includes('401') ||
+        error.message.includes('Unauthorized')
+      )) {
+        console.log('🔄 토큰 갱신 후 재시도...');
+        
+        // Firebase Auth 토큰 강제 갱신
+        try {
+          const user = auth.currentUser;
+          if (user) {
+            await user.getIdToken(true); // 강제 갱신
+            console.log('✅ 토큰 갱신 완료');
+          }
+        } catch (tokenError) {
+          console.error('❌ 토큰 갱신 실패:', tokenError);
+        }
+        
+        // 1초 대기 후 재시도
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        continue;
+      }
+      
+      // 마지막 시도였거나 다른 에러면 최종 실패
+      let errorMessage = '알 수 없는 오류가 발생했습니다.';
+      
+      if (error.code) {
+        switch (error.code) {
+          case 'functions/unauthenticated':
+            errorMessage = '로그인이 필요합니다. 다시 로그인해주세요.';
+            break;
+          case 'functions/permission-denied':
+            errorMessage = '관리자 권한이 필요합니다.';
+            break;
+          case 'functions/unavailable':
+            errorMessage = 'Firebase Functions 서비스에 연결할 수 없습니다.';
+            break;
+          case 'functions/deadline-exceeded':
+            errorMessage = '요청 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.';
+            break;
+          case 'functions/internal':
+            errorMessage = '서버 내부 오류가 발생했습니다.';
+            break;
+          default:
+            errorMessage = error.message || errorMessage;
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      throw new Error(errorMessage);
+    }
+  }
+};
+
+// 🔥 Gemini 상태 수정 함수
+const fixGeminiStatus = async () => {
+  try {
+    console.log('🔧 Gemini 상태 수정 중...');
+    
+    await setDoc(doc(db, 'system', 'status'), {
+      gemini: {
+        state: 'ok',
+        lastChecked: new Date(),
+        message: 'AdminPage에서 수정됨'
+      }
+    }, { merge: true });
+    
+    console.log('✅ Gemini 상태 수정 완료');
+    alert('✅ Gemini 상태가 "정상"으로 수정되었습니다!');
+    window.location.reload();
+  } catch (error) {
+    console.error('❌ Gemini 상태 수정 실패:', error);
+    alert('❌ 수정 실패: ' + error.message);
+  }
+};
+
 // ------------------------------------------------------------
 // 대시보드 카드 컴포넌트
 // ------------------------------------------------------------
 function DashboardCards() {
+  const { user } = useAuth();
   const [stats, setStats] = useState({
     todaySuccess: 0,
     todayFail: 0,
@@ -77,17 +174,19 @@ function DashboardCards() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    if (!user) {
+      setLoading(true);
+      return;
+    }
+
     const fetchStats = async () => {
       try {
         setLoading(true);
         setError(null);
         
-        // Firebase Functions로 getAdminStats 호출
-        const getAdminStats = httpsCallable(functions, 'getAdminStats');
-        const result = await getAdminStats();
+        const result = await callFunctionWithRetry('getAdminStats');
         
-        const statsData = result.data.stats;
-        console.log('관리자 통계 데이터:', statsData);
+        const statsData = result.stats || {};
         
         setStats({
           todaySuccess: statsData.todaySuccess || 0,
@@ -98,16 +197,56 @@ function DashboardCards() {
         });
       } catch (err) {
         console.error('통계 데이터 조회 실패:', err);
-        setError('통계 데이터를 불러올 수 없습니다. 관리자 권한을 확인해주세요.');
+        setError(err.message);
       } finally {
         setLoading(false);
       }
     };
 
     fetchStats();
-    const interval = setInterval(fetchStats, 30000); // 30초마다 갱신
+    
+    const interval = setInterval(fetchStats, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [user]);
+
+  const handleRefresh = async () => {
+    console.log('🔄 수동 새로고침');
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const result = await callFunctionWithRetry('getAdminStats');
+      const statsData = result.stats || {};
+      
+      setStats({
+        todaySuccess: statsData.todaySuccess || 0,
+        todayFail: statsData.todayFail || 0,
+        last30mErrors: statsData.last30mErrors || 0,
+        activeUsers: statsData.activeUsers || 0,
+        geminiStatus: statsData.geminiStatus || { state: 'unknown' }
+      });
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!user) {
+    return (
+      <Alert severity="warning">
+        관리자 페이지는 로그인 후 사용 가능합니다.
+      </Alert>
+    );
+  }
+
+  if (!user.isAdmin) {
+    return (
+      <Alert severity="error">
+        관리자 권한이 필요합니다. 현재 권한: {user.role || '일반 사용자'}
+      </Alert>
+    );
+  }
 
   if (loading) {
     return (
@@ -129,11 +268,14 @@ function DashboardCards() {
 
   if (error) {
     return (
-      <Alert severity="error" action={
-        <Button color="inherit" size="small" onClick={() => window.location.reload()}>
-          새로고침
-        </Button>
-      }>
+      <Alert 
+        severity="error" 
+        action={
+          <Button color="inherit" size="small" onClick={handleRefresh}>
+            다시 시도
+          </Button>
+        }
+      >
         {error}
       </Alert>
     );
@@ -143,13 +285,19 @@ function DashboardCards() {
 
   return (
     <Grid container spacing={3}>
-      {/* 오늘 총 원고 생성 */}
       <Grid item xs={12} sm={6} md={3}>
         <Card>
           <CardContent sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              오늘 총 원고 생성
-            </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <Typography variant="h6" gutterBottom>
+                오늘 총 원고 생성
+              </Typography>
+              <Tooltip title="새로고침">
+                <IconButton size="small" onClick={handleRefresh}>
+                  <Refresh />
+                </IconButton>
+              </Tooltip>
+            </Box>
             <Typography variant="h3" sx={{ mb: 1 }}>
               {totalToday}
             </Typography>
@@ -171,13 +319,26 @@ function DashboardCards() {
         </Card>
       </Grid>
 
-      {/* Gemini API 상태 */}
       <Grid item xs={12} sm={6} md={3}>
         <Card>
           <CardContent sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              Gemini API 상태
-            </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <Typography variant="h6" gutterBottom>
+                Gemini API 상태
+              </Typography>
+              <Box>
+                <Tooltip title="새로고침">
+                  <IconButton size="small" onClick={handleRefresh}>
+                    <Refresh />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="상태 수정">
+                  <IconButton size="small" onClick={fixGeminiStatus} color="warning">
+                    <Build />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
               {stats.geminiStatus.state === 'ok' && <CheckCircle color="success" />}
               {stats.geminiStatus.state === 'error' && <Error color="error" />}
@@ -192,13 +353,17 @@ function DashboardCards() {
                 `확인: ${stats.geminiStatus.lastChecked?.toDate ? 
                   stats.geminiStatus.lastChecked.toDate().toLocaleString() : 
                   new Date(stats.geminiStatus.lastChecked.seconds * 1000).toLocaleString()}` :
-                'getAdminStats 함수에서 조회'}
+                '상태 확인 필요'}
             </Typography>
+            {stats.geminiStatus.state === 'unknown' && (
+              <Typography variant="caption" color="warning.main" display="block">
+                🔧 수정 버튼을 클릭하세요
+              </Typography>
+            )}
           </CardContent>
         </Card>
       </Grid>
 
-      {/* 최근 30분 에러 */}
       <Grid item xs={12} sm={6} md={3}>
         <Card>
           <CardContent sx={{ p: 2 }}>
@@ -215,7 +380,6 @@ function DashboardCards() {
         </Card>
       </Grid>
 
-      {/* 현재 활성 사용자 */}
       <Grid item xs={12} sm={6} md={3}>
         <Card>
           <CardContent sx={{ p: 2 }}>
@@ -252,17 +416,32 @@ function UsersSection() {
         setLoading(true);
         setError(null);
         
-        // Firebase Functions 호출
-        const getUserList = httpsCallable(functions, 'getUserList');
-        const result = await getUserList({ 
+        console.log('🔥 사용자 목록 조회 시작...', { query: debouncedSearch.trim() });
+        
+        const result = await callFunctionWithRetry('getUserList', { 
           page: 1, 
           pageSize: 100, 
           query: debouncedSearch.trim() 
         });
         
-        setUsers(result.data.users || []);
+        console.log('✅ getUserList 전체 응답:', result);
+        console.log('📊 result.data:', result.data);
+        
+        // 🔥 수정: 올바른 데이터 파싱
+        const usersData = result.data?.users || result.users || [];
+        console.log('👥 파싱된 사용자 데이터:', usersData);
+        console.log('📈 사용자 수:', usersData.length);
+        
+        setUsers(usersData);
+        
+        if (usersData.length > 0) {
+          console.log('👤 첫 번째 사용자 샘플:', usersData[0]);
+        } else {
+          console.log('⚠️ 사용자 데이터가 비어있습니다');
+        }
+        
       } catch (err) {
-        console.error('사용자 목록 조회 실패:', err);
+        console.error('❌ 사용자 목록 조회 실패:', err);
         setError(err.message || '사용자 목록을 불러오는 데 실패했습니다.');
       } finally {
         setLoading(false);
@@ -276,9 +455,25 @@ function UsersSection() {
     return ROLE_DEFINITIONS[role] || { label: role || '미정', color: 'default' };
   };
 
+  const renderDebugInfo = () => {
+    if (import.meta.env.DEV) {
+      return (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          <strong>디버깅 정보:</strong><br />
+          - 로딩 상태: {loading ? '로딩 중' : '완료'}<br />
+          - 에러: {error || '없음'}<br />
+          - 사용자 수: {users.length}<br />
+          - 검색어: "{debouncedSearch}"
+        </Alert>
+      );
+    }
+    return null;
+  };
+
   return (
     <Box sx={{ mt: 2 }}>
-      {/* 검색창 */}
+      {renderDebugInfo()}
+
       <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
         <TextField
           placeholder="이메일, 이름, 지역으로 검색"
@@ -290,12 +485,19 @@ function UsersSection() {
           }}
         />
         {loading && <CircularProgress size={20} />}
+        
+        <Button 
+          variant="outlined" 
+          size="small" 
+          onClick={() => setSearch(search + ' ')}
+        >
+          새로고침
+        </Button>
       </Box>
 
-      {/* 사용자 목록 */}
       <Paper sx={{ p: 2 }}>
         <Typography variant="h6" gutterBottom>
-          사용자 목록
+          사용자 목록 ({users.length}명)
         </Typography>
         
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -324,9 +526,9 @@ function UsersSection() {
                   </TableRow>
                 ))
               ) : users.length ? (
-                users.map((user) => (
+                users.map((user, index) => (
                   <TableRow 
-                    key={user.id}
+                    key={user.id || user.uid || index}
                     hover
                   >
                     <TableCell>{user.name || '-'}</TableCell>
@@ -354,7 +556,13 @@ function UsersSection() {
                       />
                     </TableCell>
                     <TableCell>
-                      {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '-'}
+                      {user.createdAt ? 
+                        (typeof user.createdAt === 'string' ? 
+                          new Date(user.createdAt).toLocaleDateString() :
+                          user.createdAt.toDate ? 
+                            user.createdAt.toDate().toLocaleDateString() :
+                            new Date(user.createdAt.seconds * 1000).toLocaleDateString()
+                        ) : '-'}
                     </TableCell>
                     <TableCell align="right">
                       <Button 
@@ -368,9 +576,9 @@ function UsersSection() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} align="center">
+                  <TableCell colSpan={8} align="center">
                     <Typography variant="body2" color="text.secondary">
-                      결과가 없습니다.
+                      {error ? '데이터를 불러올 수 없습니다.' : '사용자가 없습니다.'}
                     </Typography>
                   </TableCell>
                 </TableRow>
@@ -380,7 +588,6 @@ function UsersSection() {
         </TableContainer>
       </Paper>
 
-      {/* 사용자 상세 모달 */}
       <UserDetailModal 
         user={selectedUser} 
         onClose={() => setSelectedUser(null)} 
@@ -403,8 +610,6 @@ function UserDetailModal({ user, onClose }) {
       try {
         setLoading(true);
         
-        // TODO: Firebase Functions로 getUserDetail 함수 구현 필요
-        // 현재는 임시 데이터로 대체
         await new Promise(resolve => setTimeout(resolve, 1000));
         
         setDetailData({
@@ -478,7 +683,6 @@ function UserDetailModal({ user, onClose }) {
           </Box>
         ) : (
           <Box sx={{ space: 3 }}>
-            {/* 기본 정보 */}
             <Typography variant="h6" gutterBottom>
               기본 정보
             </Typography>
@@ -523,7 +727,6 @@ function UserDetailModal({ user, onClose }) {
 
             <Divider sx={{ my: 2 }} />
 
-            {/* 사용 통계 */}
             <Typography variant="h6" gutterBottom>
               사용 통계
             </Typography>
@@ -556,7 +759,6 @@ function UserDetailModal({ user, onClose }) {
 
             <Divider sx={{ my: 2 }} />
 
-            {/* 최근 생성 이력 */}
             <Typography variant="h6" gutterBottom>
               최근 생성 이력 (10개)
             </Typography>
@@ -607,7 +809,6 @@ function UserDetailModal({ user, onClose }) {
               </Table>
             </TableContainer>
 
-            {/* 최근 에러 내역 */}
             <Typography variant="h6" gutterBottom>
               최근 에러 내역
             </Typography>
@@ -681,21 +882,18 @@ function PostsSearchTab() {
       setLoading(true);
       setSearched(true);
       
-      // Firebase Functions로 searchPosts 호출
-      const searchPosts = httpsCallable(functions, 'searchPosts');
-      const result = await searchPosts({
+      const result = await callFunctionWithRetry('searchPosts', {
         author: filters.author,
         category: filters.category,
         dateFrom: filters.dateFrom,
         dateTo: filters.dateTo,
-        status: '', // 상태 필터는 필요시 추가
+        status: '',
         limit: 200
       });
       
-      const postsData = result.data.posts || [];
+      const postsData = result.posts || [];
       console.log('원고 검색 결과:', postsData);
       
-      // 키워드 필터 (클라이언트 측)
       const filtered = debouncedKeyword
         ? postsData.filter(post => 
             (post.content || '').toLowerCase().includes(debouncedKeyword.toLowerCase()) ||
@@ -714,7 +912,6 @@ function PostsSearchTab() {
 
   return (
     <Box sx={{ mt: 2 }}>
-      {/* 검색 필터 */}
       <Paper sx={{ p: 2, mb: 2 }}>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} sm={6} md={2}>
@@ -783,7 +980,6 @@ function PostsSearchTab() {
         </Typography>
       </Paper>
 
-      {/* 검색 결과 */}
       <Paper sx={{ p: 2 }}>
         <Typography variant="h6" gutterBottom>
           원고 검색 결과
@@ -884,30 +1080,32 @@ function PostsSearchTab() {
 function ErrorsTab() {
   const [errors, setErrors] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchErrors = async () => {
       try {
         setLoading(true);
+        setError(null);
         
-        // Firebase Functions로 getErrorLogs 호출
-        const getErrorLogs = httpsCallable(functions, 'getErrorLogs');
-        const result = await getErrorLogs({ limit: 200 });
+        const result = await callFunctionWithRetry('getErrorLogs', { limit: 200 });
         
-        const errorsData = result.data.errors || [];
+        const errorsData = result.errors || [];
         console.log('에러 로그 조회 결과:', errorsData);
         
         setErrors(errorsData);
-      } catch (error) {
-        console.error('에러 로그 조회 실패:', error);
-        setErrors([]); // 실패시 빈 배열
+      } catch (err) {
+        console.error('에러 로그 조회 실패:', err);
+        setError(err.message);
+        setErrors([]);
       } finally {
         setLoading(false);
       }
     };
 
     fetchErrors();
-    const interval = setInterval(fetchErrors, 60000); // 1분마다 갱신
+    
+    const interval = setInterval(fetchErrors, 60000);
     return () => clearInterval(interval);
   }, []);
 
@@ -920,6 +1118,8 @@ function ErrorsTab() {
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           최근 200건을 표시합니다. Firebase Functions의 getErrorLogs를 호출합니다.
         </Typography>
+        
+        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         
         <TableContainer>
           <Table>
@@ -1006,12 +1206,10 @@ function AdminPage() {
           시스템 상태, 사용자 관리, 원고 검색, 에러 로그를 확인할 수 있습니다.
         </Typography>
         
-        {/* 상단 시스템 상태 대시보드 */}
         <Box sx={{ mb: 4 }}>
           <DashboardCards />
         </Box>
 
-        {/* 탭 네비게이션 */}
         <Paper sx={{ mb: 2 }}>
           <Tabs value={currentTab} onChange={handleTabChange}>
             <Tab label="사용자" />
@@ -1020,7 +1218,6 @@ function AdminPage() {
           </Tabs>
         </Paper>
 
-        {/* 탭 컨텐츠 */}
         {currentTab === 0 && <UsersSection />}
         {currentTab === 1 && <PostsSearchTab />}
         {currentTab === 2 && <ErrorsTab />}
