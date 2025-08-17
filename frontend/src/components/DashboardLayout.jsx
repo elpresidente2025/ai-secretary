@@ -54,7 +54,7 @@ const DashboardLayout = ({ children }) => {
   const { user, logout } = useAuth();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const theme = useTheme();
-  const isLgDown = useMediaQuery(theme.breakpoints.down('lg'));
+  const isLgDown = useMediaQuery(theme.breakpoints.down('lg')); // lg 미만 = 햄버거
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -124,7 +124,6 @@ const DashboardLayout = ({ children }) => {
   return (
     // 헤더/본문/푸터 = 100vh, 본문만 스크롤
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      {/* 헤더: 경계선 + 은은한 그림자 */}
       <AppBar
         position="sticky"
         elevation={0}
@@ -136,17 +135,22 @@ const DashboardLayout = ({ children }) => {
         }}
       >
         <Toolbar sx={{ gap: 1 }}>
-          {/* Left: 브랜드 */}
-          <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0, flexShrink: 0 }}>
-            <HeaderLogo />
-          </Box>
+          {/* Left: 로고 */}
+          <HeaderLogo />
 
-          {/* Center: 내비게이션 (lg 이상에서만 표시) — NavLink로 활성 상태 자동화 */}
+          {/* Center: 내비게이션 (lg 이상만) — NavLink로 활성 스타일 자동화 */}
           {!isLgDown && (
             <Box
               component="nav"
               aria-label="주요 메뉴"
-              sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, flex: 1, minWidth: 0 }}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 1,
+                flex: 1,      // 가운데 확장
+                minWidth: 0
+              }}
             >
               {menuItems.map((item) => (
                 <Button
@@ -155,7 +159,6 @@ const DashboardLayout = ({ children }) => {
                   to={item.path}
                   end
                   startIcon={item.icon}
-                  // NavLink의 className 콜백으로 active 상태를 받아 MUI sx에서 선택자 처리
                   className={({ isActive }) => (isActive ? 'nav-active' : undefined)}
                   sx={{
                     color: 'white',
@@ -171,7 +174,10 @@ const DashboardLayout = ({ children }) => {
             </Box>
           )}
 
-          {/* Right: 액션 (로그아웃 / 햄버거) */}
+          {/* Spacer: 내비가 숨겨지는 경우에도 우측 고정 보장을 위해 남겨둠 */}
+          {isLgDown && <Box sx={{ flex: 1 }} />}
+
+          {/* Right: 액션/햄버거 (항상 우측 끝) */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
             {!isLgDown ? (
               <Button
@@ -196,22 +202,21 @@ const DashboardLayout = ({ children }) => {
         {drawer}
       </Drawer>
 
-      {/* 본문: 남은 공간만큼 확장 + 내부 스크롤 */}
+      {/* 본문: 남은 공간 확장 + 내부 스크롤 */}
       <Box
         component="main"
         sx={{
           flex: 1,
           minHeight: 0,
-          overflow: 'auto',           // 페이지가 아닌, 이 영역만 스크롤
+          overflow: 'auto',
           overscrollBehavior: 'contain',
-          scrollbarGutter: 'stable',  // 스크롤바 유무로 인한 레이아웃 점프 방지
+          scrollbarGutter: 'stable',
           bgcolor: 'background.default',
           display: 'flex',
           justifyContent: 'center',
           width: '100%'
         }}
       >
-        {/* 가독성 있는 고정 폭(반응형) */}
         <Box sx={{ width: '100%', px: { xs: 1.5, sm: 2 }, maxWidth: { md: 980, lg: 1200, xl: 1440 } }}>
           {children}
         </Box>

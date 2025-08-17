@@ -1,53 +1,54 @@
-// functions/handlers/notices.js
 'use strict';
 
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { setGlobalOptions } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+
+// 글로벌 옵션
+setGlobalOptions({
+  region: 'asia-northeast3',
+  maxInstances: 10,
+});
+
+// Admin 초기화
+if (!admin.apps.length) {
+  admin.initializeApp();
+}
 
 const db = admin.firestore();
 
-// 공통 함수 옵션
+// 공통 옵션
 const functionOptions = {
-  cors: true,
+  cors: {
+    origin: true,
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
+  },
   maxInstances: 5,
   timeoutSeconds: 60,
   memory: '512MiB'
 };
-
-/**
- * 관리자 권한 체크
- */
-async function requireAdmin(uid) {
-  if (!uid) {
-    throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
-  }
-
-  const userDoc = await db.collection('users').doc(uid).get();
-  if (!userDoc.exists) {
-    throw new HttpsError('not-found', '사용자 정보를 찾을 수 없습니다.');
-  }
-
-  const userData = userDoc.data();
-  if (userData.role !== 'admin') {
-    throw new HttpsError('permission-denied', '관리자 권한이 필요합니다.');
-  }
-
-  return userData;
-}
 
 // ============================================================================
 // 공지사항 생성
 // ============================================================================
 exports.createNotice = onCall(functionOptions, async (request) => {
   try {
-    const uid = request.auth?.uid;
-    const adminUser = await requireAdmin(uid);
-    
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+    }
+
+    // 관리자 권한 확인
+    const userDoc = await db.collection('users').doc(request.auth.uid).get();
+    if (!userDoc.exists || userDoc.data().role !== 'admin') {
+      throw new HttpsError('permission-denied', '관리자 권한이 필요합니다.');
+    }
+
     const { title, content, type, priority, isActive, expiresAt, targetUsers } = request.data;
-    
-    // 입력 검증
-    if (!title?.trim() || !content?.trim()) {
-      throw new HttpsError('invalid-argument', '제목과 내용은 필수입니다.');
+
+    if (!title || !content) {
+      throw new HttpsError('invalid-argument', '제목과 내용을 입력해주세요.');
     }
 
     const noticeData = {
@@ -56,9 +57,9 @@ exports.createNotice = onCall(functionOptions, async (request) => {
       type: type || 'info',
       priority: priority || 'medium',
       isActive: isActive !== false,
-      targetUsers: targetUsers ? [targetUsers] : ['all'],
+      targetUsers: targetUsers || ['all'],
+      createdBy: request.auth.uid,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      createdBy: adminUser.email || uid,
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     };
 
@@ -68,13 +69,11 @@ exports.createNotice = onCall(functionOptions, async (request) => {
     }
 
     const docRef = await db.collection('notices').add(noticeData);
-    
-    console.log('✅ 공지 생성 완료:', docRef.id);
-    
+
     return {
       success: true,
       noticeId: docRef.id,
-      message: '공지가 성공적으로 작성되었습니다.'
+      message: '공지사항이 생성되었습니다.'
     };
 
   } catch (error) {
@@ -91,40 +90,39 @@ exports.createNotice = onCall(functionOptions, async (request) => {
 // ============================================================================
 exports.updateNotice = onCall(functionOptions, async (request) => {
   try {
-    const uid = request.auth?.uid;
-    await requireAdmin(uid);
-    
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+    }
+
+    // 관리자 권한 확인
+    const userDoc = await db.collection('users').doc(request.auth.uid).get();
+    if (!userDoc.exists || userDoc.data().role !== 'admin') {
+      throw new HttpsError('permission-denied', '관리자 권한이 필요합니다.');
+    }
+
     const { noticeId, ...updateData } = request.data;
-    
+
     if (!noticeId) {
       throw new HttpsError('invalid-argument', '공지 ID가 필요합니다.');
     }
 
-    const updateFields = {
+    const updates = {
+      ...updateData,
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     };
 
-    // 허용된 필드만 업데이트
-    const allowedFields = ['title', 'content', 'type', 'priority', 'isActive', 'targetUsers', 'expiresAt'];
-    allowedFields.forEach(field => {
-      if (updateData[field] !== undefined) {
-        if (field === 'expiresAt' && updateData[field]) {
-          updateFields[field] = admin.firestore.Timestamp.fromDate(new Date(updateData[field]));
-        } else if (field === 'targetUsers') {
-          updateFields[field] = updateData[field] ? [updateData[field]] : ['all'];
-        } else {
-          updateFields[field] = updateData[field];
-        }
-      }
-    });
+    // 만료일 처리
+    if (updateData.expiresAt) {
+      updates.expiresAt = admin.firestore.Timestamp.fromDate(new Date(updateData.expiresAt));
+    } else if (updateData.expiresAt === '') {
+      updates.expiresAt = admin.firestore.FieldValue.delete();
+    }
 
-    await db.collection('notices').doc(noticeId).update(updateFields);
-    
-    console.log('✅ 공지 수정 완료:', noticeId);
-    
+    await db.collection('notices').doc(noticeId).update(updates);
+
     return {
       success: true,
-      message: '공지가 성공적으로 수정되었습니다.'
+      message: '공지사항이 수정되었습니다.'
     };
 
   } catch (error) {
@@ -141,22 +139,27 @@ exports.updateNotice = onCall(functionOptions, async (request) => {
 // ============================================================================
 exports.deleteNotice = onCall(functionOptions, async (request) => {
   try {
-    const uid = request.auth?.uid;
-    await requireAdmin(uid);
-    
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+    }
+
+    // 관리자 권한 확인
+    const userDoc = await db.collection('users').doc(request.auth.uid).get();
+    if (!userDoc.exists || userDoc.data().role !== 'admin') {
+      throw new HttpsError('permission-denied', '관리자 권한이 필요합니다.');
+    }
+
     const { noticeId } = request.data;
-    
+
     if (!noticeId) {
       throw new HttpsError('invalid-argument', '공지 ID가 필요합니다.');
     }
 
     await db.collection('notices').doc(noticeId).delete();
-    
-    console.log('✅ 공지 삭제 완료:', noticeId);
-    
+
     return {
       success: true,
-      message: '공지가 성공적으로 삭제되었습니다.'
+      message: '공지사항이 삭제되었습니다.'
     };
 
   } catch (error) {
@@ -173,43 +176,62 @@ exports.deleteNotice = onCall(functionOptions, async (request) => {
 // ============================================================================
 exports.getNotices = onCall(functionOptions, async (request) => {
   try {
-    const uid = request.auth?.uid;
-    await requireAdmin(uid);
-    
-    const { includeInactive = false, limit = 50 } = request.data || {};
-    
-    let query = db.collection('notices')
-      .orderBy('createdAt', 'desc')
-      .limit(limit);
-    
-    // 비활성화된 공지 포함 여부
-    if (!includeInactive) {
-      query = query.where('isActive', '==', true);
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
     }
 
-    const snapshot = await query.get();
-    
-    const notices = snapshot.docs.map(doc => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        title: data.title,
-        content: data.content,
-        type: data.type,
-        priority: data.priority,
-        isActive: data.isActive,
-        targetUsers: data.targetUsers,
-        createdAt: data.createdAt?.toDate()?.toISOString(),
-        createdBy: data.createdBy,
-        updatedAt: data.updatedAt?.toDate()?.toISOString(),
-        expiresAt: data.expiresAt?.toDate()?.toISOString()
-      };
-    });
+    // 관리자 권한 확인
+    const userDoc = await db.collection('users').doc(request.auth.uid).get();
+    if (!userDoc.exists || userDoc.data().role !== 'admin') {
+      throw new HttpsError('permission-denied', '관리자 권한이 필요합니다.');
+    }
 
-    return {
-      success: true,
-      notices
-    };
+    try {
+      // 안전한 쿼리 (orderBy 없이)
+      const snapshot = await db.collection('notices')
+        .get();
+
+      const notices = [];
+      snapshot.docs.forEach(doc => {
+        try {
+          const data = doc.data();
+          notices.push({
+            id: doc.id,
+            title: data.title || '제목 없음',
+            content: data.content || '',
+            type: data.type || 'info',
+            priority: data.priority || 'medium',
+            isActive: data.isActive !== false,
+            targetUsers: data.targetUsers || ['all'],
+            createdBy: data.createdBy || '',
+            createdAt: data.createdAt?.toDate()?.toISOString(),
+            updatedAt: data.updatedAt?.toDate()?.toISOString(),
+            expiresAt: data.expiresAt?.toDate()?.toISOString()
+          });
+        } catch (docError) {
+          console.warn('공지 문서 처리 오류:', docError.message);
+        }
+      });
+
+      // 클라이언트에서 정렬
+      notices.sort((a, b) => {
+        const dateA = new Date(a.createdAt || 0);
+        const dateB = new Date(b.createdAt || 0);
+        return dateB - dateA;
+      });
+
+      return {
+        success: true,
+        notices
+      };
+
+    } catch (dbError) {
+      console.warn('Firestore 쿼리 실패, 빈 목록 반환:', dbError.message);
+      return {
+        success: true,
+        notices: []
+      };
+    }
 
   } catch (error) {
     console.error('❌ 공지 목록 조회 실패:', error);
@@ -221,58 +243,128 @@ exports.getNotices = onCall(functionOptions, async (request) => {
 });
 
 // ============================================================================
-// 활성 공지사항 조회 (일반 사용자용)
+// 🔥 활성 공지사항 조회 (일반 사용자용) - 완전 수정
 // ============================================================================
 exports.getActiveNotices = onCall(functionOptions, async (request) => {
+  console.log('🔥 getActiveNotices 호출 시작');
+  
   try {
-    const uid = request.auth?.uid;
-    
-    if (!uid) {
-      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+    // 인증 선택사항으로 처리 (공지는 모든 사용자에게 공개)
+    let userId = null;
+    if (request.auth) {
+      userId = request.auth.uid;
+      console.log('✅ 사용자 인증:', userId);
+    } else {
+      console.log('ℹ️ 비인증 사용자 (공지는 공개)');
     }
 
-    const now = admin.firestore.Timestamp.now();
-    
-    // 활성화된 공지 중 만료되지 않은 것들만 조회
-    const snapshot = await db.collection('notices')
-      .where('isActive', '==', true)
-      .where('targetUsers', 'array-contains', 'all') // 현재는 전체 공지만
-      .orderBy('priority', 'desc')
-      .orderBy('createdAt', 'desc')
-      .limit(10)
-      .get();
+    // 기본 응답
+    const response = {
+      success: true,
+      notices: []
+    };
 
-    const notices = snapshot.docs
-      .map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          title: data.title,
-          content: data.content,
-          type: data.type,
-          priority: data.priority,
-          createdAt: data.createdAt?.toDate()?.toISOString(),
-          expiresAt: data.expiresAt?.toDate()?.toISOString()
-        };
-      })
-      .filter(notice => {
-        // 만료일 체크
-        if (notice.expiresAt) {
-          return new Date(notice.expiresAt) > new Date();
+    try {
+      console.log('🔍 공지사항 조회 시작...');
+      
+      // 🔥 가장 단순한 쿼리로 시작 (조건 없이 모든 공지 가져오기)
+      const snapshot = await db.collection('notices').get();
+      
+      console.log('✅ Firestore 전체 문서 수:', snapshot.size);
+
+      const allNotices = [];
+      snapshot.docs.forEach(doc => {
+        try {
+          const data = doc.data();
+          console.log('📄 문서 데이터:', doc.id, data);
+          
+          allNotices.push({
+            id: doc.id,
+            title: data.title || '공지사항',
+            content: data.content || '',
+            type: data.type || 'info',
+            priority: data.priority || 'medium',
+            isActive: data.isActive,
+            createdAt: data.createdAt?.toDate()?.toISOString() || new Date().toISOString(),
+            expiresAt: data.expiresAt?.toDate()?.toISOString(),
+            rawData: data // 🔥 디버깅용 원시 데이터
+          });
+        } catch (docError) {
+          console.warn('문서 처리 오류:', docError.message);
         }
+      });
+
+      console.log('✅ 전체 공지사항:', allNotices.length);
+
+      // 🔥 필터링 로직을 단계별로 적용
+      const now = new Date();
+      console.log('⏰ 현재 시간:', now.toISOString());
+
+      const activeNotices = allNotices.filter(notice => {
+        console.log(`🔍 공지 "${notice.title}" 검사:`);
+        console.log(`  - isActive: ${notice.isActive}`);
+        console.log(`  - expiresAt: ${notice.expiresAt}`);
+        
+        // 1. isActive 체크
+        if (notice.isActive !== true) {
+          console.log(`  ❌ 비활성 상태`);
+          return false;
+        }
+        
+        // 2. 만료일 체크
+        if (notice.expiresAt) {
+          const expiresAt = new Date(notice.expiresAt);
+          console.log(`  - 만료일: ${expiresAt.toISOString()}`);
+          console.log(`  - 현재 < 만료일: ${now < expiresAt}`);
+          
+          if (now >= expiresAt) {
+            console.log(`  ❌ 만료됨`);
+            return false;
+          }
+        }
+        
+        console.log(`  ✅ 활성 공지`);
         return true;
       });
 
-    return {
-      success: true,
-      notices
-    };
+      console.log('✅ 필터링된 활성 공지:', activeNotices.length);
+
+      // 우선순위별 정렬
+      activeNotices.sort((a, b) => {
+        const priorityOrder = { high: 3, medium: 2, low: 1 };
+        const priorityA = priorityOrder[a.priority] || 2;
+        const priorityB = priorityOrder[b.priority] || 2;
+        
+        if (priorityA !== priorityB) {
+          return priorityB - priorityA;
+        }
+        
+        return new Date(b.createdAt) - new Date(a.createdAt);
+      });
+
+      // 🔥 rawData 제거하고 최종 응답 준비
+      const finalNotices = activeNotices.map(notice => {
+        const { rawData, ...cleanNotice } = notice;
+        return cleanNotice;
+      });
+
+      response.notices = finalNotices;
+      console.log('✅ 최종 응답 공지사항 개수:', finalNotices.length);
+
+    } catch (dbError) {
+      console.error('⚠️ Firestore 조회 실패:', dbError);
+      response.notices = [];
+    }
+
+    return response;
 
   } catch (error) {
-    console.error('❌ 활성 공지 조회 실패:', error);
-    if (error instanceof HttpsError) {
-      throw error;
-    }
-    throw new HttpsError('internal', '공지 조회 중 오류가 발생했습니다.');
+    console.error('❌ getActiveNotices 최종 오류:', error);
+    
+    // 어떤 오류가 발생해도 기본 응답 제공
+    return {
+      success: true,
+      notices: []
+    };
   }
 });

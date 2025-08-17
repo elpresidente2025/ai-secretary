@@ -52,6 +52,7 @@ const Dashboard = () => {
   // 상태 관리
   const [usage, setUsage] = useState({ postsGenerated: 0, monthlyLimit: 50 });
   const [recentPosts, setRecentPosts] = useState([]);
+  const [notices, setNotices] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -128,6 +129,32 @@ const Dashboard = () => {
     };
 
     fetchDashboardData();
+  }, [user]);
+
+  // 공지사항 별도 로딩 (대시보드 데이터와 독립적으로)
+  useEffect(() => {
+    const fetchNotices = async () => {
+      if (!user?.uid) return;
+
+      try {
+        console.log('🔥 공지사항 로딩 시작');
+        
+        const getActiveNoticesFn = httpsCallable(functions, 'getActiveNotices');
+        const noticesResponse = await getActiveNoticesFn();
+        
+        console.log('✅ 공지사항 응답:', noticesResponse.data);
+        
+        // 올바른 경로로 공지사항 데이터 추출
+        const noticesData = noticesResponse.data?.data?.notices || [];
+        setNotices(noticesData);
+        
+      } catch (noticeError) {
+        console.error('❌ 공지사항 로딩 실패:', noticeError);
+        setNotices([]);
+      }
+    };
+
+    fetchNotices();
   }, [user]);
 
   // 이벤트 핸들러들
@@ -424,6 +451,72 @@ const Dashboard = () => {
         {isMobile ? (
           /* 모바일 - 수직 스택 */
           <Box>
+            {/* 공지사항 카드 - 항상 표시 */}
+            <Paper elevation={1} sx={{ mb: 3 }}>
+              <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
+                <Typography variant="h6" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center' }}>
+                  <Notifications sx={{ mr: 1, color: '#e91e63' }} />
+                  공지사항
+                </Typography>
+              </Box>
+              
+              {notices.length === 0 ? (
+                <Box sx={{ p: 3 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    현재 공지사항이 없습니다.
+                  </Typography>
+                </Box>
+              ) : (
+                <>
+                  <List>
+                    {notices.slice(0, 3).map((notice, index) => (
+                      <React.Fragment key={notice.id || index}>
+                        <ListItem>
+                          <ListItemText
+                            primary={
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                                  {notice.title || '제목 없음'}
+                                </Typography>
+                                {notice.priority === 'high' && (
+                                  <Chip label="중요" color="error" size="small" />
+                                )}
+                              </Box>
+                            }
+                            secondary={
+                              <Typography 
+                                variant="body2" 
+                                color="text.secondary"
+                                sx={{
+                                  mt: 0.5,
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  display: '-webkit-box',
+                                  WebkitLineClamp: 2,
+                                  WebkitBoxOrient: 'vertical'
+                                }}
+                              >
+                                {notice.content || '내용 없음'}
+                              </Typography>
+                            }
+                          />
+                        </ListItem>
+                        {index < Math.min(notices.length, 3) - 1 && <Divider />}
+                      </React.Fragment>
+                    ))}
+                  </List>
+                  
+                  {notices.length > 3 && (
+                    <Box sx={{ p: 2, textAlign: 'center' }}>
+                      <Button variant="text" size="small" sx={{ color: planColor }}>
+                        더 보기 ({notices.length - 3}개 더)
+                      </Button>
+                    </Box>
+                  )}
+                </>
+              )}
+            </Paper>
+
             {/* 다음 인증 일정 카드 */}
             <Paper elevation={1} sx={{ mb: 3 }}>
               <Box sx={{ p: 3 }}>
@@ -548,6 +641,74 @@ const Dashboard = () => {
             {/* 우측: 사이드바 카드들 */}
             <Grid item xs={12} md={6}>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                {/* 공지사항 카드 - 항상 표시 */}
+                <Paper elevation={1}>
+                  <Box sx={{ p: 3 }}>
+                    <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
+                      <Notifications sx={{ mr: 1, color: '#e91e63' }} />
+                      공지사항
+                    </Typography>
+                    
+                    {notices.length === 0 ? (
+                      <Box>
+                        <Typography variant="body2" color="text.secondary">
+                          현재 공지사항이 없습니다.
+                        </Typography>
+                      </Box>
+                    ) : (
+                      <>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          {notices.slice(0, 2).map((notice, index) => (
+                            <Box 
+                              key={notice.id || index}
+                              sx={{ 
+                                p: 2, 
+                                border: '1px solid', 
+                                borderColor: 'divider',
+                                borderRadius: 1,
+                                bgcolor: notice.priority === 'high' ? '#ffebee' : 'background.paper'
+                              }}
+                            >
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                                  {notice.title || '제목 없음'}
+                                </Typography>
+                                {notice.priority === 'high' && (
+                                  <Chip label="중요" color="error" size="small" />
+                                )}
+                              </Box>
+                              <Typography 
+                                variant="body2" 
+                                color="text.secondary"
+                                sx={{
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  display: '-webkit-box',
+                                  WebkitLineClamp: 2,
+                                  WebkitBoxOrient: 'vertical'
+                                }}
+                              >
+                                {notice.content || '내용 없음'}
+                              </Typography>
+                            </Box>
+                          ))}
+                        </Box>
+
+                        {notices.length > 2 && (
+                          <Button 
+                            variant="text" 
+                            size="small" 
+                            fullWidth 
+                            sx={{ mt: 2, color: planColor }}
+                          >
+                            더 보기 ({notices.length - 2}개 더)
+                          </Button>
+                        )}
+                      </>
+                    )}
+                  </Box>
+                </Paper>
+
                 {/* 당원 인증 상태 */}
                 <Paper elevation={1}>
                   <Box sx={{ p: 3 }}>
