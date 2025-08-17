@@ -19,23 +19,32 @@ import {
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../services/firebase';
 import DashboardLayout from '../components/DashboardLayout';
+import allLocations from '../data/location/locations.index';
 
-// 최소 지역 데이터(필요하면 실제 데이터로 교체)
-// 예시: 인천/계양구/가~라선거구
-const DIST_DATA = {
-  인천광역시: {
-    계양구: ['가선거구', '나선거구', '다선거구', '라선거구'],
-  },
-  // 다른 광역/기초 추가 가능
-};
+// 전국 모든 지역 데이터를 locations.index.js에서 가져옴
+const DIST_DATA = allLocations;
 
 const metroList = Object.keys(DIST_DATA);
 
 function getLocalList(metro) {
   return metro && DIST_DATA[metro] ? Object.keys(DIST_DATA[metro]) : [];
 }
-function getElectoralList(metro, local) {
-  return metro && local && DIST_DATA[metro]?.[local] ? DIST_DATA[metro][local] : [];
+
+function getElectoralList(metro, local, position) {
+  if (!metro || !local || !DIST_DATA[metro]?.[local] || !position) return [];
+  
+  // position에 따라 적절한 선거구 유형 반환
+  const districtData = DIST_DATA[metro][local];
+  
+  if (position === '국회의원') {
+    return districtData['국회의원'] || [];
+  } else if (position === '광역의원') {
+    return districtData['광역의원'] || [];
+  } else if (position === '기초의원') {
+    return districtData['기초의원'] || [];
+  }
+  
+  return [];
 }
 
 // 서버와 동일한 districtKey 규칙(공백 제거/소문자/문자숫자만)
@@ -80,8 +89,8 @@ export default function ProfilePage() {
   // 셀렉트 목록
   const localList = useMemo(() => getLocalList(profile.regionMetro), [profile.regionMetro]);
   const electoralList = useMemo(
-    () => getElectoralList(profile.regionMetro, profile.regionLocal),
-    [profile.regionMetro, profile.regionLocal]
+    () => getElectoralList(profile.regionMetro, profile.regionLocal, profile.position),
+    [profile.regionMetro, profile.regionLocal, profile.position]
   );
 
   // 최초 로드
@@ -132,6 +141,16 @@ export default function ProfilePage() {
     setError('');
 
     // 의존성 초기화
+    if (name === 'position') {
+      setProfile((prev) => ({
+        ...prev,
+        position: value,
+        regionMetro: '',
+        regionLocal: '',
+        electoralDistrict: '',
+      }));
+      return;
+    }
     if (name === 'regionMetro') {
       setProfile((prev) => ({
         ...prev,
@@ -214,101 +233,105 @@ export default function ProfilePage() {
       };
       const res = await callUpdateProfile(payload);
       const msg = res?.data?.message || '프로필이 저장되었습니다.';
-
-      // 저장 성공 시 원본 키 갱신
+      setSnack({ open: true, message: msg, severity: 'success' });
+      
+      // 원본 정보 업데이트(변경 감지용)
       setOriginal({
         position: profile.position,
         regionMetro: profile.regionMetro,
         regionLocal: profile.regionLocal,
         electoralDistrict: profile.electoralDistrict,
       });
-
-      setSnack({ open: true, message: msg, severity: 'success' });
-    } catch (err) {
-      console.error('[updateProfile]', err);
-      const msg =
-        err?.message ||
-        err?.details ||
-        (err?.code === 'already-exists' ? '이미 사용 중인 선거구입니다.' : '프로필 저장 중 오류가 발생했습니다.');
-      setSnack({ open: true, message: msg, severity: 'error' });
+    } catch (e) {
+      console.error('[updateProfile]', e);
+      const msg = e?.details?.message || e?.message || '저장 중 오류가 발생했습니다.';
+      setError(msg);
     } finally {
       setSaving(false);
     }
   };
 
-  const bioLength = (profile.bio || '').length;
-
   if (loading) {
     return (
-      <DashboardLayout title="프로필 수정">
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <CircularProgress />
-        </Box>
+      <DashboardLayout>
+        <Container maxWidth="md" sx={{ py: 4 }}>
+          <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+            <CircularProgress />
+          </Box>
+        </Container>
       </DashboardLayout>
     );
   }
 
   return (
-    <DashboardLayout title="프로필 수정">
+    <DashboardLayout>
       <Container maxWidth="md" sx={{ py: 4 }}>
+        <Typography variant="h4" gutterBottom>
+          프로필 설정
+        </Typography>
+
         <Paper elevation={2} sx={{ p: 3 }}>
-          <Typography variant="h6" sx={{ mb: 2 }}>
-            기본 정보
-          </Typography>
-
-          {error && (
-            <Alert severity="warning" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
-
           <Box component="form" onSubmit={handleSubmit}>
-            <Grid container spacing={2}>
+            <Grid container spacing={3}>
+              {/* 이름 */}
               <Grid item xs={12} sm={6}>
                 <TextField
+                  required
                   fullWidth
                   label="이름"
                   name="name"
                   value={profile.name}
                   onChange={handleText}
+                  disabled={saving}
                 />
               </Grid>
 
+              {/* 상태 */}
               <Grid item xs={12} sm={6}>
                 <FormControl fullWidth>
-                  <InputLabel id="position-label">직책</InputLabel>
+                  <InputLabel>상태</InputLabel>
                   <Select
-                    labelId="position-label"
-                    label="직책"
-                    name="position"
-                    value={profile.position}
+                    name="status"
+                    value={profile.status}
+                    label="상태"
                     onChange={handleSelect}
-                    required
+                    disabled={saving}
                   >
-                    <MenuItem value="">
-                      <em>선택하세요</em>
-                    </MenuItem>
-                    <MenuItem value="광역의원">광역의원</MenuItem>
-                    <MenuItem value="기초의원">기초의원</MenuItem>
-                    <MenuItem value="예비후보">예비후보</MenuItem>
+                    <MenuItem value="현역">현역</MenuItem>
+                    <MenuItem value="예비">예비</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
 
+              {/* 직책 */}
               <Grid item xs={12} sm={6}>
-                <FormControl fullWidth>
-                  <InputLabel id="metro-label">광역자치단체</InputLabel>
+                <FormControl fullWidth required>
+                  <InputLabel>직책</InputLabel>
                   <Select
-                    labelId="metro-label"
-                    label="광역자치단체"
+                    name="position"
+                    value={profile.position}
+                    label="직책"
+                    onChange={handleSelect}
+                    disabled={saving}
+                  >
+                    <MenuItem value="국회의원">국회의원</MenuItem>
+                    <MenuItem value="광역의원">광역의원(시/도의원)</MenuItem>
+                    <MenuItem value="기초의원">기초의원(시/군/구의원)</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              {/* 광역자치단체 */}
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth required>
+                  <InputLabel>광역자치단체</InputLabel>
+                  <Select
                     name="regionMetro"
                     value={profile.regionMetro}
+                    label="광역자치단체"
                     onChange={handleSelect}
-                    required
+                    disabled={saving}
                   >
-                    <MenuItem value="">
-                      <em>선택하세요</em>
-                    </MenuItem>
                     {metroList.map((metro) => (
                       <MenuItem key={metro} value={metro}>
                         {metro}
@@ -318,21 +341,17 @@ export default function ProfilePage() {
                 </FormControl>
               </Grid>
 
+              {/* 기초자치단체 */}
               <Grid item xs={12} sm={6}>
-                <FormControl fullWidth>
-                  <InputLabel id="local-label">기초자치단체</InputLabel>
+                <FormControl fullWidth required>
+                  <InputLabel>기초자치단체</InputLabel>
                   <Select
-                    labelId="local-label"
-                    label="기초자치단체"
                     name="regionLocal"
                     value={profile.regionLocal}
+                    label="기초자치단체"
                     onChange={handleSelect}
-                    required
-                    disabled={!profile.regionMetro}
+                    disabled={saving || !profile.regionMetro}
                   >
-                    <MenuItem value="">
-                      <em>선택하세요</em>
-                    </MenuItem>
                     {localList.map((local) => (
                       <MenuItem key={local} value={local}>
                         {local}
@@ -342,49 +361,61 @@ export default function ProfilePage() {
                 </FormControl>
               </Grid>
 
-              <Grid item xs={12}>
-                <FormControl fullWidth>
-                  <InputLabel id="district-label">선거구</InputLabel>
+              {/* 선거구 */}
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth required>
+                  <InputLabel>선거구</InputLabel>
                   <Select
-                    labelId="district-label"
-                    label="선거구"
                     name="electoralDistrict"
                     value={profile.electoralDistrict}
+                    label="선거구"
                     onChange={handleSelect}
-                    required
-                    disabled={!profile.regionLocal}
+                    disabled={saving || !profile.regionLocal || !profile.position}
                   >
-                    <MenuItem value="">
-                      <em>선택하세요</em>
-                    </MenuItem>
-                    {electoralList.map((d) => (
-                      <MenuItem key={d} value={d}>
-                        {d}
+                    {electoralList.map((district) => (
+                      <MenuItem key={district} value={district}>
+                        {district}
                       </MenuItem>
                     ))}
                   </Select>
                 </FormControl>
               </Grid>
 
+              {/* 자기소개 */}
               <Grid item xs={12}>
                 <TextField
+                  required
                   fullWidth
-                  label={`자기소개 (${bioLength}자)`}
+                  multiline
+                  rows={4}
+                  label="자기소개"
                   name="bio"
                   value={profile.bio}
                   onChange={handleText}
-                  multiline
-                  minRows={5}
-                  placeholder="정책 중심, 지역 발전 계획, 공약 방향 등… (100~300자 권장)"
-                  inputProps={{ maxLength: 1000 }}
-                  required
+                  disabled={saving}
+                  placeholder="본인을 소개해주세요. 정치 철학, 주요 정책, 지역 활동 등을 포함하여 작성하시면 더 개인화된 원고를 생성할 수 있습니다."
+                  helperText="최소 10자 이상 입력해주세요. (권장: 100~300자)"
                 />
               </Grid>
 
+              {/* 에러 메시지 */}
+              {error && (
+                <Grid item xs={12}>
+                  <Alert severity="error">{error}</Alert>
+                </Grid>
+              )}
+
+              {/* 저장 버튼 */}
               <Grid item xs={12}>
-                <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-                  <Button type="submit" variant="contained" disabled={saving}>
-                    {saving ? <CircularProgress size={20} /> : '저장'}
+                <Box display="flex" justifyContent="flex-end">
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    size="large"
+                    disabled={saving}
+                    sx={{ minWidth: 120 }}
+                  >
+                    {saving ? <CircularProgress size={24} /> : '저장하기'}
                   </Button>
                 </Box>
               </Grid>
@@ -392,13 +423,14 @@ export default function ProfilePage() {
           </Box>
         </Paper>
 
+        {/* 성공 메시지 */}
         <Snackbar
           open={snack.open}
-          autoHideDuration={4000}
-          onClose={() => setSnack((s) => ({ ...s, open: false }))}
+          autoHideDuration={6000}
+          onClose={() => setSnack({ ...snack, open: false })}
         >
           <Alert
-            onClose={() => setSnack((s) => ({ ...s, open: false }))}
+            onClose={() => setSnack({ ...snack, open: false })}
             severity={snack.severity}
             sx={{ width: '100%' }}
           >

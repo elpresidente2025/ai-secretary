@@ -1,4 +1,4 @@
-// frontend/src/main.jsx (수정된 부분)
+// frontend/src/main.jsx
 import React, { lazy } from 'react';
 import ReactDOM from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
@@ -11,7 +11,7 @@ import ProtectedRoute from './components/ProtectedRoute.jsx';
 import AdminRoute from './components/AdminRoute.jsx';
 import './index.css';
 
-// Lazy-load 페이지 컴포넌트들
+// 🚀 라우트 레벨 lazy loading
 const LoginPage = lazy(() => import('./pages/HomePage.jsx'));
 const RegisterPage = lazy(() => import('./pages/RegisterPage.jsx'));
 const Dashboard = lazy(() => import('./pages/Dashboard.jsx'));
@@ -20,7 +20,13 @@ const ProfilePage = lazy(() => import('./pages/ProfilePage.jsx'));
 const AdminPage = lazy(() => import('./pages/AdminPage.jsx'));
 const PostDetailPage = lazy(() => import('./pages/PostDetailPage.jsx'));
 const PostsListPage = lazy(() => import('./pages/PostsListPage.jsx'));
-const Billing = lazy(() => import('./pages/Billing.jsx')); // 🆕 추가
+const Billing = lazy(() => import('./pages/Billing.jsx'));
+
+// 🎯 프리로드 함수들 (사용자 의도 감지 시 사용)
+export const preloadGenerate = () => import('./pages/GeneratePage.jsx');
+export const preloadPosts = () => import('./pages/PostsListPage.jsx');
+export const preloadBilling = () => import('./pages/Billing.jsx');
+export const preloadProfile = () => import('./pages/ProfilePage.jsx');
 
 const router = createBrowserRouter([
   {
@@ -44,7 +50,7 @@ const router = createBrowserRouter([
         element: <ProtectedRoute><ProfilePage /></ProtectedRoute>,
       },
       {
-        path: 'billing', // 🆕 추가
+        path: 'billing',
         element: <ProtectedRoute><Billing /></ProtectedRoute>,
       },
       {
