@@ -11,57 +11,19 @@ import {
   Alert,
   Snackbar,
   Grid,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
 } from '@mui/material';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../services/firebase';
 import DashboardLayout from '../components/DashboardLayout';
-import allLocations from '../data/location/locations.index';
-
-// 전국 모든 지역 데이터를 locations.index.js에서 가져옴
-const DIST_DATA = allLocations;
-
-const metroList = Object.keys(DIST_DATA);
-
-function getLocalList(metro) {
-  return metro && DIST_DATA[metro] ? Object.keys(DIST_DATA[metro]) : [];
-}
-
-function getElectoralList(metro, local, position) {
-  if (!metro || !local || !DIST_DATA[metro]?.[local] || !position) return [];
-  
-  // position에 따라 적절한 선거구 유형 반환
-  const districtData = DIST_DATA[metro][local];
-  
-  if (position === '국회의원') {
-    return districtData['국회의원'] || [];
-  } else if (position === '광역의원') {
-    return districtData['광역의원'] || [];
-  } else if (position === '기초의원') {
-    return districtData['기초의원'] || [];
-  }
-  
-  return [];
-}
-
-// 서버와 동일한 districtKey 규칙(공백 제거/소문자/문자숫자만)
-const norm = (s) =>
-  String(s || '')
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, '')
-    .replace(/[^\p{Letter}\p{Number}]/gu, '');
-const makeDistrictKey = ({ position, regionMetro, regionLocal, electoralDistrict }) =>
-  [position, regionMetro, regionLocal, electoralDistrict].map(norm).join('__');
+import UserInfoForm from '../components/UserInfoForm';
+import { useAuth } from '../hooks/useAuth';
 
 export default function ProfilePage() {
-  // httpsCallable 메모이즈(react-hooks/exhaustive-deps 해소)
+  const { user } = useAuth();
+  
+  // httpsCallable 메모이즈
   const callGetProfile = useMemo(() => httpsCallable(functions, 'getUserProfile'), []);
   const callUpdateProfile = useMemo(() => httpsCallable(functions, 'updateProfile'), []);
-  const callCheckAvailability = useMemo(() => httpsCallable(functions, 'checkDistrictAvailability'), []);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -70,28 +32,13 @@ export default function ProfilePage() {
 
   const [profile, setProfile] = useState({
     name: '',
-    bio: '',
-    position: '',
-    regionMetro: '',
-    regionLocal: '',
-    electoralDistrict: '',
     status: '현역',
-  });
-
-  // 원래 값(선거구 변경 감지용)
-  const [original, setOriginal] = useState({
     position: '',
     regionMetro: '',
     regionLocal: '',
     electoralDistrict: '',
+    bio: '',
   });
-
-  // 셀렉트 목록
-  const localList = useMemo(() => getLocalList(profile.regionMetro), [profile.regionMetro]);
-  const electoralList = useMemo(
-    () => getElectoralList(profile.regionMetro, profile.regionLocal, profile.position),
-    [profile.regionMetro, profile.regionLocal, profile.position]
-  );
 
   // 최초 로드
   useEffect(() => {
@@ -99,28 +46,39 @@ export default function ProfilePage() {
     (async () => {
       try {
         setLoading(true);
+        console.log('프로필 로드 시작...');
+        
         const res = await callGetProfile();
-        const p = res?.data?.profile || {};
+        console.log('Functions 응답:', res);
+        
         if (!mounted) return;
 
+        // 응답 형식에 따른 데이터 추출
+        let profileData = {};
+        
+        if (res?.data?.success && res?.data?.data) {
+          profileData = res.data.data;
+        } else if (res?.data?.profile) {
+          profileData = res.data.profile;
+        } else if (res?.data) {
+          profileData = res.data.profile || res.data;
+        }
+
+        console.log('추출된 프로필 데이터:', profileData);
+
         setProfile({
-          name: p.name || '',
-          bio: p.bio || '',
-          position: p.position || '',
-          regionMetro: p.regionMetro || '',
-          regionLocal: p.regionLocal || '',
-          electoralDistrict: p.electoralDistrict || '',
-          status: p.status || '현역',
+          name: profileData.name || '',
+          status: profileData.status || '현역',
+          position: profileData.position || '',
+          regionMetro: profileData.regionMetro || '',
+          regionLocal: profileData.regionLocal || '',
+          electoralDistrict: profileData.electoralDistrict || '',
+          bio: profileData.bio || '',
         });
-        setOriginal({
-          position: p.position || '',
-          regionMetro: p.regionMetro || '',
-          regionLocal: p.regionLocal || '',
-          electoralDistrict: p.electoralDistrict || '',
-        });
+        
       } catch (e) {
-        console.error('[getUserProfile]', e);
-        setError('프로필 정보를 불러오지 못했습니다.');
+        console.error('[getUserProfile 오류]', e);
+        setError('프로필 정보를 불러오지 못했습니다: ' + (e.message || '알 수 없는 오류'));
       } finally {
         setLoading(false);
       }
@@ -130,49 +88,21 @@ export default function ProfilePage() {
     };
   }, [callGetProfile]);
 
-  const handleText = (e) => {
-    const { name, value } = e.target;
+  // UserInfoForm 컴포넌트에서 오는 변경사항 처리
+  const handleUserInfoChange = (name, value) => {
     setError('');
     setProfile((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSelect = (e) => {
-    const { name, value } = e.target;
+  // 자기소개 변경 처리
+  const handleBioChange = (e) => {
+    const { value } = e.target;
     setError('');
-
-    // 의존성 초기화
-    if (name === 'position') {
-      setProfile((prev) => ({
-        ...prev,
-        position: value,
-        regionMetro: '',
-        regionLocal: '',
-        electoralDistrict: '',
-      }));
-      return;
-    }
-    if (name === 'regionMetro') {
-      setProfile((prev) => ({
-        ...prev,
-        regionMetro: value,
-        regionLocal: '',
-        electoralDistrict: '',
-      }));
-      return;
-    }
-    if (name === 'regionLocal') {
-      setProfile((prev) => ({
-        ...prev,
-        regionLocal: value,
-        electoralDistrict: '',
-      }));
-      return;
-    }
-    setProfile((prev) => ({ ...prev, [name]: value }));
+    setProfile((prev) => ({ ...prev, bio: value }));
   };
 
-  // 프런트 검증 + (변경 시) 사전 가용성 체크
-  const validate = async () => {
+  // 검증
+  const validate = () => {
     const bioTrim = (profile.bio || '').trim();
     if (!bioTrim) {
       setError('자기소개는 필수입니다. 간단히라도 본인을 설명해 주세요.');
@@ -182,35 +112,9 @@ export default function ProfilePage() {
       setError('자기소개가 너무 짧습니다. 최소 10자 이상 입력해 주세요. (권장: 100~300자)');
       return false;
     }
-    // 4개 필드 모두 채워져야 서버에서 선거구 처리 가능
-    if (!profile.position || !profile.regionMetro || !profile.regionLocal || !profile.electoralDistrict) {
-      setError('직책, 광역/기초자치단체, 선거구를 모두 선택해 주세요.');
+    if (!profile.name || !profile.position || !profile.regionMetro || !profile.regionLocal || !profile.electoralDistrict) {
+      setError('모든 필수 정보를 입력해 주세요.');
       return false;
-    }
-
-    // 변경 여부 확인
-    const oldKey = makeDistrictKey(original);
-    const newKey = makeDistrictKey(profile);
-    const changed = oldKey !== newKey;
-
-    // 바뀐 경우 저장 전에 가용성 체크(UX 개선)
-    if (changed) {
-      try {
-        const res = await callCheckAvailability({
-          position: profile.position,
-          regionMetro: profile.regionMetro,
-          regionLocal: profile.regionLocal,
-          electoralDistrict: profile.electoralDistrict,
-        });
-        const { available } = res?.data || {};
-        if (!available) {
-          setError('이미 사용 중인 선거구입니다. 다른 선거구를 선택해 주세요.');
-          return false;
-        }
-      } catch (e) {
-        console.error('[checkDistrictAvailability]', e);
-        // 가용성 체크 실패 시에도 서버에 맡겨 저장 시도는 허용(네트워크 요동 대비)
-      }
     }
     return true;
   };
@@ -218,34 +122,83 @@ export default function ProfilePage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    if (!(await validate())) return;
+    
+    console.log('폼 제출 시작...');
+    
+    if (!validate()) return;
 
     try {
       setSaving(true);
       const payload = {
         name: profile.name,
+        status: profile.status,
+        position: profile.position,
+        regionMetro: profile.regionMetro,
+        regionLocal: profile.regionLocal,
+        electoralDistrict: profile.electoralDistrict,
         bio: profile.bio,
-        status: profile.status || '현역',
-        position: profile.position,
-        regionMetro: profile.regionMetro,
-        regionLocal: profile.regionLocal,
-        electoralDistrict: profile.electoralDistrict,
       };
-      const res = await callUpdateProfile(payload);
-      const msg = res?.data?.message || '프로필이 저장되었습니다.';
-      setSnack({ open: true, message: msg, severity: 'success' });
       
-      // 원본 정보 업데이트(변경 감지용)
-      setOriginal({
-        position: profile.position,
-        regionMetro: profile.regionMetro,
-        regionLocal: profile.regionLocal,
-        electoralDistrict: profile.electoralDistrict,
-      });
+      console.log('전송할 데이터:', payload);
+      
+      const res = await callUpdateProfile(payload);
+      console.log('updateProfile 응답:', res);
+      
+      // 실제 성공 여부 확인 후 팝업 표시
+      if (res && res.data) {
+        let message = '프로필이 저장되었습니다.';
+        if (res.data.message) {
+          message = res.data.message;
+        } else if (res.data.data && res.data.data.message) {
+          message = res.data.data.message;
+        }
+        
+        setSnack({ open: true, message, severity: 'success' });
+      } else {
+        throw new Error('서버 응답이 올바르지 않습니다.');
+      }
+      
     } catch (e) {
-      console.error('[updateProfile]', e);
-      const msg = e?.details?.message || e?.message || '저장 중 오류가 발생했습니다.';
-      setError(msg);
+      console.error('[updateProfile 오류]', e);
+      
+      // 🔧 선거구 중복 에러를 우선적으로 체크
+      if (e.code === 'functions/already-exists') {
+        setError('해당 선거구에는 이미 등록된 사용자가 있습니다. 다른 선거구를 선택해주세요.');
+        return;
+      }
+      
+      // 사용자 친화적인 에러 메시지
+      let errorMessage = '저장 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.';
+      
+      if (e.code === 'functions/not-found') {
+        errorMessage = '일시적으로 서비스에 접속할 수 없습니다. 잠시 후 다시 시도해주세요.';
+      } else if (e.code === 'functions/unauthenticated') {
+        errorMessage = '로그인이 만료되었습니다. 다시 로그인해주세요.';
+      } else if (e.code === 'functions/internal') {
+        errorMessage = '서버에 일시적인 문제가 발생했습니다. 잠시 후 다시 시도해주세요.';
+      } else if (e.code === 'functions/permission-denied') {
+        errorMessage = '권한이 없습니다. 관리자에게 문의해주세요.';
+      } else if (e.code === 'functions/failed-precondition') {
+        errorMessage = '선거구 설정 중 문제가 발생했습니다. 다시 시도해주세요.';
+      } else if (e.message && e.message.includes('CORS')) {
+        errorMessage = '서비스 연결에 문제가 있습니다. 잠시 후 다시 시도해주세요.';
+      } else if (e.details?.message) {
+        errorMessage = e.details.message;
+      } else if (e.message) {
+        // 메시지 내용 기반 에러 처리 (백업용)
+        if (e.message.includes('already exists') || e.message.includes('중복') || e.message.includes('사용 중')) {
+          errorMessage = '해당 선거구에는 이미 등록된 사용자가 있습니다. 다른 선거구를 선택해주세요.';
+        } else if (e.message.includes('network') || e.message.includes('연결')) {
+          errorMessage = '인터넷 연결을 확인하고 다시 시도해주세요.';
+        } else if (e.message.includes('선거구')) {
+          errorMessage = '선거구 설정 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.';
+        } else {
+          errorMessage = '저장 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.';
+        }
+      }
+      
+      setError(errorMessage);
+      
     } finally {
       setSaving(false);
     }
@@ -270,118 +223,35 @@ export default function ProfilePage() {
           프로필 설정
         </Typography>
 
+        <Alert severity="info" sx={{ mb: 2 }}>
+          💡 프로필 정보를 입력하고 저장하세요. 
+          등록된 정보를 바탕으로 맞춤형 원고가 생성됩니다.
+        </Alert>
+
         <Paper elevation={2} sx={{ p: 3 }}>
           <Box component="form" onSubmit={handleSubmit}>
             <Grid container spacing={3}>
-              {/* 이름 */}
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  required
-                  fullWidth
-                  label="이름"
-                  name="name"
-                  value={profile.name}
-                  onChange={handleText}
-                  disabled={saving}
-                />
-              </Grid>
-
-              {/* 상태 */}
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth>
-                  <InputLabel>상태</InputLabel>
-                  <Select
-                    name="status"
-                    value={profile.status}
-                    label="상태"
-                    onChange={handleSelect}
-                    disabled={saving}
-                  >
-                    <MenuItem value="현역">현역</MenuItem>
-                    <MenuItem value="예비">예비</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-
-              {/* 직책 */}
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth required>
-                  <InputLabel>직책</InputLabel>
-                  <Select
-                    name="position"
-                    value={profile.position}
-                    label="직책"
-                    onChange={handleSelect}
-                    disabled={saving}
-                  >
-                    <MenuItem value="국회의원">국회의원</MenuItem>
-                    <MenuItem value="광역의원">광역의원(시/도의원)</MenuItem>
-                    <MenuItem value="기초의원">기초의원(시/군/구의원)</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-
-              {/* 광역자치단체 */}
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth required>
-                  <InputLabel>광역자치단체</InputLabel>
-                  <Select
-                    name="regionMetro"
-                    value={profile.regionMetro}
-                    label="광역자치단체"
-                    onChange={handleSelect}
-                    disabled={saving}
-                  >
-                    {metroList.map((metro) => (
-                      <MenuItem key={metro} value={metro}>
-                        {metro}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-
-              {/* 기초자치단체 */}
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth required>
-                  <InputLabel>기초자치단체</InputLabel>
-                  <Select
-                    name="regionLocal"
-                    value={profile.regionLocal}
-                    label="기초자치단체"
-                    onChange={handleSelect}
-                    disabled={saving || !profile.regionMetro}
-                  >
-                    {localList.map((local) => (
-                      <MenuItem key={local} value={local}>
-                        {local}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-
-              {/* 선거구 */}
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth required>
-                  <InputLabel>선거구</InputLabel>
-                  <Select
-                    name="electoralDistrict"
-                    value={profile.electoralDistrict}
-                    label="선거구"
-                    onChange={handleSelect}
-                    disabled={saving || !profile.regionLocal || !profile.position}
-                  >
-                    {electoralList.map((district) => (
-                      <MenuItem key={district} value={district}>
-                        {district}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
+              
+              {/* 🔧 UserInfoForm 컴포넌트 사용 */}
+              <UserInfoForm
+                name={profile.name}
+                status={profile.status}
+                position={profile.position}
+                regionMetro={profile.regionMetro}
+                regionLocal={profile.regionLocal}
+                electoralDistrict={profile.electoralDistrict}
+                onChange={handleUserInfoChange}
+                disabled={saving}
+                showTitle={true}
+              />
 
               {/* 자기소개 */}
+              <Grid item xs={12}>
+                <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                  자기소개
+                </Typography>
+              </Grid>
+              
               <Grid item xs={12}>
                 <TextField
                   required
@@ -391,7 +261,7 @@ export default function ProfilePage() {
                   label="자기소개"
                   name="bio"
                   value={profile.bio}
-                  onChange={handleText}
+                  onChange={handleBioChange}
                   disabled={saving}
                   placeholder="본인을 소개해주세요. 정치 철학, 주요 정책, 지역 활동 등을 포함하여 작성하시면 더 개인화된 원고를 생성할 수 있습니다."
                   helperText="최소 10자 이상 입력해주세요. (권장: 100~300자)"
