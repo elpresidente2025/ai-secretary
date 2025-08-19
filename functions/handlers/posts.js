@@ -217,7 +217,7 @@ exports.generatePosts = wrap(async (req) => {
   return ok({ 
     success: true,
     message: '원고가 성공적으로 생성되었습니다.',
-    drafts: [draftData],
+    drafts: draftData,
     metadata: {
       generatedAt: new Date().toISOString(),
       userId: uid,
