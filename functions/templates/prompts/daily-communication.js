@@ -518,4 +518,5 @@ module.exports = {
   getCommunicationVariations,
   getContextualConstraints,
   getAuthorityLanguageGuide,
+  getCorrectTitle
 };
