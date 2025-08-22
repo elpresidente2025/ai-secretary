@@ -1,6 +1,6 @@
 'use strict';
 
-const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onCall, HttpsError } = require('firebase-functions/v2/hhttps');
 const { setGlobalOptions } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
 
@@ -186,52 +186,37 @@ exports.getNotices = onCall(functionOptions, async (request) => {
       throw new HttpsError('permission-denied', '관리자 권한이 필요합니다.');
     }
 
-    try {
-      // 안전한 쿼리 (orderBy 없이)
-      const snapshot = await db.collection('notices')
-        .get();
+    const snapshot = await db.collection('notices').get();
 
-      const notices = [];
-      snapshot.docs.forEach(doc => {
-        try {
-          const data = doc.data();
-          notices.push({
-            id: doc.id,
-            title: data.title || '제목 없음',
-            content: data.content || '',
-            type: data.type || 'info',
-            priority: data.priority || 'medium',
-            isActive: data.isActive !== false,
-            targetUsers: data.targetUsers || ['all'],
-            createdBy: data.createdBy || '',
-            createdAt: data.createdAt?.toDate()?.toISOString(),
-            updatedAt: data.updatedAt?.toDate()?.toISOString(),
-            expiresAt: data.expiresAt?.toDate()?.toISOString()
-          });
-        } catch (docError) {
-          console.warn('공지 문서 처리 오류:', docError.message);
-        }
+    const notices = [];
+    snapshot.docs.forEach(doc => {
+      const data = doc.data();
+      notices.push({
+        id: doc.id,
+        title: data.title || '제목 없음',
+        content: data.content || '',
+        type: data.type || 'info',
+        priority: data.priority || 'medium',
+        isActive: data.isActive !== false,
+        targetUsers: data.targetUsers || ['all'],
+        createdBy: data.createdBy || '',
+        createdAt: data.createdAt?.toDate?.().toISOString(),
+        updatedAt: data.updatedAt?.toDate?.().toISOString(),
+        expiresAt: data.expiresAt?.toDate?.().toISOString()
       });
+    });
 
-      // 클라이언트에서 정렬
-      notices.sort((a, b) => {
-        const dateA = new Date(a.createdAt || 0);
-        const dateB = new Date(b.createdAt || 0);
-        return dateB - dateA;
-      });
+    // 최신순으로 정렬
+    notices.sort((a, b) => {
+      const dateA = new Date(a.createdAt || 0);
+      const dateB = new Date(b.createdAt || 0);
+      return dateB - dateA;
+    });
 
-      return {
-        success: true,
-        notices
-      };
-
-    } catch (dbError) {
-      console.warn('Firestore 쿼리 실패, 빈 목록 반환:', dbError.message);
-      return {
-        success: true,
-        notices: []
-      };
-    }
+    return {
+      success: true,
+      notices
+    };
 
   } catch (error) {
     console.error('❌ 공지 목록 조회 실패:', error);
@@ -243,128 +228,62 @@ exports.getNotices = onCall(functionOptions, async (request) => {
 });
 
 // ============================================================================
-// 🔥 활성 공지사항 조회 (일반 사용자용) - 완전 수정
+// 🔥 활성 공지사항 조회 (일반 사용자용) - 수정된 버전
 // ============================================================================
 exports.getActiveNotices = onCall(functionOptions, async (request) => {
-  console.log('🔥 getActiveNotices 호출 시작');
-  
   try {
-    // 인증 선택사항으로 처리 (공지는 모든 사용자에게 공개)
-    let userId = null;
-    if (request.auth) {
-      userId = request.auth.uid;
-      console.log('✅ 사용자 인증:', userId);
-    } else {
-      console.log('ℹ️ 비인증 사용자 (공지는 공개)');
-    }
+    // Firestore에서 활성화된 공지사항만 쿼리
+    const now = new Date();
+    const snapshot = await db.collection('notices')
+      .where('isActive', '==', true)
+      .get();
 
-    // 기본 응답
-    const response = {
-      success: true,
-      notices: []
-    };
+    const notices = [];
+    snapshot.forEach(doc => {
+      const data = doc.data();
 
-    try {
-      console.log('🔍 공지사항 조회 시작...');
+      // 만료일 체크 (만료일이 없거나, 있더라도 현재보다 미래인 경우)
+      if (!data.expiresAt || data.expiresAt.toDate() > now) {
+        notices.push({
+          id: doc.id,
+          title: data.title || '공지사항',
+          content: data.content || '',
+          type: data.type || 'info',
+          priority: data.priority || 'medium',
+          // ✅ toDate()와 toISOString()을 안전하게 호출
+          createdAt: data.createdAt?.toDate?.().toISOString() || new Date(0).toISOString(),
+          expiresAt: data.expiresAt?.toDate?.().toISOString() || null,
+        });
+      }
+    });
+
+    // 우선순위 및 최신순으로 정렬 (안전장치 추가)
+    notices.sort((a, b) => {
+      const priorityOrder = { high: 3, medium: 2, low: 1 };
+      const priorityA = priorityOrder[a.priority] || 2;
+      const priorityB = priorityOrder[b.priority] || 2;
       
-      // 🔥 가장 단순한 쿼리로 시작 (조건 없이 모든 공지 가져오기)
-      const snapshot = await db.collection('notices').get();
+      if (priorityA !== priorityB) {
+        return priorityB - priorityA;
+      }
       
-      console.log('✅ Firestore 전체 문서 수:', snapshot.size);
+      // ✅ createdAt이 유효하지 않을 경우를 대비한 안전장치
+      const dateA = new Date(a.createdAt || 0);
+      const dateB = new Date(b.createdAt || 0);
+      return dateB - dateA;
+    });
 
-      const allNotices = [];
-      snapshot.docs.forEach(doc => {
-        try {
-          const data = doc.data();
-          console.log('📄 문서 데이터:', doc.id, data);
-          
-          allNotices.push({
-            id: doc.id,
-            title: data.title || '공지사항',
-            content: data.content || '',
-            type: data.type || 'info',
-            priority: data.priority || 'medium',
-            isActive: data.isActive,
-            createdAt: data.createdAt?.toDate()?.toISOString() || new Date().toISOString(),
-            expiresAt: data.expiresAt?.toDate()?.toISOString(),
-            rawData: data // 🔥 디버깅용 원시 데이터
-          });
-        } catch (docError) {
-          console.warn('문서 처리 오류:', docError.message);
-        }
-      });
-
-      console.log('✅ 전체 공지사항:', allNotices.length);
-
-      // 🔥 필터링 로직을 단계별로 적용
-      const now = new Date();
-      console.log('⏰ 현재 시간:', now.toISOString());
-
-      const activeNotices = allNotices.filter(notice => {
-        console.log(`🔍 공지 "${notice.title}" 검사:`);
-        console.log(`  - isActive: ${notice.isActive}`);
-        console.log(`  - expiresAt: ${notice.expiresAt}`);
-        
-        // 1. isActive 체크
-        if (notice.isActive !== true) {
-          console.log(`  ❌ 비활성 상태`);
-          return false;
-        }
-        
-        // 2. 만료일 체크
-        if (notice.expiresAt) {
-          const expiresAt = new Date(notice.expiresAt);
-          console.log(`  - 만료일: ${expiresAt.toISOString()}`);
-          console.log(`  - 현재 < 만료일: ${now < expiresAt}`);
-          
-          if (now >= expiresAt) {
-            console.log(`  ❌ 만료됨`);
-            return false;
-          }
-        }
-        
-        console.log(`  ✅ 활성 공지`);
-        return true;
-      });
-
-      console.log('✅ 필터링된 활성 공지:', activeNotices.length);
-
-      // 우선순위별 정렬
-      activeNotices.sort((a, b) => {
-        const priorityOrder = { high: 3, medium: 2, low: 1 };
-        const priorityA = priorityOrder[a.priority] || 2;
-        const priorityB = priorityOrder[b.priority] || 2;
-        
-        if (priorityA !== priorityB) {
-          return priorityB - priorityA;
-        }
-        
-        return new Date(b.createdAt) - new Date(a.createdAt);
-      });
-
-      // 🔥 rawData 제거하고 최종 응답 준비
-      const finalNotices = activeNotices.map(notice => {
-        const { rawData, ...cleanNotice } = notice;
-        return cleanNotice;
-      });
-
-      response.notices = finalNotices;
-      console.log('✅ 최종 응답 공지사항 개수:', finalNotices.length);
-
-    } catch (dbError) {
-      console.error('⚠️ Firestore 조회 실패:', dbError);
-      response.notices = [];
-    }
-
-    return response;
-
-  } catch (error) {
-    console.error('❌ getActiveNotices 최종 오류:', error);
-    
-    // 어떤 오류가 발생해도 기본 응답 제공
     return {
       success: true,
-      notices: []
+      notices,
     };
+
+  } catch (error) {
+    console.error('❌ getActiveNotices 함수 오류:', error);
+    // HttpsError가 아닌 다른 에러일 경우, 클라이언트에게는 일반적인 오류 메시지를 보냄
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    throw new HttpsError('internal', '활성 공지사항을 불러오는 중 오류가 발생했습니다.');
   }
 });

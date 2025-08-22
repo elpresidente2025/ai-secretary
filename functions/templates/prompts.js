@@ -3,9 +3,29 @@
 'use strict';
 
 // Import guidelines (모든 정책과 가이드라인은 외부 모듈에서)
-const { LEGAL_GUIDELINES, SEO_RULES, CONTENT_RULES, getPolicySafe, createFallbackDraft } = require('./guidelines/rules');
+// NOTE: 'rules.js' 파일이 없어 개별 파일에서 직접 가이드라인을 가져오도록 수정했습니다.
+const { LEGAL_GUIDELINES } = require('./guidelines/legal');
+const { SEO_RULES, CONTENT_RULES } = require('./guidelines/editorial');
 const { PARTY_VALUES } = require('./guidelines/theminjoo');
 const { LEADERSHIP_PHILOSOPHY } = require('./guidelines/leadership');
+
+// NOTE: './guidelines/rules.js' 모듈을 찾을 수 없어 임시 함수를 정의합니다.
+// TODO: 향후 실제 정책 로드 및 대체 초안 생성 로직으로 교체해야 합니다.
+async function getPolicySafe() {
+  // 정책 데이터를 비동기적으로 가져오는 로직 (예: DB 조회)
+  // 현재는 임시로 정적 객체를 반환합니다.
+  return Promise.resolve({
+    body: "[SYSTEM_POLICY] AI 비서관은 항상 법적, 정치적 가이드라인을 준수하여 신중하게 발언해야 합니다."
+  });
+}
+function createFallbackDraft(options) {
+  // 오류 발생 시 사용할 대체 초안을 생성하는 로직
+  return {
+    title: `[임시] ${options.topic || '요청 주제'}`,
+    content: `<p>시스템 오류로 인해 요청하신 초안을 생성하지 못했습니다. 관리자에게 문의해주세요.</p>`,
+  };
+}
+
 
 // Import specialized prompts
 const { buildActivityReportPrompt } = require('./prompts/activity-report');
@@ -67,7 +87,7 @@ function selectPromptType(options) {
  */
 async function buildSmartPrompt(options) {
   try {
-    // 1. 정책 로드 (rules.js에서)
+    // 1. 정책 로드
     const policy = await getPolicySafe();
     
     // 2. 프롬프트 타입 자동 선택

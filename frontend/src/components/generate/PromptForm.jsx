@@ -1,5 +1,6 @@
-// frontend/src/components/generate/PromptForm.jsx
-import React from 'react';
+// frontend/src/components/generate/PromptForm.jsx (최종 수정본)
+
+import React, { useMemo } from 'react';
 import {
   Paper,
   Typography,
@@ -8,87 +9,114 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Grid,
-  Box
+  Grid
 } from '@mui/material';
 import { AutoAwesome } from '@mui/icons-material';
+// ✅ 1. formConstants에서 카테고리 데이터를 직접 불러와서 자급자족합니다.
+import { CATEGORIES } from '../../constants/formConstants';
 
-export default function PromptForm({ 
-  formData, 
-  onChange, 
-  disabled = false, 
-  categories = {},
-  isMobile = false 
+export default function PromptForm({
+  formData,
+  // ✅ 2. 부모가 사용하는 `onChange` prop을 정상적으로 받습니다.
+  onChange,
+  disabled = false,
+  isMobile = false
 }) {
   const handleInputChange = (field) => (event) => {
-    onChange({ ...formData, [field]: event.target.value });
+    const { value } = event.target;
+    
+    // ✅ 3. 부모로부터 받은 `onChange` 함수를 올바른 방식으로 호출합니다.
+    if (field === 'category') {
+      // 카테고리가 바뀌면, 세부 카테고리 값을 초기화하라는 신호를 함께 보냅니다.
+      onChange({ category: value, subCategory: '' });
+    } else {
+      // 그 외의 경우는 해당 필드만 업데이트하라는 신호를 보냅니다.
+      onChange({ [field]: value });
+    }
   };
+
+  // 선택된 카테고리에 맞는 세부 카테고리 목록을 안전하게 찾습니다.
+  const subCategories = useMemo(() => {
+    const selectedCategory = CATEGORIES.find(cat => cat.value === formData.category);
+    // subCategories가 배열이 아니거나 없으면, 안전하게 빈 배열을 반환하여 오류를 방지합니다.
+    return Array.isArray(selectedCategory?.subCategories) ? selectedCategory.subCategories : [];
+  }, [formData.category]);
 
   const formSize = isMobile ? "small" : "medium";
 
   return (
     <Paper sx={{ p: isMobile ? 2 : 3, mb: isMobile ? 2 : 3 }}>
-      <Typography 
-        variant={isMobile ? "h6" : "h5"} 
+      <Typography
+        variant={isMobile ? "h6" : "h5"}
         sx={{ mb: 2, display: 'flex', alignItems: 'center' }}
       >
         <AutoAwesome sx={{ mr: 1, color: 'primary.main' }} />
-        {isMobile ? "원고 생성" : "AI 원고 생성 (1회 1개씩)"}
+        {isMobile ? "원고 생성" : "AI 원고 생성"}
       </Typography>
 
       <Grid container spacing={isMobile ? 2 : 3}>
         {/* 카테고리 */}
-        <Grid item xs={isMobile ? 6 : 12} sm={6} md={3}>
+        <Grid item xs={isMobile ? 6 : 12} md={6}>
           <FormControl fullWidth size={formSize}>
             <InputLabel>카테고리</InputLabel>
             <Select
-              value={formData.category || '일반'}
-              onChange={handleInputChange('category')}
+              value={formData.category || ''}
               label="카테고리"
+              onChange={handleInputChange('category')}
               disabled={disabled}
             >
-              {Object.keys(categories).map((cat) => (
-                <MenuItem key={cat} value={cat}>{cat}</MenuItem>
+              {/* ✅ 4. 직접 불러온 CATEGORIES 배열을 사용해 정상적인 메뉴를 보여줍니다. */}
+              {CATEGORIES.map((cat) => (
+                <MenuItem key={cat.value} value={cat.value}>
+                  {cat.label}
+                </MenuItem>
               ))}
             </Select>
           </FormControl>
         </Grid>
 
         {/* 세부 카테고리 */}
-        <Grid item xs={isMobile ? 6 : 12} sm={6} md={3}>
-          <FormControl fullWidth size={formSize}>
+        <Grid item xs={isMobile ? 6 : 12} md={6}>
+          <FormControl fullWidth size={formSize} disabled={disabled || subCategories.length === 0}>
             <InputLabel>세부 카테고리</InputLabel>
             <Select
               value={formData.subCategory || ''}
-              onChange={handleInputChange('subCategory')}
               label="세부 카테고리"
-              disabled={disabled || !formData.category}
+              onChange={handleInputChange('subCategory')}
             >
-              <MenuItem value=""><em>선택하세요</em></MenuItem>
-              {formData.category && categories[formData.category]?.map((subCat) => (
-                <MenuItem key={subCat} value={subCat}>{subCat}</MenuItem>
-              ))}
+              {subCategories.length === 0 ? (
+                <MenuItem value="" disabled>
+                  선택사항 없음
+                </MenuItem>
+              ) : (
+                subCategories.map((sub) => (
+                  <MenuItem key={sub.value} value={sub.value}>
+                    {sub.label}
+                  </MenuItem>
+                ))
+              )}
             </Select>
           </FormControl>
         </Grid>
 
-        {/* 주제 */}
-        <Grid item xs={12} md={6}>
+        {/* ✅ 5. 주제 입력칸을 `topic`에 연결하여 버튼 활성화 문제를 해결합니다. */}
+        <Grid item xs={12}>
           <TextField
             fullWidth
             size={formSize}
             label="주제"
             placeholder="어떤 내용의 원고를 작성하고 싶으신가요?"
-            value={formData.prompt || ''}
-            onChange={handleInputChange('prompt')}
+            value={formData.topic || ''}
+            onChange={handleInputChange('topic')}
             disabled={disabled}
             multiline
             rows={2}
-            helperText={`${formData.prompt?.length || 0}/500자`}
+            inputProps={{ maxLength: 500 }}
+            helperText={`${formData.topic?.length || 0}/500자`}
           />
         </Grid>
-
-        {/* 세부지시사항 */}
+        
+        {/* ✅ 6. 누락되었던 세부지시사항 입력칸을 다시 추가합니다. */}
         <Grid item xs={12}>
           <TextField
             fullWidth
@@ -100,7 +128,8 @@ export default function PromptForm({
             disabled={disabled}
             multiline
             rows={3}
-            helperText={`예: 젊은 층 대상으로 친근하게, 통계 자료 포함, 구체적인 사례 제시 등 (${formData.instructions?.length || 0}/1000자)`}
+            inputProps={{ maxLength: 1000 }}
+            helperText={`예: 젊은 층 대상으로 친근하게, 통계 자료 포함 등 (${formData.instructions?.length || 0}/1000자)`}
           />
         </Grid>
 
@@ -114,7 +143,7 @@ export default function PromptForm({
             value={formData.keywords || ''}
             onChange={handleInputChange('keywords')}
             disabled={disabled}
-            helperText={`예: 복지정책, 일자리창출, 지역발전 (${formData.keywords?.length || 0}/200자)`}
+            helperText="예: 민생안정, 경제활성화, 부동산문제"
           />
         </Grid>
       </Grid>

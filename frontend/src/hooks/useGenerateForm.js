@@ -1,79 +1,66 @@
-// frontend/src/hooks/useGenerateForm.js
-import { useState, useCallback } from 'react';
+// frontend/src/hooks/useGenerateForm.js (최종 수정본)
 
-export function useGenerateForm() {
-  const [formData, setFormData] = useState({
-    prompt: '',
-    instructions: '',
-    keywords: '',
-    category: '일반',
-    subCategory: ''
-  });
+import { useState, useCallback, useMemo } from 'react';
 
-  const updateForm = useCallback((newData) => {
-    setFormData(prev => ({ ...prev, ...newData }));
+// 폼의 초기 상태를 정의합니다.
+const initialState = {
+  category: '',
+  subCategory: '',
+  prompt: '', // 'topic' 대신 'prompt'를 기본으로 사용
+  instructions: '',
+  keywords: '',
+};
+
+export const useGenerateForm = () => {
+  // 폼 데이터를 관리하는 상태
+  const [formData, setFormData] = useState(initialState);
+
+  /**
+   * 폼 데이터의 일부를 업데이트하는 함수.
+   * useCallback을 사용하여 함수가 불필요하게 재생성되는 것을 방지합니다.
+   * @param {object} updates - 변경할 필드와 값. 예: { prompt: '새로운 주제' }
+   */
+  const updateForm = useCallback((updates) => {
+    setFormData(prev => ({ ...prev, ...updates }));
   }, []);
 
+  /**
+   * 폼 데이터를 초기 상태로 리셋하는 함수.
+   */
   const resetForm = useCallback(() => {
-    setFormData({
-      prompt: '',
-      instructions: '',
-      keywords: '',
-      category: '일반',
-      subCategory: ''
-    });
+    setFormData(initialState);
   }, []);
 
+  /**
+   * 폼 데이터가 유효한지 검사하는 함수.
+   * @returns {{isValid: boolean, error: string|null}}
+   */
   const validateForm = useCallback(() => {
-    const trimmedPrompt = formData.prompt?.trim() || '';
-    
-    if (!trimmedPrompt) {
-      return { 
-        isValid: false, 
-        error: '주제를 입력해주세요.' 
-      };
+    // ✅ [수정] 'topic' 대신 'prompt' 필드가 비어있는지 확인합니다.
+    if (!formData.prompt || formData.prompt.trim() === '') {
+      return { isValid: false, error: '주제를 입력해주세요.' };
     }
-    
-    if (trimmedPrompt.length < 5) {
-      return { 
-        isValid: false, 
-        error: '주제는 최소 5자 이상 입력해주세요.' 
-      };
+    if (!formData.category) {
+      return { isValid: false, error: '카테고리를 선택해주세요.' };
     }
-    
-    if (trimmedPrompt.length > 500) {
-      return { 
-        isValid: false, 
-        error: '주제는 500자를 초과할 수 없습니다.' 
-      };
-    }
-    
-    if (formData.keywords && formData.keywords.length > 200) {
-      return { 
-        isValid: false, 
-        error: '키워드는 200자를 초과할 수 없습니다.' 
-      };
-    }
+    return { isValid: true, error: null };
+  }, [formData.prompt, formData.category]);
 
-    if (formData.instructions && formData.instructions.length > 1000) {
-      return { 
-        isValid: false, 
-        error: '세부지시사항은 1000자를 초과할 수 없습니다.' 
-      };
-    }
-    
-    return { isValid: true };
-  }, [formData]);
+  /**
+   * '생성하기' 버튼의 활성화 여부를 결정하는 변수.
+   * useMemo를 사용하여 formData가 변경될 때만 재계산합니다.
+   */
+  const canGenerate = useMemo(() => {
+    // ✅ [수정] 'topic' 대신 'prompt' 필드를 기준으로 판단합니다.
+    return !!formData.prompt && !!formData.category;
+  }, [formData.prompt, formData.category]);
 
-  const canGenerate = useCallback(() => {
-    return Boolean(formData.prompt?.trim());
-  }, [formData.prompt]);
-
+  // 훅이 외부로 제공하는 상태와 함수들
   return {
     formData,
     updateForm,
     resetForm,
     validateForm,
-    canGenerate: canGenerate()
+    canGenerate
   };
-}
+};
