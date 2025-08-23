@@ -9,8 +9,13 @@ import {
   useTheme,
   useMediaQuery,
   Skeleton,
-  Box
+  Box,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  IconButton
 } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
 import DashboardLayout from '../components/DashboardLayout';
 import PromptForm from '../components/generate/PromptForm';
 import GenerateActions from '../components/generate/GenerateActions';
@@ -193,17 +198,42 @@ const GeneratePage = () => {
           />
         </Suspense>
 
-        {/* 미리보기 패널 (선택된 초안이 있을 때만 Lazy Loading으로 보여줌) */}
-        {selectedDraft && (
-          <Suspense fallback={
-            <Box sx={{ mt: 3 }}>
-              <Skeleton variant="text" width={150} height={32} sx={{ mb: 2 }} />
-              <Skeleton variant="rectangular" height={300} />
-            </Box>
-          }>
-            <PreviewPane draft={selectedDraft} />
-          </Suspense>
-        )}
+        {/* 미리보기 다이얼로그 (팝업) */}
+        <Dialog
+          open={!!selectedDraft}
+          onClose={() => setSelectedDraft(null)}
+          fullWidth
+          maxWidth="md"
+          aria-labelledby="preview-dialog-title"
+        >
+          <DialogTitle id="preview-dialog-title">
+            원고 미리보기
+            <IconButton
+              aria-label="close"
+              onClick={() => setSelectedDraft(null)}
+              sx={{
+                position: 'absolute',
+                right: 8,
+                top: 8,
+                color: (theme) => theme.palette.grey[500],
+              }}
+            >
+              <CloseIcon />
+            </IconButton>
+          </DialogTitle>
+          <DialogContent dividers>
+            {selectedDraft && (
+              <Suspense fallback={
+                <Box>
+                  <Skeleton variant="text" width={150} height={32} sx={{ mb: 2 }} />
+                  <Skeleton variant="rectangular" height={400} />
+                </Box>
+              }>
+                <PreviewPane draft={selectedDraft} />
+              </Suspense>
+            )}
+          </DialogContent>
+        </Dialog>
       </Container>
 
       {/* 알림 메시지를 보여주는 스낵바 컴포넌트 */}

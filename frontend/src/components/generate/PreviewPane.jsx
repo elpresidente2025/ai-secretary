@@ -9,7 +9,7 @@ import {
   Snackbar,
   Alert 
 } from '@mui/material';
-import { ContentCopy, Edit } from '@mui/icons-material';
+import { ContentCopy } from '@mui/icons-material';
 
 export default function PreviewPane({ draft }) {
   const [snackbar, setSnackbar] = useState({
@@ -48,12 +48,9 @@ export default function PreviewPane({ draft }) {
   return (
     <>
       <Paper 
+        elevation={0}
         sx={{ 
-          p: 3, 
-          mt: 3,
-          border: '1px solid', 
-          borderColor: 'divider', 
-          borderRadius: 2,
+          p: { xs: 1, sm: 2 },
           backgroundColor: 'background.paper'
         }}
       >
@@ -64,7 +61,7 @@ export default function PreviewPane({ draft }) {
           mb: 2 
         }}>
           <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            미리보기
+            {draft.title || '제목 없음'}
           </Typography>
           <Box>
             <Tooltip title="클립보드에 복사">
@@ -96,7 +93,7 @@ export default function PreviewPane({ draft }) {
               whiteSpace: 'pre-wrap',
               lineHeight: 1.8,
               minHeight: 200,
-              maxHeight: 600,
+              maxHeight: '60vh', // 화면 높이에 따라 조절
               overflow: 'auto',
               color: 'text.primary',
               fontSize: '0.95rem'
