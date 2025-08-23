@@ -24,7 +24,7 @@ export default function PreviewPane({ draft }) {
 
   const handleCopy = async () => {
     try {
-      const textToCopy = draft.content || '';
+      const textToCopy = draft.plainText || draft.content || '';
       await navigator.clipboard.writeText(textToCopy);
       setSnackbar({
         open: true,
@@ -51,7 +51,37 @@ export default function PreviewPane({ draft }) {
         elevation={0}
         sx={{ 
           p: { xs: 1, sm: 2 },
-          backgroundColor: 'background.paper'
+          backgroundColor: 'background.paper',
+          '.article-content h1': {
+            fontSize: '1.75rem',
+            fontWeight: 700,
+            color: 'primary.main',
+            marginBottom: '1rem',
+            paddingBottom: '0.5rem',
+            borderBottom: '2px solid',
+            borderColor: 'primary.main'
+          },
+          '.article-content h2': {
+            fontSize: '1.3rem',
+            fontWeight: 600,
+            marginTop: '2rem',
+            marginBottom: '1rem',
+          },
+          '.article-content p': {
+            fontSize: '1rem',
+            lineHeight: 1.8,
+            marginBottom: '1rem',
+          },
+          // 🔥 'strong' 태그 스타일 개선 (가이드 역할 강화)
+          '.article-content strong': {
+            fontWeight: 700,
+            color: '#1a237e', // 남색 계열로 텍스트 색상 강조
+            backgroundColor: 'rgba(33, 150, 243, 0.1)', // 아주 연한 하늘색 배경 추가
+            padding: '2px 5px',
+            borderRadius: '4px',
+            boxDecorationBreak: 'clone', // 줄바꿈 시에도 스타일 유지
+            WebkitBoxDecorationBreak: 'clone',
+          }
         }}
       >
         <Box sx={{ 
@@ -64,7 +94,7 @@ export default function PreviewPane({ draft }) {
             {draft.title || '제목 없음'}
           </Typography>
           <Box>
-            <Tooltip title="클립보드에 복사">
+            <Tooltip title="클립보드에 복사 (텍스트만)">
               <IconButton 
                 size="small" 
                 onClick={handleCopy}
@@ -80,28 +110,23 @@ export default function PreviewPane({ draft }) {
           </Box>
         </Box>
         
-        <Box sx={{ 
-          border: '1px solid', 
-          borderColor: 'divider', 
-          borderRadius: 1, 
-          p: 2,
-          backgroundColor: 'grey.50'
-        }}>
-          <Typography 
-            variant="body1" 
-            sx={{ 
-              whiteSpace: 'pre-wrap',
-              lineHeight: 1.8,
-              minHeight: 200,
-              maxHeight: '60vh', // 화면 높이에 따라 조절
-              overflow: 'auto',
-              color: 'text.primary',
-              fontSize: '0.95rem'
-            }}
-          >
-            {draft.content || '내용이 없습니다.'}
-          </Typography>
-        </Box>
+        <Box 
+          className="article-content"
+          dangerouslySetInnerHTML={{ __html: draft.htmlContent || '내용이 없습니다.' }}
+          sx={{
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: 1,
+            p: 2,
+            backgroundColor: 'grey.50',
+            minHeight: 200,
+            maxHeight: '60vh',
+            overflow: 'auto',
+            '& p:last-child': {
+              mb: 0,
+            },
+          }}
+        />
 
         {/* 메타 정보 */}
         {(draft.category || draft.keywords || draft.generatedAt) && (

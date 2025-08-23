@@ -155,8 +155,9 @@ function injectEditorialRules(basePrompt, options) {
 [📝 출력 형식 (editorial.js 적용)]
 ${JSON.stringify(options.formatRules.outputStructure.required, null, 2)}
 
-**HTML 가이드라인**:
+**HTML 가이드라인 (매우 중요):**
 ${options.formatRules.htmlGuidelines.structure.map(rule => `- ${rule}`).join('\n')}
+- **강조**: 핵심 메시지나 키워드는 \`<strong>\` 태그를 사용하여 문단별로 1~2회 자연스럽게 강조하세요.
 
 **금지사항**:
 ${options.formatRules.htmlGuidelines.prohibitions.map(rule => `- ${rule}`).join('\n')}`;
