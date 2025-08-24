@@ -6,8 +6,6 @@ const { defineSecret } = require('firebase-functions/params');
 const admin = require('firebase-admin');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-// ✅ editorial.js 직접 import
-const { SEO_RULES, CONTENT_RULES, FORMAT_RULES, EDITORIAL_WORKFLOW } = require('./templates/guidelines/editorial');
 // ✅ 기존 prompts.js의 buildSmartPrompt 사용
 const { buildSmartPrompt, getPolicySafe, createFallbackDraft } = require('./templates/prompts');
 
@@ -108,354 +106,51 @@ async function callGeminiAPI(prompt, apiKey, retries = 2) {
 }
 
 // ============================================================================
-// JSON 응답 파싱 함수들 - variations 배열 지원
+// JSON 응답 파싱 함수들
 // ============================================================================
 
-function parseVariationsResponse(aiResponse) {
+function parseJsonResponse(aiResponse) {
   if (!aiResponse || typeof aiResponse !== 'string') {
     console.warn('⚠️ 유효하지 않은 AI 응답:', typeof aiResponse);
     return null;
   }
 
   try {
-    // 마크다운 코드 블록 제거 및 정리
     let cleanText = aiResponse
       .replace(/```json\s*/g, '')
       .replace(/```\s*/g, '')
+      .replace(/^[^{]*({.*})[^}]*$/s, '$1')
       .trim();
-
-    // variations 배열 형태 파싱 시도
-    if (cleanText.includes('"variations"')) {
-      const parsed = JSON.parse(cleanText);
-      if (parsed.variations && Array.isArray(parsed.variations)) {
-        console.log(`✅ variations 배열 파싱 성공: ${parsed.variations.length}개`);
-        return parsed;
-      }
+    
+    const parsed = JSON.parse(cleanText);
+    
+    if (!parsed.title || !parsed.content) {
+      throw new Error(`필수 필드 누락: title=${!!parsed.title}, content=${!!parsed.content}`);
     }
-
-    // 직접 배열 형태 파싱 시도
-    if (cleanText.startsWith('[')) {
-      const variationsArray = JSON.parse(cleanText);
-      if (Array.isArray(variationsArray) && variationsArray.length > 0) {
-        console.log(`✅ 직접 배열 파싱 성공: ${variationsArray.length}개`);
-        return { variations: variationsArray };
-      }
+    
+    if (!parsed.wordCount || typeof parsed.wordCount !== 'number') {
+      parsed.wordCount = Math.ceil(parsed.content.replace(/<[^>]*>/g, '').length / 2);
     }
-
-    // 단일 객체 파싱 시도 (fallback)
-    const singleParsed = JSON.parse(cleanText);
-    if (singleParsed.title && singleParsed.content) {
-      console.log('✅ 단일 객체 파싱 성공 (variations 배열로 변환)');
-      return { variations: [singleParsed] };
+    
+    if (!parsed.timestamp) {
+      parsed.timestamp = new Date().toISOString();
     }
-
-    throw new Error('파싱 가능한 구조를 찾을 수 없습니다.');
+    
+    if (!parsed.style) {
+      parsed.style = '이재명정신';
+    }
+    
+    console.log(`✅ JSON 파싱 성공: ${parsed.title} (${parsed.wordCount}자)`);
+    return parsed;
     
   } catch (error) {
     console.warn('⚠️ JSON 파싱 실패:', error.message);
-    console.warn('⚠️ 원본 응답 (첫 500자):', aiResponse.substring(0, 500));
     return null;
   }
 }
 
 // ============================================================================
-// 🆕 메타데이터 수집 및 분석 Function
-// ============================================================================
-
-exports.collectMetadata = onCall(functionOptions, async (request) => {
-  try {
-    if (!request.auth) {
-      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
-    }
-
-    const userId = request.auth.uid;
-    const metadataPackage = request.data;
-
-    console.log('📊 collectMetadata 호출:', userId);
-
-    // 메타데이터를 Firestore에 저장
-    const metadataDoc = {
-      userId: userId,
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
-      contentData: metadataPackage.contentData || {},
-      aiMetadata: metadataPackage.aiMetadata || {},
-      userBehavior: metadataPackage.userBehavior || {},
-      performanceMetrics: metadataPackage.performanceMetrics || {}
-    };
-
-    // metadata 컬렉션에 저장
-    await db.collection('metadata').add(metadataDoc);
-
-    // 🔍 간단한 인사이트 분석 (향후 고도화 가능)
-    const recentMetadataSnapshot = await db.collection('metadata')
-      .where('userId', '==', userId)
-      .orderBy('timestamp', 'desc')
-      .limit(10)
-      .get();
-
-    const userPatterns = {
-      preferredCategories: {},
-      averageWordCount: 0,
-      frequentStyles: {},
-      generationTrends: []
-    };
-
-    let totalWordCount = 0;
-    let validEntries = 0;
-
-    recentMetadataSnapshot.forEach(doc => {
-      const data = doc.data();
-      
-      // 카테고리 선호도 분석
-      if (data.contentData?.category) {
-        userPatterns.preferredCategories[data.contentData.category] = 
-          (userPatterns.preferredCategories[data.contentData.category] || 0) + 1;
-      }
-      
-      // 평균 글자 수 계산
-      if (data.contentData?.wordCount) {
-        totalWordCount += data.contentData.wordCount;
-        validEntries++;
-      }
-      
-      // 스타일 선호도 분석
-      if (data.aiMetadata?.style) {
-        userPatterns.frequentStyles[data.aiMetadata.style] = 
-          (userPatterns.frequentStyles[data.aiMetadata.style] || 0) + 1;
-      }
-    });
-
-    if (validEntries > 0) {
-      userPatterns.averageWordCount = Math.round(totalWordCount / validEntries);
-    }
-
-    const insights = {
-      totalAnalyzedPosts: validEntries,
-      userPatterns,
-      recommendations: [
-        '더 다양한 카테고리 시도해보세요',
-        'SEO 최적화를 위해 1500자 이상 작성을 권장합니다'
-      ]
-    };
-
-    console.log('✅ collectMetadata 완료:', insights.totalAnalyzedPosts);
-
-    return {
-      success: true,
-      message: '메타데이터가 수집되었습니다.',
-      insights
-    };
-
-  } catch (error) {
-    console.error('❌ collectMetadata 오류:', error);
-    // 메타데이터 수집 실패는 주 기능에 영향을 주지 않도록 함
-    return {
-      success: false,
-      message: '메타데이터 수집에 실패했지만 서비스는 정상 작동합니다.',
-      error: error.message
-    };
-  }
-});
-
-// ============================================================================
-// generateSinglePost - 메인 AI 생성 함수 (완전 수정)
-// ============================================================================
-
-exports.generateSinglePost = onCall(functionOptions, async (request) => {
-  try {
-    if (!request.auth) {
-      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
-    }
-
-    const userId = request.auth.uid;
-    const { 
-      prompt, 
-      category, 
-      subCategory, 
-      keywords, 
-      userName, 
-      generateSingle,
-      applyEditorialRules 
-    } = request.data;
-
-    console.log('🔥 generateSinglePost 호출:', { 
-      userId, 
-      prompt, 
-      category, 
-      subCategory, 
-      generateSingle,
-      applyEditorialRules 
-    });
-
-    if (!generateSingle) {
-      throw new HttpsError('invalid-argument', '단일 생성 모드가 아닙니다. generateSingle 플래그가 필요합니다.');
-    }
-
-    if (!prompt || prompt.trim().length < 5) {
-      throw new HttpsError('invalid-argument', '주제를 5자 이상 입력해주세요.');
-    }
-
-    // 사용자 프로필 조회
-    let userProfile = {};
-    try {
-      const userDoc = await db.collection('users').doc(userId).get();
-      if (userDoc.exists) {
-        userProfile = userDoc.data();
-        console.log('✅ 사용자 프로필 조회 성공:', userProfile.name || 'Unknown');
-      }
-    } catch (profileError) {
-      console.warn('⚠️ 프로필 조회 실패, 기본값 사용:', profileError.message);
-    }
-
-    // ✅ editorial.js 규칙을 buildSmartPrompt에 전달
-    const promptOptions = {
-      // 기본 정보
-      prompt,
-      category,
-      subCategory,
-      keywords,
-      userName,
-      userProfile,
-      
-      // 프롬프트 생성에 필요한 추가 정보들
-      topic: prompt,
-      authorName: userProfile.name || userName || '정치인',
-      authorPosition: userProfile.position || '의원',
-      authorBio: userProfile.bio || '',
-      authorStatus: userProfile.status || '현역',
-      regionMetro: userProfile.regionMetro || '',
-      regionLocal: userProfile.regionLocal || '',
-      
-      // 🆕 editorial.js 규칙 적용
-      ...(applyEditorialRules && {
-        seoRules: SEO_RULES,
-        contentRules: CONTENT_RULES,
-        formatRules: FORMAT_RULES,
-        editorialWorkflow: EDITORIAL_WORKFLOW,
-        enforceWordCount: true,
-        minWordCount: SEO_RULES.wordCount.min,
-        maxWordCount: SEO_RULES.wordCount.max,
-        targetWordCount: SEO_RULES.wordCount.target
-      })
-    };
-
-    console.log('🤖 스마트 프롬프트 생성 중... (editorial.js 규칙 적용)');
-    const smartPrompt = await buildSmartPrompt(promptOptions);
-
-    console.log('🤖 Gemini API 호출 중... (editorial.js 규칙 적용됨)');
-    const aiResponse = await callGeminiAPI(smartPrompt, geminiApiKey.value());
-
-    // ✅ variations 배열 처리 (3개 받아서 1개만 선택)
-    const parsed = parseVariationsResponse(aiResponse);
-    
-    if (parsed && parsed.variations && parsed.variations.length > 0) {
-      console.log(`✅ variations 생성 성공: ${parsed.variations.length}개 (첫 번째 선택)`);
-      
-      // 🔥 첫 번째 variation만 선택 (사용자 요구사항)
-      const selectedVariation = parsed.variations[0];
-      
-      // 필수 필드 검증 및 보완
-      const validatedPost = {
-        id: `post_${Date.now()}`,
-        title: selectedVariation.title || `${category || '일반'} 포스트`,
-        content: selectedVariation.content || '<p>내용이 생성되지 않았습니다.</p>',
-        wordCount: selectedVariation.wordCount || (selectedVariation.content || '').replace(/<[^>]*>/g, '').length,
-        style: selectedVariation.style || 'default',
-        type: selectedVariation.type || 'standard',
-        category: selectedVariation.meta?.category || category,
-        subCategory: selectedVariation.meta?.subCategory || subCategory,
-        seoCompliant: (selectedVariation.wordCount || 0) >= (SEO_RULES.wordCount.min || 1500),
-        meta: {
-          ...selectedVariation.meta,
-          editorialRulesApplied: true,
-          generatedAt: new Date().toISOString(),
-          totalVariationsGenerated: parsed.variations.length,
-          selectedVariationIndex: 0
-        }
-      };
-
-      return {
-        success: true,
-        type: 'single',
-        variations: [validatedPost], // 단일 variation을 배열로 감싸서 프론트엔드 호환성 유지
-        metadata: {
-          category: category,
-          subCategory: subCategory,
-          prompt: prompt,
-          generatedAt: new Date().toISOString(),
-          editorialRulesApplied: true,
-          seoTargetMet: validatedPost.seoCompliant,
-          totalVariations: 1, // 실제로는 1개만 반환
-          originalVariationsCount: parsed.variations.length
-        }
-      };
-    }
-    
-    // JSON 파싱 실패시 텍스트 응답으로 처리 (Fallback)
-    console.log('⚠️ variations 파싱 실패, 단일 텍스트 응답으로 처리');
-    
-    const textContent = aiResponse.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
-    const plainText = textContent.replace(/<[^>]*>/g, '');
-    const estimatedWordCount = plainText.length;
-    
-    const fallbackPost = {
-      id: `post_${Date.now()}`,
-      title: `${category || '일반'} 포스트`,
-      content: textContent.includes('<p>') ? textContent : `<p>${textContent}</p>`,
-      wordCount: estimatedWordCount,
-      style: '이재명정신',
-      type: 'fallback',
-      category: category,
-      subCategory: subCategory,
-      seoCompliant: estimatedWordCount >= (SEO_RULES.wordCount.min || 1500),
-      meta: {
-        editorialRulesApplied: true,
-        generatedAt: new Date().toISOString(),
-        fallbackProcessed: true
-      }
-    };
-
-    return {
-      success: true,
-      type: 'single',
-      variations: [fallbackPost], // 단일 fallback을 배열로 감싸기
-      metadata: {
-        category: category,
-        subCategory: subCategory,
-        prompt: prompt,
-        generatedAt: new Date().toISOString(),
-        editorialRulesApplied: true,
-        note: 'variations 파싱 실패로 텍스트 응답 처리됨',
-        fallbackUsed: true
-      }
-    };
-
-  } catch (error) {
-    console.error('❌ generateSinglePost 오류:', error);
-    
-    if (error instanceof HttpsError) {
-      throw error;
-    }
-    
-    // 특정 에러 타입별 처리
-    if (error.message.includes('quota') || error.message.includes('resource-exhausted')) {
-      throw new HttpsError('resource-exhausted', 'AI 서비스 사용량이 한도에 도달했습니다. 5-10분 후 다시 시도해주세요.');
-    }
-    
-    if (error.message.includes('overloaded') || error.message.includes('unavailable')) {
-      throw new HttpsError('unavailable', 'AI 서비스가 현재 과부하 상태입니다. 1-2분 후 다시 시도해주세요.');
-    }
-    
-    if (error.message.includes('timeout') || error.message.includes('타임아웃')) {
-      throw new HttpsError('deadline-exceeded', 'AI 응답 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.');
-    }
-    
-    throw new HttpsError('internal', `원고 생성 실패: ${error.message}`);
-  }
-});
-
-// ============================================================================
-// 기존 Functions들 (수정 없음)
+// 핸들러 함수들
 // ============================================================================
 
 // getDashboardData Function
@@ -532,8 +227,215 @@ exports.getDashboardData = onCall(functionOptions, async (request) => {
   }
 });
 
-// 나머지 기존 Functions들은 동일하게 유지...
-// (savePost, getUserProfile, updateProfile, registerUser 등)
+// getUserProfile Function
+exports.getUserProfile = onCall(functionOptions, async (request) => {
+  try {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+    }
+
+    const userId = request.auth.uid;
+    console.log('🔥 getUserProfile 호출:', userId);
+
+    try {
+      const userDoc = await db.collection('users').doc(userId).get();
+
+      let profile = {
+        name: request.auth.token.name || '',
+        email: request.auth.token.email || '',
+        position: '',
+        regionMetro: '',
+        regionLocal: '',
+        electoralDistrict: '',
+        status: '현역',
+        bio: ''
+      };
+
+      if (userDoc.exists) {
+        profile = { ...profile, ...userDoc.data() };
+      }
+
+      console.log('✅ getUserProfile 성공');
+      return {
+        success: true,
+        data: profile
+      };
+
+    } catch (firestoreError) {
+      console.error('Firestore 조회 오류:', firestoreError);
+      return {
+        success: true,
+        data: {
+          name: request.auth.token.name || '',
+          email: request.auth.token.email || '',
+          position: '',
+          regionMetro: '',
+          regionLocal: '',
+          electoralDistrict: '',
+          status: '현역',
+          bio: ''
+        }
+      };
+    }
+
+  } catch (error) {
+    console.error('❌ getUserProfile 오류:', error);
+    throw new HttpsError('internal', '프로필을 불러오는데 실패했습니다.');
+  }
+});
+
+// updateProfile Function
+exports.updateProfile = onCall(functionOptions, async (request) => {
+  try {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+    }
+
+    const userId = request.auth.uid;
+    const profileData = request.data;
+
+    console.log('🔥 updateProfile 호출:', { userId, profileData });
+
+    if (!profileData || typeof profileData !== 'object') {
+      throw new HttpsError('invalid-argument', '올바른 프로필 데이터를 입력해주세요.');
+    }
+
+    const allowedFields = ['name', 'position', 'regionMetro', 'regionLocal', 'electoralDistrict', 'status', 'bio'];
+    const sanitizedData = {};
+    
+    allowedFields.forEach(field => {
+      if (profileData[field] !== undefined) {
+        sanitizedData[field] = profileData[field];
+      }
+    });
+
+    // 활성 상태 결정
+    const bio = (sanitizedData.bio || '').toString().trim();
+    const isActive = bio.length > 0;
+
+    await db.collection('users').doc(userId).set({
+      ...sanitizedData,
+      isActive,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    console.log('✅ updateProfile 성공', { isActive });
+    return {
+      success: true,
+      message: '프로필이 성공적으로 업데이트되었습니다.',
+      isActive
+    };
+
+  } catch (error) {
+    console.error('❌ updateProfile 오류:', error);
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    throw new HttpsError('internal', '프로필 업데이트에 실패했습니다.');
+  }
+});
+
+// registerUser Function (alias for registerWithDistrictCheck)
+exports.registerUser = onCall(functionOptions, async (request) => {
+  try {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+    }
+
+    const userId = request.auth.uid;
+    const { profileData } = request.data || {};
+
+    console.log('🔥 registerUser 호출:', { userId });
+
+    if (!profileData || typeof profileData !== 'object') {
+      throw new HttpsError('invalid-argument', '프로필 데이터가 필요합니다.');
+    }
+
+    const sanitizedData = {};
+    const allowedFields = ['name', 'position', 'regionMetro', 'regionLocal', 'electoralDistrict', 'status', 'bio'];
+    
+    allowedFields.forEach(field => {
+      if (profileData[field] !== undefined) {
+        sanitizedData[field] = profileData[field];
+      }
+    });
+
+    const bio = (sanitizedData.bio || '').toString().trim();
+    const isActive = bio.length > 0;
+
+    await db.collection('users').doc(userId).set({
+      ...sanitizedData,
+      isActive,
+      email: request.auth.token.email || '',
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    console.log('✅ registerUser 성공');
+    return {
+      success: true,
+      message: '회원가입이 완료되었습니다.',
+      isActive
+    };
+
+  } catch (error) {
+    console.error('❌ registerUser 오류:', error);
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    throw new HttpsError('internal', '회원가입 처리에 실패했습니다.');
+  }
+});
+
+// getActiveNotices Function
+exports.getActiveNotices = onCall(functionOptions, async (request) => {
+  try {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+    }
+
+    console.log('🔥 getActiveNotices 호출');
+
+    const now = admin.firestore.Timestamp.now();
+    const noticesSnapshot = await db.collection('notices')
+      .where('isActive', '==', true)
+      .where('expiresAt', '>=', now)
+      .orderBy('expiresAt', 'asc')
+      .orderBy('createdAt', 'desc')
+      .limit(10)
+      .get();
+
+    const notices = [];
+    noticesSnapshot.forEach(doc => {
+      const data = doc.data();
+      if (data.isActive) {
+        notices.push({
+          id: doc.id,
+          title: data.title || '공지사항',
+          content: data.content || '',
+          type: data.type || 'info',
+          priority: data.priority || 'medium',
+          isActive: data.isActive || false,
+          createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+          expiresAt: data.expiresAt?.toDate?.()?.toISOString() || null,
+        });
+      }
+    });
+
+    console.log('✅ getActiveNotices 성공:', notices.length);
+    return {
+      success: true,
+      data: { notices }
+    };
+
+  } catch (error) {
+    console.error('❌ getActiveNotices 오류:', error);
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    throw new HttpsError('internal', '활성 공지사항을 불러오는 중 오류가 발생했습니다.');
+  }
+});
 
 // savePost Function
 exports.savePost = onCall(functionOptions, async (request) => {
@@ -543,9 +445,9 @@ exports.savePost = onCall(functionOptions, async (request) => {
     }
 
     const userId = request.auth.uid;
-    const postData = request.data;
+    const { postData } = request.data;
 
-    console.log('🔥 savePost 호출:', { userId, title: postData?.title });
+    console.log('🔥 savePost 호출:', { userId, postId: postData?.id });
 
     if (!postData || !postData.title || !postData.content) {
       throw new HttpsError('invalid-argument', '제목과 내용이 필요합니다.');
@@ -554,16 +456,10 @@ exports.savePost = onCall(functionOptions, async (request) => {
     const sanitizedData = {
       title: postData.title,
       content: postData.content,
-      htmlContent: postData.htmlContent,
-      plainText: postData.plainText,
       category: postData.category || '일반',
       subCategory: postData.subCategory || '',
-      keywords: postData.keywords || '',
       status: postData.status || 'draft',
       wordCount: postData.wordCount || 0,
-      style: postData.style || '',
-      type: postData.type || '',
-      meta: postData.meta || {},
       userId: userId,
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     };
@@ -595,4 +491,528 @@ exports.savePost = onCall(functionOptions, async (request) => {
   }
 });
 
-console.log('🚀 Firebase Functions 초기화 완료 - AI비서관 서비스 (editorial.js 연동)');
+// getUserPosts Function
+exports.getUserPosts = onCall(functionOptions, async (request) => {
+  try {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+    }
+
+    const userId = request.auth.uid;
+    console.log('🔥 getUserPosts 호출:', userId);
+
+    const postsSnapshot = await db.collection('posts')
+      .where('userId', '==', userId)
+      .orderBy('createdAt', 'desc')
+      .limit(50)
+      .get();
+
+    const posts = [];
+    postsSnapshot.forEach(doc => {
+      const data = doc.data();
+      posts.push({
+        id: doc.id,
+        title: data.title || '제목 없음',
+        content: data.content || '',
+        status: data.status || 'draft',
+        category: data.category || '일반',
+        subCategory: data.subCategory || '',
+        wordCount: data.wordCount || 0,
+        createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+        updatedAt: data.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+      });
+    });
+
+    console.log('✅ getUserPosts 성공:', posts.length);
+    return {
+      success: true,
+      data: { posts }
+    };
+
+  } catch (error) {
+    console.error('❌ getUserPosts 오류:', error);
+    throw new HttpsError('internal', '포스트 목록 조회에 실패했습니다.');
+  }
+});
+
+// getPost Function
+exports.getPost = onCall(functionOptions, async (request) => {
+  try {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+    }
+
+    const { postId } = request.data;
+    if (!postId) {
+      throw new HttpsError('invalid-argument', '포스트 ID가 필요합니다.');
+    }
+
+    console.log('🔥 getPost 호출:', postId);
+
+    const postDoc = await db.collection('posts').doc(postId).get();
+    
+    if (!postDoc.exists) {
+      throw new HttpsError('not-found', '포스트를 찾을 수 없습니다.');
+    }
+
+    const data = postDoc.data();
+    
+    // 본인 포스트인지 확인
+    if (data.userId !== request.auth.uid) {
+      throw new HttpsError('permission-denied', '포스트에 접근할 권한이 없습니다.');
+    }
+
+    const post = {
+      id: postDoc.id,
+      title: data.title || '',
+      content: data.content || '',
+      status: data.status || 'draft',
+      category: data.category || '일반',
+      subCategory: data.subCategory || '',
+      wordCount: data.wordCount || 0,
+      createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+      updatedAt: data.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+    };
+
+    console.log('✅ getPost 성공:', postId);
+    return {
+      success: true,
+      data: { post }
+    };
+
+  } catch (error) {
+    console.error('❌ getPost 오류:', error);
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    throw new HttpsError('internal', '포스트 조회에 실패했습니다.');
+  }
+});
+
+// updatePost Function
+exports.updatePost = onCall(functionOptions, async (request) => {
+  try {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+    }
+
+    const { postId, postData } = request.data;
+    if (!postId || !postData) {
+      throw new HttpsError('invalid-argument', '포스트 ID와 데이터가 필요합니다.');
+    }
+
+    console.log('🔥 updatePost 호출:', postId);
+
+    const postRef = db.collection('posts').doc(postId);
+    const postDoc = await postRef.get();
+    
+    if (!postDoc.exists) {
+      throw new HttpsError('not-found', '포스트를 찾을 수 없습니다.');
+    }
+
+    const existingData = postDoc.data();
+    if (existingData.userId !== request.auth.uid) {
+      throw new HttpsError('permission-denied', '포스트를 수정할 권한이 없습니다.');
+    }
+
+    const sanitizedData = {
+      title: postData.title || existingData.title,
+      content: postData.content || existingData.content,
+      status: postData.status || existingData.status,
+      category: postData.category || existingData.category,
+      subCategory: postData.subCategory || existingData.subCategory,
+      wordCount: postData.wordCount || existingData.wordCount,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+
+    await postRef.update(sanitizedData);
+
+    console.log('✅ updatePost 성공:', postId);
+    return {
+      success: true,
+      message: '포스트가 업데이트되었습니다.'
+    };
+
+  } catch (error) {
+    console.error('❌ updatePost 오류:', error);
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    throw new HttpsError('internal', '포스트 업데이트에 실패했습니다.');
+  }
+});
+
+// deletePost Function
+exports.deletePost = onCall(functionOptions, async (request) => {
+  try {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+    }
+
+    const { postId } = request.data;
+    if (!postId) {
+      throw new HttpsError('invalid-argument', '포스트 ID가 필요합니다.');
+    }
+
+    console.log('🔥 deletePost 호출:', postId);
+
+    const postRef = db.collection('posts').doc(postId);
+    const postDoc = await postRef.get();
+    
+    if (!postDoc.exists) {
+      throw new HttpsError('not-found', '포스트를 찾을 수 없습니다.');
+    }
+
+    const data = postDoc.data();
+    if (data.userId !== request.auth.uid) {
+      throw new HttpsError('permission-denied', '포스트를 삭제할 권한이 없습니다.');
+    }
+
+    await postRef.delete();
+
+    console.log('✅ deletePost 성공:', postId);
+    return {
+      success: true,
+      message: '포스트가 성공적으로 삭제되었습니다.'
+    };
+
+  } catch (error) {
+    console.error('❌ deletePost 오류:', error);
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    throw new HttpsError('internal', '포스트 삭제에 실패했습니다.');
+  }
+});
+
+// checkUsageLimit Function
+exports.checkUsageLimit = onCall(functionOptions, async (request) => {
+  try {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+    }
+
+    const userId = request.auth.uid;
+    console.log('🔥 checkUsageLimit 호출:', userId);
+
+    const now = new Date();
+    const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const snap = await db.collection('posts')
+      .where('userId', '==', userId)
+      .where('createdAt', '>=', admin.firestore.Timestamp.fromDate(thisMonth))
+      .get();
+
+    const used = snap.size;
+    const limit = 50;
+    
+    console.log('✅ checkUsageLimit 성공:', { used, limit });
+    return {
+      success: true,
+      data: {
+        postsGenerated: used,
+        monthlyLimit: limit,
+        canGenerate: used < limit,
+        remainingPosts: Math.max(0, limit - used),
+      }
+    };
+
+  } catch (error) {
+    console.error('❌ checkUsageLimit 오류:', error);
+    return {
+      success: true,
+      data: { 
+        postsGenerated: 0, 
+        monthlyLimit: 50, 
+        canGenerate: true, 
+        remainingPosts: 50 
+      }
+    };
+  }
+});
+
+// generatePosts Function (기본 더미 구현)
+exports.generatePosts = onCall(functionOptions, async (request) => {
+  try {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+    }
+
+    const userId = request.auth.uid;
+    const data = request.data || {};
+    
+    const topic = (data.prompt || data.topic || '').toString().trim();
+    const category = (data.category || '').toString().trim();
+    
+    if (!topic || !category) {
+      throw new HttpsError('invalid-argument', '주제와 카테고리를 모두 입력해주세요.');
+    }
+
+    console.log('🔥 generatePosts 호출:', { userId, topic, category });
+
+    // 간단한 더미 응답
+    const draftData = {
+      id: `draft_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      title: `${topic} 관련 정책 제안`,
+      content: `<p>${topic}에 대한 의견을 나누고자 합니다.</p><p>시민 여러분의 목소리를 듣고 더 나은 정책을 만들어가겠습니다.</p>`,
+      wordCount: 50,
+      category,
+      subCategory: data.subCategory || '',
+      keywords: data.keywords || '',
+      generatedAt: new Date().toISOString()
+    };
+
+    return {
+      success: true,
+      message: '원고가 성공적으로 생성되었습니다.',
+      drafts: draftData,
+      metadata: {
+        generatedAt: new Date().toISOString(),
+        userId: userId,
+        processingTime: Date.now()
+      }
+    };
+
+  } catch (error) {
+    console.error('❌ generatePosts 오류:', error);
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    throw new HttpsError('internal', '포스트 생성에 실패했습니다.');
+  }
+});
+
+// ============================================================================
+// generateSinglePost - 메인 AI 생성 함수
+// ============================================================================
+
+exports.generateSinglePost = onCall(functionOptions, async (request) => {
+  try {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+    }
+
+    const userId = request.auth.uid;
+    const { prompt, category, subCategory, keywords, userName, generateSingle } = request.data;
+
+    console.log('🔥 generateSinglePost 호출:', { userId, prompt, category, subCategory, generateSingle });
+
+    if (!generateSingle) {
+      throw new HttpsError('invalid-argument', '단일 생성 모드가 아닙니다. generateSingle 플래그가 필요합니다.');
+    }
+
+    if (!prompt || prompt.trim().length < 5) {
+      throw new HttpsError('invalid-argument', '주제를 5자 이상 입력해주세요.');
+    }
+
+    // 사용자 프로필 조회
+    let userProfile = {};
+    try {
+      const userDoc = await db.collection('users').doc(userId).get();
+      if (userDoc.exists) {
+        userProfile = userDoc.data();
+        console.log('✅ 사용자 프로필 조회 성공:', userProfile.name || 'Unknown');
+      }
+    } catch (profileError) {
+      console.warn('⚠️ 프로필 조회 실패, 기본값 사용:', profileError.message);
+    }
+
+    // ✅ 기존 prompts.js의 buildSmartPrompt 사용 (카테고리 자동 분기!)
+    const smartPrompt = await buildSmartPrompt({
+      // 기본 정보
+      prompt,
+      category,
+      subCategory,
+      keywords,
+      userName,
+      userProfile,
+      
+      // 프롬프트 생성에 필요한 추가 정보들
+      topic: prompt,
+      authorName: userProfile.name || userName || '정치인',
+      authorPosition: userProfile.position || '의원',
+      authorBio: userProfile.bio || '',
+      authorStatus: userProfile.status || '현역',
+      regionMetro: userProfile.regionMetro || '',
+      regionLocal: userProfile.regionLocal || ''
+    });
+
+    console.log('🤖 스마트 프롬프트 생성 완료, Gemini API 호출 중...');
+
+    // ✅ Gemini API 호출
+    const aiResponse = await callGeminiAPI(smartPrompt, geminiApiKey.value());
+
+    // ✅ 응답 처리
+    const parsed = parseJsonResponse(aiResponse);
+    
+    if (parsed) {
+      console.log(`✅ 단일 포스트 생성 성공: ${parsed.title}`);
+      return {
+        success: true,
+        type: 'single',
+        post: {
+          id: `post_${Date.now()}`,
+          ...parsed
+        },
+        metadata: {
+          category: category,
+          prompt: prompt,
+          generatedAt: new Date().toISOString()
+        }
+      };
+    }
+    
+    // JSON 파싱 실패시 텍스트 응답으로 처리
+    console.log('⚠️ JSON 파싱 실패, 텍스트 응답으로 처리');
+    
+    const textContent = aiResponse.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+    const estimatedWordCount = Math.ceil(textContent.replace(/<[^>]*>/g, '').length / 2);
+    
+    return {
+      success: true,
+      type: 'single',
+      post: {
+        id: `post_${Date.now()}`,
+        title: `${category || '일반'} 포스트`,
+        content: textContent,
+        wordCount: estimatedWordCount,
+        style: '이재명정신',
+        timestamp: new Date().toISOString()
+      },
+      metadata: {
+        category: category,
+        prompt: prompt,
+        generatedAt: new Date().toISOString(),
+        note: 'JSON 파싱 실패로 텍스트 응답 처리됨'
+      }
+    };
+
+  } catch (error) {
+    console.error('❌ generateSinglePost 오류:', error);
+    
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    
+    // 특정 에러 타입별 처리
+    if (error.message.includes('quota') || error.message.includes('resource-exhausted')) {
+      throw new HttpsError('resource-exhausted', 'AI 서비스 사용량이 한도에 도달했습니다. 5-10분 후 다시 시도해주세요.');
+    }
+    
+    if (error.message.includes('overloaded') || error.message.includes('unavailable')) {
+      throw new HttpsError('unavailable', 'AI 서비스가 현재 과부하 상태입니다. 1-2분 후 다시 시도해주세요.');
+    }
+    
+    if (error.message.includes('timeout') || error.message.includes('타임아웃')) {
+      throw new HttpsError('deadline-exceeded', 'AI 응답 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.');
+    }
+    
+    throw new HttpsError('internal', `원고 생성 실패: ${error.message}`);
+  }
+});
+
+// ============================================================================
+// 시스템 및 테스트 함수들
+// ============================================================================
+
+// testConnection Function
+exports.testConnection = onCall(functionOptions, async (request) => {
+  try {
+    console.log('🧪 testConnection 호출');
+    
+    return {
+      success: true,
+      message: 'Firebase Functions 연결 정상',
+      timestamp: new Date().toISOString(),
+      region: 'asia-northeast3',
+      userAuth: !!request.auth
+    };
+  } catch (error) {
+    console.error('❌ testConnection 오류:', error);
+    throw new HttpsError('internal', `연결 테스트 실패: ${error.message}`);
+  }
+});
+
+// testFunction Function
+exports.testFunction = onCall(functionOptions, async (request) => {
+  try {
+    console.log('🧪 테스트 함수 호출:', request.data);
+    
+    return {
+      success: true,
+      message: 'Firebase Functions 정상 작동',
+      timestamp: new Date().toISOString(),
+      userAuth: !!request.auth,
+      data: request.data,
+      region: 'asia-northeast3'
+    };
+  } catch (error) {
+    console.error('❌ 테스트 함수 오류:', error);
+    throw new HttpsError('internal', `테스트 실패: ${error.message}`);
+  }
+});
+
+// testPrompt Function
+exports.testPrompt = onCall(functionOptions, async (request) => {
+  try {
+    const { category = '일반소통', topic = '테스트 주제' } = request.data || {};
+    
+    console.log('🧪 프롬프트 테스트:', { category, topic });
+    
+    const testPrompt = await buildSmartPrompt({
+      prompt: topic,
+      category,
+      topic,
+      authorName: '테스트 의원',
+      authorPosition: '국회의원',
+      authorStatus: '현역'
+    });
+    
+    return {
+      success: true,
+      prompt: testPrompt,
+      length: testPrompt.length,
+      category,
+      topic,
+      timestamp: new Date().toISOString()
+    };
+  } catch (error) {
+    console.error('❌ 프롬프트 테스트 오류:', error);
+    throw new HttpsError('internal', `프롬프트 테스트 실패: ${error.message}`);
+  }
+});
+
+// healthCheck Function
+exports.healthCheck = onCall(functionOptions, async (request) => {
+  try {
+    // Firebase 연결 테스트
+    await db.collection('_health').doc('test').set({
+      timestamp: admin.firestore.FieldValue.serverTimestamp()
+    });
+    
+    // 프롬프트 시스템 테스트
+    const testPromptResult = await buildSmartPrompt({
+      prompt: '테스트',
+      category: '일반소통',
+      topic: '시스템 테스트'
+    });
+    
+    return {
+      success: true,
+      firebase: 'OK',
+      firestore: 'OK',
+      prompts: testPromptResult ? 'OK' : 'ERROR',
+      timestamp: new Date().toISOString(),
+      region: 'asia-northeast3'
+    };
+  } catch (error) {
+    console.error('❌ 헬스체크 오류:', error);
+    return {
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    };
+  }
+});
+
+console.log('🚀 Firebase Functions 초기화 완료 - AI비서관 서비스');

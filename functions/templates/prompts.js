@@ -1,16 +1,29 @@
-// functions/templates/prompts.js - editorial.js 규칙 완전 적용된 프롬프트 엔진
+/**
+ * functions/templates/prompts.js
+ * AI비서관의 핵심 프롬프트 엔진입니다.
+ * editorial.js 규칙과 지능적 프레이밍(framingRules.js) 시스템이 완벽하게 통합되었습니다.
+ */
 
 'use strict';
 
-// ✅ editorial.js 직접 import (핵심!)
+// 가이드라인 및 규칙 import
 const { SEO_RULES, CONTENT_RULES, FORMAT_RULES, EDITORIAL_WORKFLOW } = require('./guidelines/editorial');
-
-// Import other guidelines
 const { LEGAL_GUIDELINES } = require('./guidelines/legal');
 const { PARTY_VALUES } = require('./guidelines/theminjoo');
 const { LEADERSHIP_PHILOSOPHY } = require('./guidelines/leadership');
+// [신규] 지능적 프레이밍 규칙 import
+const { OVERRIDE_KEYWORDS, HIGH_RISK_KEYWORDS, POLITICAL_FRAMES } = require('./guidelines/framingRules');
 
-// 임시 함수들 (실제 구현은 별도 파일에서)
+
+// 세부 작법(prompts) 모듈 import
+const { buildActivityReportPrompt } = require('./prompts/activity-report');
+const { buildLocalIssuesPrompt } = require('./prompts/local-issues');
+const { buildPolicyProposalPrompt } = require('./prompts/policy-proposal');
+const { buildCampaignPledgePrompt } = require('./prompts/campaign-pledge');
+const { buildDailyCommunicationPrompt } = require('./prompts/daily-communication');
+const { buildCurrentAffairsPrompt } = require('./prompts/current-affairs');
+
+// 임시 함수 (실제 구현은 별도 파일에서)
 async function getPolicySafe() {
   return Promise.resolve({
     body: "[SYSTEM_POLICY] AI 비서관은 항상 법적, 정치적 가이드라인을 준수하여 신중하게 발언해야 합니다."
@@ -24,113 +37,163 @@ function createFallbackDraft(options) {
   };
 }
 
-// Import specialized prompts
-const { buildActivityReportPrompt } = require('./prompts/activity-report');
-const { buildLocalIssuesPrompt } = require('./prompts/local-issues');
-const { buildPolicyProposalPrompt } = require('./prompts/policy-proposal');
-const { buildCampaignPledgePrompt } = require('./prompts/campaign-pledge');
-const { buildDailyCommunicationPrompt } = require('./prompts/daily-communication');
-const { buildCurrentAffairsPrompt } = require('./prompts/current-affairs');
 
 // ============================================================================
-// 프롬프트 타입 자동 선택 엔진
+// 지능적 프레이밍 에이전트 (신규 추가)
+// ============================================================================
+
+/**
+ * @agent Intent Analysis Agent
+ * @description 사용자의 주제(topic)를 분석하여 적용할 정치적 프레임을 결정합니다.
+ * '규칙 우선순위'에 따라 예외 규칙을 먼저 확인합니다.
+ * @param {string} topic - 사용자가 입력한 주제
+ * @returns {Object|null} 적용할 프레임 객체 또는 null
+ */
+function analyzeAndSelectFrame(topic) {
+  if (!topic) return null;
+
+  // 1. [최우선] 프레이밍 '예외' 규칙을 먼저 확인합니다.
+  const isOverridden = Object.values(OVERRIDE_KEYWORDS).flat().some(keyword => topic.includes(keyword));
+  if (isOverridden) {
+    // 예: '문재인 정부'가 포함된 경우, 프레이밍을 적용하지 않고 즉시 종료합니다.
+    return null;
+  }
+
+  // 2. [차선] 예외에 해당하지 않을 경우에만 '고위험' 규칙을 확인합니다.
+  const isSelfCriticism = HIGH_RISK_KEYWORDS.SELF_CRITICISM.some(keyword => topic.includes(keyword));
+  if (isSelfCriticism) {
+    return POLITICAL_FRAMES.CONSTRUCTIVE_CRITICISM;
+  }
+
+  // 어떤 규칙에도 해당하지 않으면 프레이밍을 적용하지 않음
+  return null;
+}
+
+/**
+ * @agent Prompt Restructuring Agent
+ * @description 결정된 프레임에 따라 원본 프롬프트에 지시어를 삽입하여 재구성합니다.
+ * @param {string} basePrompt - 원본 프롬프트
+ * @param {Object} frame - 적용할 프레임 객체
+ * @returns {string} 프레이밍 지시어가 삽입된 새로운 프롬프트
+ */
+function applyFramingToPrompt(basePrompt, frame) {
+  if (!frame) {
+    return basePrompt; // 적용할 프레임이 없으면 원본 그대로 반환
+  }
+  // 프레임에 정의된 지시어를 원본 프롬프트 앞부분에 삽입
+  return `${frame.promptInjection}\n\n---\n\n${basePrompt}`;
+}
+
+
+// ============================================================================
+// 통합 프롬프트 빌더 (기존 시스템 + 프레이밍 통합)
+// ============================================================================
+
+async function buildSmartPrompt(options) {
+  try {
+    const topic = options.topic || options.prompt || '';
+    
+    // 1. 정책 로드 및 프롬프트 타입 선택
+    const policy = await getPolicySafe();
+    const promptType = selectPromptType(options);
+    
+    // 2. editorial.js 규칙 적용
+    const enhancedOptions = options.applyEditorialRules ? applyEditorialRules(options) : options;
+    
+    const baseOptions = {
+      ...enhancedOptions,
+      policy,
+      legalGuidelines: LEGAL_GUIDELINES,
+      partyValues: PARTY_VALUES,
+      leadership: LEADERSHIP_PHILOSOPHY,
+      promptType
+    };
+
+    // 3. 전문 프롬프트 생성 (원본)
+    let generatedPrompt;
+    switch (promptType) {
+      case 'activity-report': generatedPrompt = buildActivityReportPrompt(baseOptions); break;
+      case 'local-issues': generatedPrompt = buildLocalIssuesPrompt(baseOptions); break;
+      case 'policy-proposal': generatedPrompt = buildPolicyProposalPrompt(baseOptions); break;
+      case 'campaign-pledge': generatedPrompt = buildCampaignPledgePrompt(baseOptions); break;
+      case 'current-affairs': generatedPrompt = buildCurrentAffairsPrompt(baseOptions); break;
+      case 'daily-communication': 
+      default: 
+        generatedPrompt = buildDailyCommunicationPrompt(baseOptions); 
+        break;
+    }
+
+    // --- 지능적 프레이밍 로직 적용 ---
+    // 4. 사용자의 주제(topic)로 의도 분석 및 프레임 결정
+    const selectedFrame = analyzeAndSelectFrame(topic);
+
+    // 5. 결정된 프레임으로 프롬프트 재구성
+    const framedPrompt = applyFramingToPrompt(generatedPrompt, selectedFrame);
+    // ----------------------------------
+
+    // 6. editorial.js 규칙을 최종 프롬프트 문자열에 삽입
+    const finalPrompt = injectEditorialRules(framedPrompt, baseOptions);
+    
+    console.log('✅ buildSmartPrompt 완료:', {
+      promptType,
+      editorialRulesApplied: !!baseOptions.editorialRulesApplied,
+      framingApplied: selectedFrame ? selectedFrame.id : 'None',
+      promptLength: finalPrompt.length,
+    });
+    
+    return finalPrompt;
+    
+  } catch (error) {
+    console.error('❌ buildSmartPrompt 오류:', error);
+    return createFallbackPrompt(options);
+  }
+}
+
+// ============================================================================
+// 하위 모듈 및 유틸리티 함수
 // ============================================================================
 
 function selectPromptType(options) {
   const { category } = options;
 
   switch (category) {
-    case '의정활동':
-      return 'activity-report';
-    case '지역현안':
-    case '지역활동':
-      return 'local-issues';
-    case '정책제안':
-    case '정책':
-      return 'policy-proposal';
-    case '선거공약':
-    case '공약':
-      return 'campaign-pledge';
-    case '시사논평':
-    case '논평':
-    case '성명서':
-      return 'current-affairs';
-    case '일반소통':
-    case '일반':
-    default:
+    case '의정활동': return 'activity-report';
+    case '지역현안': case '지역활동': return 'local-issues';
+    case '정책제안': case '정책': return 'policy-proposal';
+    case '선거공약': case '공약': return 'campaign-pledge';
+    case '시사논평': case '논평': case '성명서': return 'current-affairs';
+    case '일반소통': case '일반': 
+    default: 
       return 'daily-communication';
   }
 }
 
-// ============================================================================
-// ✅ editorial.js 규칙 적용 함수 (핵심 추가!)
-// ============================================================================
-
-/**
- * editorial.js의 SEO 및 콘텐츠 규칙을 options에 적용
- * @param {Object} options - 원본 옵션
- * @returns {Object} editorial.js 규칙이 적용된 옵션
- */
 function applyEditorialRules(options) {
-  // editorial.js에서 실제 규칙 값들을 가져옴
   const seoRules = SEO_RULES;
   const contentRules = CONTENT_RULES;
   const formatRules = FORMAT_RULES;
   
   return {
     ...options,
-    
-    // 🎯 SEO 최적화 규칙 (editorial.js에서 가져온 실제 값들)
     seoRules,
-    wordCount: {
-      min: seoRules.wordCount.min,           // 1500
-      max: seoRules.wordCount.max,           // 2000  
-      target: seoRules.wordCount.target,     // 1750
-      description: seoRules.wordCount.description
-    },
-    
-    // 🎯 키워드 배치 전략
-    keywordStrategy: {
-      title: seoRules.keywordPlacement.title,
-      body: seoRules.keywordPlacement.body,
-      density: seoRules.keywordPlacement.density
-    },
-    
-    // 🎯 구조 최적화
-    structureRules: {
-      headings: seoRules.structure.headings,
-      paragraphs: seoRules.structure.paragraphs,
-      lists: seoRules.structure.lists
-    },
-    
-    // 🎯 콘텐츠 작성 규칙
+    wordCount: { min: seoRules.wordCount.min, max: seoRules.wordCount.max, target: seoRules.wordCount.target, description: seoRules.wordCount.description },
+    keywordStrategy: { title: seoRules.keywordPlacement.title, body: seoRules.keywordPlacement.body, density: seoRules.keywordPlacement.density },
+    structureRules: { headings: seoRules.structure.headings, paragraphs: seoRules.structure.paragraphs, lists: seoRules.structure.lists },
     contentRules,
     toneGuidelines: contentRules.tone,
     structureGuidelines: contentRules.structure,
     expressionGuidelines: contentRules.expression,
-    
-    // 🎯 출력 형식 규칙  
     formatRules,
     outputStructure: formatRules.outputStructure,
     htmlGuidelines: formatRules.htmlGuidelines,
     qualityStandards: formatRules.qualityStandards,
-    
-    // 🎯 편집 워크플로우
     editorialWorkflow: EDITORIAL_WORKFLOW,
-    
-    // 플래그 설정
     editorialRulesApplied: true,
     enforceWordCount: true,
     seoOptimized: true
   };
 }
 
-/**
- * 프롬프트에 editorial.js 규칙을 문자열로 삽입
- * @param {string} basePrompt - 기본 프롬프트
- * @param {Object} options - editorial.js 규칙이 적용된 옵션
- * @returns {string} 규칙이 삽입된 프롬프트
- */
 function injectEditorialRules(basePrompt, options) {
   if (!options.editorialRulesApplied) {
     return basePrompt;
@@ -162,7 +225,6 @@ ${options.formatRules.htmlGuidelines.structure.map(rule => `- ${rule}`).join('\n
 **금지사항**:
 ${options.formatRules.htmlGuidelines.prohibitions.map(rule => `- ${rule}`).join('\n')}`;
 
-  // 프롬프트에 규칙 삽입 (적절한 위치에)
   return basePrompt.replace(
     /(\[📊 SEO 최적화 규칙\])/g, 
     seoSection
@@ -171,85 +233,6 @@ ${options.formatRules.htmlGuidelines.prohibitions.map(rule => `- ${rule}`).join(
     formatSection
   ) + '\n' + qualitySection;
 }
-
-// ============================================================================
-// 통합 프롬프트 빌더 (메인 시스템) - editorial.js 완전 적용
-// ============================================================================
-
-async function buildSmartPrompt(options) {
-  try {
-    console.log('🔧 buildSmartPrompt 시작:', options.category, options.applyEditorialRules ? '(editorial.js 적용)' : '');
-    
-    // 1. 정책 로드
-    const policy = await getPolicySafe();
-    
-    // 2. 프롬프트 타입 자동 선택
-    const promptType = selectPromptType(options);
-    
-    // 3. ✅ editorial.js 규칙 적용 (핵심!)
-    const enhancedOptions = options.applyEditorialRules 
-      ? applyEditorialRules(options) 
-      : options;
-    
-    // 4. 공통 가이드라인 준비
-    const baseOptions = {
-      ...enhancedOptions,
-      policy,
-      legalGuidelines: LEGAL_GUIDELINES,
-      partyValues: PARTY_VALUES,
-      leadership: LEADERSHIP_PHILOSOPHY,
-      promptType
-    };
-    
-    console.log('🎯 프롬프트 타입:', promptType, 
-                '| SEO 최적화:', baseOptions.seoOptimized ? 'ON' : 'OFF',
-                '| 목표분량:', baseOptions.wordCount?.target || 'N/A');
-    
-    // 5. 전문 프롬프트 생성
-    let generatedPrompt;
-    switch (promptType) {
-      case 'activity-report':
-        generatedPrompt = buildActivityReportPrompt(baseOptions);
-        break;
-      case 'local-issues':
-        generatedPrompt = buildLocalIssuesPrompt(baseOptions);
-        break;
-      case 'policy-proposal':
-        generatedPrompt = buildPolicyProposalPrompt(baseOptions);
-        break;
-      case 'campaign-pledge':
-        generatedPrompt = buildCampaignPledgePrompt(baseOptions);
-        break;
-      case 'current-affairs':
-        generatedPrompt = buildCurrentAffairsPrompt(baseOptions);
-        break;
-      case 'daily-communication':
-      default:
-        generatedPrompt = buildDailyCommunicationPrompt(baseOptions);
-        break;
-    }
-    
-    // 6. ✅ editorial.js 규칙을 프롬프트 문자열에 직접 삽입
-    const finalPrompt = injectEditorialRules(generatedPrompt, baseOptions);
-    
-    console.log('✅ buildSmartPrompt 완료:', {
-      promptType,
-      editorialRulesApplied: baseOptions.editorialRulesApplied,
-      promptLength: finalPrompt.length,
-      targetWordCount: baseOptions.wordCount?.target
-    });
-    
-    return finalPrompt;
-    
-  } catch (error) {
-    console.error('❌ buildSmartPrompt 오류:', error);
-    return createFallbackPrompt(options);
-  }
-}
-
-// ============================================================================
-// 폴백 프롬프트 시스템 - editorial.js 적용
-// ============================================================================
 
 function createFallbackPrompt(options) {
   const { 
@@ -260,7 +243,6 @@ function createFallbackPrompt(options) {
     applyEditorialRules = false
   } = options;
 
-  // editorial.js 규칙 적용 여부에 따른 분량 조정
   const targetLength = applyEditorialRules 
     ? `${SEO_RULES.wordCount.min}-${SEO_RULES.wordCount.max}자 (SEO 최적화 적용)`
     : '300-800자';
@@ -303,16 +285,11 @@ ${authorName} ${authorPosition}의 입장에서 "${topic}" 주제로 ${category}
 `;
 }
 
-// ============================================================================
-// 안전한 프롬프트 빌드 래퍼
-// ============================================================================
-
 async function buildSmartPromptSafe(options) {
   try {
     if (!validatePromptOptions(options)) {
       return createFallbackPrompt(options || {});
     }
-
     return await buildSmartPrompt(options);
   } catch (error) {
     console.error('❌ buildSmartPromptSafe 오류:', error);
@@ -320,64 +297,14 @@ async function buildSmartPromptSafe(options) {
   }
 }
 
-// ============================================================================
-// 유틸리티 함수들
-// ============================================================================
-
-function testPrompt() {
-  return `다음 JSON만 출력: {"hello":"world","ts":"${new Date().toISOString()}","philosophy":"이재명정신","engine":"smart","editorial":"applied"}`;
-}
-
-function getPromptTemplate(category) {
-  const templates = {
-    '의정활동': {
-      type: 'activity-report',
-      description: '의정 활동 보고서 형식',
-      defaultLength: SEO_RULES.wordCount.target + '자 (SEO 최적화)'
-    },
-    '지역현안': {
-      type: 'local-issues', 
-      description: '지역 현안 해결 중심',
-      defaultLength: SEO_RULES.wordCount.target + '자 (SEO 최적화)'
-    },
-    '정책제안': {
-      type: 'policy-proposal',
-      description: '정책 제안 및 설명',
-      defaultLength: SEO_RULES.wordCount.target + '자 (SEO 최적화)'
-    },
-    '선거공약': {
-      type: 'campaign-pledge',
-      description: '선거 공약 발표 형식',
-      defaultLength: SEO_RULES.wordCount.target + '자 (SEO 최적화)'
-    },
-    '시사논평': {
-      type: 'current-affairs',
-      description: '시사 이슈 논평',
-      defaultLength: SEO_RULES.wordCount.target + '자 (SEO 최적화)'
-    },
-    '일반소통': {
-      type: 'daily-communication',
-      description: '일상적 소통 메시지',
-      defaultLength: SEO_RULES.wordCount.target + '자 (SEO 최적화)'
-    }
-  };
-
-  return templates[category] || templates['일반소통'];
-}
-
 function validatePromptOptions(options) {
-  if (!options) {
-    console.warn('⚠️ 프롬프트 옵션이 없습니다.');
-    return false;
-  }
-
-  if (!options.topic && !options.prompt) {
+  if (!options || (!options.topic && !options.prompt)) {
     console.warn('⚠️ 주제(topic) 또는 프롬프트(prompt)가 필요합니다.');
     return false;
   }
-
   return true;
 }
+
 
 // ============================================================================
 // 내보내기
@@ -387,21 +314,17 @@ module.exports = {
   // 메인 시스템
   buildSmartPrompt,
   buildSmartPromptSafe,
-  selectPromptType,
   
-  // ✅ editorial.js 관련 함수들 (새로 추가)
+  // 지능적 프레이밍 관련 함수들 (신규 추가)
+  analyzeAndSelectFrame,
+  applyFramingToPrompt,
+  
+  // 기존 유틸리티 및 하위 모듈 함수들
+  selectPromptType,
   applyEditorialRules,
   injectEditorialRules,
-  
-  // 외부 모듈에서 가져온 함수들 재내보내기
+  createFallbackPrompt,
+  validatePromptOptions,
   getPolicySafe,
   createFallbackDraft,
-  
-  // 폴백 시스템
-  createFallbackPrompt,
-  
-  // 유틸리티
-  testPrompt,
-  getPromptTemplate,
-  validatePromptOptions
 };
