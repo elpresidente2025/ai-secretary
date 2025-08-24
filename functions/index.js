@@ -253,10 +253,10 @@ exports.getDashboardData = onCall({ cors: true }, async (request) => {
  */
 exports.getActiveNotices = onCall({ cors: true }, async (request) => {
   const now = admin.firestore.Timestamp.now();
+  // [수정] 복잡한 쿼리 대신, 생성일 기준으로만 정렬하여 안정성 확보
   const snapshot = await db.collection('notices')
     .where('isActive', '==', true)
     .where('expiresAt', '>=', now)
-    .orderBy('expiresAt', 'asc')
     .orderBy('createdAt', 'desc')
     .limit(5)
     .get();

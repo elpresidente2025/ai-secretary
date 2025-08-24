@@ -130,23 +130,40 @@ exports.getNotices = onCall(functionOptions, async (request) => {
 // ============================================================================
 exports.getActiveNotices = onCall(functionOptions, async (request) => {
   const now = admin.firestore.Timestamp.now();
+  
+  // 활성 공지사항 조회 (expiresAt 조건 분리)
   const snapshot = await db.collection('notices')
     .where('isActive', '==', true)
-    .where('expiresAt', '>=', now)
-    .orderBy('expiresAt', 'asc')
     .orderBy('createdAt', 'desc')
-    .limit(10)
+    .limit(50)
     .get();
 
   const notices = [];
   snapshot.forEach(doc => {
     const data = doc.data();
-    notices.push({
-      id: doc.id,
-      title: data.title || '공지사항',
-      content: data.content || '',
-      type: data.type || 'info',
-    });
+    
+    // 만료되지 않은 공지사항만 포함 (expiresAt이 없으면 만료되지 않은 것으로 처리)
+    if (!data.expiresAt || data.expiresAt.toDate() >= now.toDate()) {
+      notices.push({
+        id: doc.id,
+        title: data.title || '공지사항',
+        content: data.content || '',
+        type: data.type || 'info',
+        priority: data.priority || 'medium',
+        createdAt: data.createdAt?.toDate?.().toISOString(),
+        expiresAt: data.expiresAt?.toDate?.().toISOString()
+      });
+    }
   });
-  return { success: true, notices };
+  
+  // 우선순위와 생성일로 정렬 후 최대 10개 반환
+  notices.sort((a, b) => {
+    const priorityOrder = { high: 3, medium: 2, low: 1 };
+    const aPriority = priorityOrder[a.priority] || 2;
+    const bPriority = priorityOrder[b.priority] || 2;
+    if (aPriority !== bPriority) return bPriority - aPriority;
+    return new Date(b.createdAt) - new Date(a.createdAt);
+  });
+  
+  return { success: true, notices: notices.slice(0, 10) };
 });

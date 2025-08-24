@@ -101,7 +101,7 @@ const Dashboard = () => {
         
         console.log('✅ Dashboard 응답:', response.data);
         
-        const dashboardData = response.data.data;
+        const dashboardData = response.data;
         
         // 사용량 정보 설정
         setUsage(dashboardData.usage || { postsGenerated: 0, monthlyLimit: 50 });
@@ -145,7 +145,7 @@ const Dashboard = () => {
         console.log('✅ 공지사항 응답:', noticesResponse.data);
         
         // 올바른 경로로 공지사항 데이터 추출
-        const noticesData = noticesResponse.data?.data?.notices || [];
+        const noticesData = noticesResponse.data?.notices || [];
         setNotices(noticesData);
         
       } catch (noticeError) {
