@@ -37,7 +37,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout';
-import NoticeBanner from '../components/NoticeBanner';
+import NoticeBanner from '../components/dashboard/NoticeBanner';
 import { useAuth } from '../hooks/useAuth';
 import { getUserFullTitle, getUserDisplayTitle, getUserRegionInfo, getUserStatusIcon } from '../utils/userUtils';
 import { functions } from '../services/firebase';
