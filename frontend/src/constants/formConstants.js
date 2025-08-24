@@ -1,89 +1,57 @@
-// frontend/src/constants/formConstants.js (백엔드 완전 동기화 최종 버전)
-
 /**
- * 이 파일은 백엔드 프롬프트 엔진과 100% 동기화됩니다.
- * 각 카테고리의 `value`는 `functions/templates/prompts.js`의 `selectPromptType` 함수와 연결됩니다.
- * 각 세부 카테고리의 `value`는 각 `prompts/*.js` 파일에서 실제로 구현된 것만 포함합니다.
+ * frontend/src/constants/formConstants.js (개편안)
+ * AI비서관의 카테고리 체계를 사용자 친화적인 '용도 기반'으로 재편성한 파일입니다.
+ * 사용자는 '글의 목적'을 먼저 선택하며, 각 목적에 맞는 내부 '작법'이 자동으로 매핑됩니다.
  */
+
+// 사용자에게 보여질 용도 기반 카테고리 (User-Facing, Purpose-Based Categories)
 export const CATEGORIES = [
   {
-    value: '일반소통',
-    label: '일상 소통 (SNS 등)',
-    subCategories: [
-      // ✅ 백엔드 daily-communication.js에서 실제로 지원하는 세부 카테고리들
-      { value: '감사인사', label: '감사 메시지' },
-      { value: '일상공유', label: '일상 이야기' },
-      { value: '소회표현', label: '개인적 소회' },
-      { value: '격려응원', label: '격려/응원 메시지' },
-      { value: '행사참석', label: '행사 참석 후기' },
-    ],
-  },
-  {
-    value: '의정활동',
+    value: 'activity-report',
     label: '의정활동 보고',
+    description: '의정 성과, 국정감사, 조례 발의 등 공식적인 의정활동을 주민들께 보고합니다.',
     subCategories: [
-      // ✅ 백엔드 activity-report.js에서 확인된 세부 카테고리들
-      { value: '국정감사', label: '국정감사' },
-      { value: '법안발의', label: '법안발의' },
-      { value: '위원회활동', label: '위원회활동' },
+      { value: 'performance_report', label: '성과 보고 (예산, 공약 이행 등)', writingMethod: 'logical_writing', needsAudienceStance: false },
+      { value: 'parliamentary_audit_report', label: '국정감사 활동 보고', writingMethod: 'critical_writing', needsAudienceStance: false },
+      { value: 'bill_ordinance_report', label: '법안/조례 발의 및 위원회 활동 보고', writingMethod: 'analytical_writing', needsAudienceStance: false },
     ],
   },
   {
-    value: '시사논평',
-    label: '시사 논평/이슈 대응',
+    value: 'local-issues',
+    label: '지역 현안 및 활동',
+    description: '지역의 문제점을 분석하고, 주민들과 함께한 활동 내용을 공유합니다.',
     subCategories: [
-      // ✅ 백엔드 current-affairs.js와 100% 일치 확인됨
-      { value: '논평', label: '논평' },
-      { value: '성명서', label: '성명서' },
-      { value: '가짜뉴스반박', label: '가짜뉴스 반박' },
-      { value: '입장문', label: '입장문' },
-      { value: '발표문', label: '발표문' },
-      { value: '건의문', label: '건의문' },
+      { value: 'local_issue_analysis', label: '지역 현안 분석 및 해결책 제시', writingMethod: 'analytical_writing', needsAudienceStance: false },
+      { value: 'event_complaint_report', label: '지역 행사/민원 처리 결과 보고', writingMethod: 'analytical_writing', needsAudienceStance: false },
+      { value: 'volunteering_review', label: '봉사 후기', writingMethod: 'emotional_writing', needsAudienceStance: false },
     ],
   },
   {
-    value: '지역현안',
-    label: '지역 현안/활동',
+    value: 'policy-proposal',
+    label: '정책 및 비전',
+    description: '자신의 정치적 비전과 핵심 정책을 주민들께 알기 쉽게 설명합니다.',
     subCategories: [
-      // ✅ 백엔드 local-issues.js에서 실제로 지원하는 세부 카테고리들
-      { value: '현장방문', label: '현장 방문' },
-      { value: '주민간담회', label: '주민 간담회' },
-      { value: '지역현안', label: '지역 현안 해결' },
-      { value: '상권점검', label: '상권 점검' },
-      { value: '민원해결', label: '민원 해결' },
-      { value: '지역행사', label: '지역 행사 참석' },
-      { value: '봉사활동', label: '봉사 활동' },
+      { value: 'policy_pledge_announcement', label: '정책/공약 발표', writingMethod: 'logical_writing', needsAudienceStance: false },
+      { value: 'vision_philosophy_declaration', label: '비전과 철학 선언', writingMethod: 'direct_writing', needsAudienceStance: false },
     ],
   },
   {
-    value: '정책제안',
-    label: '정책 제안',
-    // ✅ 백엔드 policy-proposal.js 기능 활성화를 위해 세부 카테고리 추가
+    value: 'current-affairs',
+    label: '이슈 대응 및 논평',
+    description: '사회적 현안이나 특정 이슈에 대한 자신의 입장을 명확하게 밝힙니다.',
     subCategories: [
-        { value: '신규정책', label: '신규 정책 제안' },
-        { value: '기존정책개선', label: '기존 정책 개선' },
-        { value: '정책비전', label: '정책 비전 발표' },
+      { value: 'current_affairs_commentary', label: '시사 논평', writingMethod: 'critical_writing', needsAudienceStance: true },
+      { value: 'fake_news_rebuttal', label: '가짜뉴스 반박', writingMethod: 'critical_writing', needsAudienceStance: true },
     ],
   },
   {
-    value: '선거공약',
-    label: '선거 공약',
-    // ✅ 백엔드 campaign-pledge.js 기능 활성화를 위해 세부 카테고리 추가
+    value: 'daily-communication',
+    label: '일상 소통',
+    description: '주민들과 더 가까이 소통하기 위한 감사, 격려, 일상 이야기 등을 나눕니다.',
     subCategories: [
-        { value: '핵심공약', label: '핵심 공약 발표' },
-        { value: '분야별공약', label: '분야별 공약 (경제, 복지 등)' },
-        { value: '지역맞춤공약', label: '지역 맞춤 공약' },
-        { value: '미래비전', label: '미래 비전 공약' },
+      { value: 'gratitude_message', label: '감사 메시지', writingMethod: 'emotional_writing', needsAudienceStance: true },
+      { value: 'encouragement_support', label: '격려 및 응원', writingMethod: 'emotional_writing', needsAudienceStance: true },
+      { value: 'daily_life_sharing', label: '일상 공유', writingMethod: 'emotional_writing', needsAudienceStance: false },
     ],
   },
-];
-
-export const KEYWORD_SUGGESTIONS = [
-  '민생안정', '경제활성화', '부동산문제', '청년일자리', '저출생고령화',
-  '기후위기', '에너지전환', '디지털혁신', '교육개혁', '의료개혁',
-  '검찰개혁', '정치개혁', '한반도평화', '외교안보', '지역균형발전',
-
-  // 지역 현안 관련 키워드 추가
-  '현장방문', '주민소통', '상권활성화', '민원해결', '지역발전',
-  '인프라개선', '교통편의', '안전대책', '환경개선', '문화시설',
 ];
