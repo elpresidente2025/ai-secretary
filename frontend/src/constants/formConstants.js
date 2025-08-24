@@ -1,5 +1,5 @@
 /**
- * frontend/src/constants/formConstants.js (개편안)
+ * frontend/src/constants/formConstants.js (최종본)
  * AI비서관의 카테고리 체계를 사용자 친화적인 '용도 기반'으로 재편성한 파일입니다.
  * 사용자는 '글의 목적'을 먼저 선택하며, 각 목적에 맞는 내부 '작법'이 자동으로 매핑됩니다.
  */
@@ -11,7 +11,7 @@ export const CATEGORIES = [
     label: '의정활동 보고',
     description: '의정 성과, 국정감사, 조례 발의 등 공식적인 의정활동을 주민들께 보고합니다.',
     subCategories: [
-      { value: 'performance_report', label: '성과 보고 (예산, 공약 이행 등)', writingMethod: 'logical_writing', needsAudienceStance: false },
+      { value: 'performance_report', label: '성과 보고 (예산 확보, 공약 이행 등)', writingMethod: 'logical_writing', needsAudienceStance: false },
       { value: 'parliamentary_audit_report', label: '국정감사 활동 보고', writingMethod: 'critical_writing', needsAudienceStance: false },
       { value: 'bill_ordinance_report', label: '법안/조례 발의 및 위원회 활동 보고', writingMethod: 'analytical_writing', needsAudienceStance: false },
     ],

@@ -1,17 +1,10 @@
 /**
- * functions/templates/prompts/daily-communication.js (개편안)
- * '일상 소통' 카테고리 전용 프롬프트 생성 모듈입니다.
- * '글쓰기 DNA' 부품 라이브러리를 내장하여, 사용자가 선택한 글쓰기 부품을
- * 조합하여 감성적 글쓰기 프롬프트를 동적으로 생성합니다.
+ * functions/templates/prompts/daily-communication.js
+ * '감성적 글쓰기' 작법 전용 프롬프트 생성 모듈입니다.
  */
 
 'use strict';
 
-// ============================================================================
-// 🧬 내장 글쓰기 DNA 라이브러리 (Built-in Writing DNA Library)
-// ============================================================================
-
-// Component 1: 감성 원형 (Emotional Archetypes)
 const EMOTIONAL_ARCHETYPES = {
   PERSONAL_NARRATIVE: { id: 'personal_narrative', name: '개인 서사형', instruction: "당신의 개인적인 경험, 특히 어려움을 극복했거나 특별한 깨달음을 얻었던 순간의 서사를 진솔하게 풀어내세요. 독자가 당신의 삶의 한 조각을 직접 엿보는 것처럼 느끼게 하여 인간적인 공감대를 형성해야 합니다." },
   COMMUNITY_APPEAL: { id: 'community_appeal', name: '공동체 정서 호명형', instruction: "지지자들, 또는 특정 집단을 '우리'로 명확히 호명하고, 그들이 공유하는 집단적 기억이나 감정(예: 분노, 슬픔, 희망)을 직접적으로 자극하세요. 공동의 목표를 향한 연대와 결속을 강화하는 메시지를 전달해야 합니다." },
@@ -21,7 +14,6 @@ const EMOTIONAL_ARCHETYPES = {
   PLEA_AND_PETITION: { id: 'plea_and_petition', name: '호소와 탄원형', instruction: "당신의 진심과 절박함을 담아, 독자들에게 지지, 동참, 또는 용서를 겸손하고 간절하게 호소하세요. '도와주십시오', '죄송합니다' 와 같이 당신의 낮은 자세와 진솔한 마음을 직접적으로 드러내어 독자의 마음을 움직여야 합니다." },
 };
 
-// Component 2: 서사 프레임 (Narrative Frames)
 const NARRATIVE_FRAMES = {
   OVERCOMING_HARDSHIP: { id: 'overcoming_hardship', name: '고난 극복 서사', instruction: '당신의 과거 힘들었던 시절(역경, 실패 등)을 구체적으로 묘사하고, 그것을 어떻게 극복하여 현재의 신념을 가지게 되었는지 이야기의 흐름을 만드세요.' },
   RELENTLESS_FIGHTER: { id: 'relentless_fighter', name: '강인한 투사 서사', instruction: '현재 우리가 맞서 싸워야 할 대상(예: 불공정, 부조리)을 명확히 설정하고, 이에 굴하지 않고 끝까지 전진하겠다는 강한 의지를 보여주는 서사를 구성하세요.' },
@@ -29,7 +21,6 @@ const NARRATIVE_FRAMES = {
   YOUTH_REPRESENTATIVE: { id: 'youth_representative', name: '청년 세대 대표 서사', instruction: '당신의 힘들었던 청년 시절의 에피소드를 통해, 현재 청년들이 겪는 문제에 깊이 공감하고 있음을 보여주고 그들의 목소리를 대변하겠다는 의지를 밝히세요.' }
 };
 
-// Component 3: 어휘 모듈 (Vocabulary Modules) - [개선됨]
 const VOCABULARY_MODULES = {
   HARDSHIP_AND_FAMILY: { id: 'hardship_and_family', name: '고난과 가족', thematic_guidance: "가족의 소중함, 과거의 어려움과 역경, 그리고 그것을 이겨내는 과정에서의 희생과 극복의 감정이 느껴지는 어휘를 사용하세요. (예: '어머니의 헌신', '힘들었던 시절', '그럼에도 불구하고')" },
   REFORM_AND_STRUGGLE: { id: 'reform_and_struggle', name: '개혁과 투쟁', thematic_guidance: "사회적 부조리에 맞서는 투쟁, 정의를 바로 세우려는 개혁 의지, 그리고 그 과정에서의 어려움과 전진의 느낌을 주는 단어를 사용하세요. (예: '기득권의 저항', '반드시 바로잡겠습니다', '한 걸음 더 나아가')" },
@@ -38,21 +29,6 @@ const VOCABULARY_MODULES = {
   SINCERITY_AND_APPEAL: { id: 'sincerity_and_appeal', name: '진정성과 호소', thematic_guidance: "자신을 낮추는 겸손함, 잘못에 대한 진솔한 성찰, 그리고 지지자들에게 진심으로 도움을 구하는 절박함이 느껴지는 호소력 있는 어휘를 사용하세요. (예: '저의 부족함입니다', '깊이 성찰하겠습니다', '여러분의 힘이 필요합니다')" }
 };
 
-
-// ============================================================================
-// ⚙️ '일상 소통' 프롬프트 빌더 (v3 - Component-based)
-// ============================================================================
-
-/**
- * 사용자가 선택한 글쓰기 부품(DNA)을 조립하여 최종 프롬프트를 생성합니다.
- * @param {object} options - 사용자 입력값 및 시스템 설정
- * @param {string} options.topic - 글의 주제
- * @param {string} options.authorBio - 작성자 정보 (예: "더불어민주당 서울시의원")
- * @param {string} options.narrativeFrameId - 선택된 서사 프레임의 ID
- * @param {string} options.emotionalArchetypeId - 선택된 감성 원형의 ID
- * @param {string} options.vocabularyModuleId - 선택된 어휘 모듈의 ID
- * @returns {string} 동적으로 조립된 최종 프롬프트
- */
 function buildDailyCommunicationPrompt(options) {
   const {
     topic,
@@ -62,12 +38,10 @@ function buildDailyCommunicationPrompt(options) {
     vocabularyModuleId,
   } = options;
 
-  // 1. 선택된 부품 정보 조회 (ID를 기반으로 라이브러리에서 실제 데이터 추출)
   const narrativeFrame = Object.values(NARRATIVE_FRAMES).find(f => f.id === narrativeFrameId) || NARRATIVE_FRAMES.SERVANT_LEADER;
   const emotionalArchetype = Object.values(EMOTIONAL_ARCHETYPES).find(a => a.id === emotionalArchetypeId) || EMOTIONAL_ARCHETYPES.PERSONAL_NARRATIVE;
   const vocabularyModule = Object.values(VOCABULARY_MODULES).find(m => m.id === vocabularyModuleId) || VOCABULARY_MODULES.SOLIDARITY_AND_PEOPLE;
 
-  // 2. 프롬프트 동적 조립
   const prompt = `
 # AI비서관 - 일상 소통 원고 생성
 
@@ -97,7 +71,6 @@ function buildDailyCommunicationPrompt(options) {
 
 module.exports = {
   buildDailyCommunicationPrompt,
-  // 라이브러리를 외부에서 참조할 수 있도록 함께 내보내기 (선택 사항)
   EMOTIONAL_ARCHETYPES,
   NARRATIVE_FRAMES,
   VOCABULARY_MODULES,
