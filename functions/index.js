@@ -1,8 +1,6 @@
 /**
- * functions/index.js (통합 최종본)
- * AI비서관의 모든 클라우드 함수를 포함하는 단일 엔드포인트입니다.
- * 모든 기능을 이 파일에서 관리하여 배포 오류를 최소화합니다.
- * (Firebase Functions v2 SDK, CORS, asia-northeast3 지역 설정 적용)
+ * functions/index.js (간소화된 진입점)
+ * 기존 핸들러 구조를 사용하여 안정적인 배포를 위한 진입점입니다.
  */
 
 'use strict';
@@ -10,297 +8,533 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const { setGlobalOptions } = require('firebase-functions/v2');
-const admin = require('firebase-admin');
 
-const { buildSmartPrompt } = require('./templates/prompts');
-const { callGenerativeModel } = require('./services/gemini');
-const { analyzeBioForStyle } = require('./services/style-analysis');
-const { districtKey, claimDistrict, checkDistrictAvailability: checkDistrictAvailabilityService } = require('./services/district');
-
-// ============================================================================
-// 전역 설정 (Global Settings)
-// ============================================================================
-
-// 모든 함수에 공통적으로 적용될 기본 설정을 지정합니다.
+// 전역 설정
 setGlobalOptions({ region: 'asia-northeast3' });
 
-// Firebase 앱 초기화 (중복 방지)
-if (admin.apps.length === 0) {
-  admin.initializeApp();
-}
-const db = admin.firestore();
+// 각 핸들러 모듈 임포트
+const postsHandler = require('./handlers/posts');
+const profileHandler = require('./handlers/profile');
+const dashboardHandler = require('./handlers/dashboard');
+const noticesHandler = require('./handlers/notices');
+const adminHandler = require('./handlers/admin');
 
-// ============================================================================
-// 1. 게시물 관련 함수 (Post Handlers)
-// ============================================================================
+// 기본 함수 설정 (메모리와 타임아웃 최적화)
+const defaultConfig = {
+  cors: true,
+  memory: '512MiB',
+  timeoutSeconds: 120
+};
 
-/**
- * AI 모델을 사용하여 게시물 초안을 생성합니다.
- */
-exports.generatePost = onCall({ cors: true }, async (request) => {
-  if (!request.auth) throw new HttpsError('unauthenticated', '인증이 필요합니다.');
+const fastConfig = {
+  cors: true,
+  memory: '256MiB',
+  timeoutSeconds: 60
+};
 
-  const { options, authorBio } = request.data;
-  if (!options || !authorBio) throw new HttpsError('invalid-argument', 'options와 authorBio는 필수입니다.');
+const heavyConfig = {
+  cors: true,
+  memory: '1GiB',
+  timeoutSeconds: 540
+};
 
-  let rawResult = ''; // 에러 로깅을 위해 try 블록 외부에서 선언
+// 게시물 관련 함수들 (이미 wrap으로 onCall이 적용됨)
+exports.getUserPosts = postsHandler.getUserPosts;
+exports.getPost = postsHandler.getPost;
+exports.updatePost = postsHandler.updatePost;
+exports.deletePost = postsHandler.deletePost;
+exports.checkUsageLimit = postsHandler.checkUsageLimit;
+exports.generatePosts = postsHandler.generatePosts;
+
+// 프로필 관련 함수들 (이미 wrap으로 onCall이 적용됨)
+exports.getUserProfile = profileHandler.getUserProfile;
+exports.updateProfile = profileHandler.updateProfile;
+exports.checkDistrictAvailability = profileHandler.checkDistrictAvailability;
+exports.registerWithDistrictCheck = profileHandler.registerWithDistrictCheck;
+
+// 대시보드 관련 함수들 (이미 wrap으로 onCall이 적용됨)
+exports.getDashboardData = dashboardHandler.getDashboardData;
+
+// 공지사항 관련 함수들 (이미 wrap으로 onCall이 적용됨)
+exports.getActiveNotices = noticesHandler.getActiveNotices;
+
+// 관리자 관련 함수들 (이미 wrap으로 onCall이 적용됨)
+exports.syncDistrictKey = adminHandler.syncDistrictKey;
+
+// 관리자 전용 함수들 (HTTP 함수로 변경하여 CORS 문제 해결)
+const { onRequest } = require('firebase-functions/v2/https');
+const { districtKey } = require('./services/district');
+
+exports.getAdminStats = onRequest({
+  region: 'asia-northeast3',
+  cors: true
+}, async (req, res) => {
   try {
-    const fullOptions = {
-      ...options,
-      authorName: authorBio.name || '정치인',
-      authorPosition: authorBio.position || '의원',
-      authorBio: JSON.stringify(authorBio, null, 2),
-      applyEditorialRules: true,
+    // CORS 헤더 명시적 설정
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    
+    if (req.method === 'OPTIONS') {
+      res.status(204).send('');
+      return;
+    }
+    
+    console.log('🔥 getAdminStats 시작');
+    res.json({ success: true, message: '관리자 통계 기능은 현재 구현 중입니다.' });
+  } catch (error) {
+    console.error('❌ getAdminStats 오류:', error);
+    res.status(500).json({ success: false, error: 'internal', message: '서버 내부 오류가 발생했습니다.' });
+  }
+});
+
+exports.getErrorLogs = onRequest({
+  region: 'asia-northeast3', 
+  cors: true
+}, async (req, res) => {
+  try {
+    // CORS 헤더 명시적 설정
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    
+    if (req.method === 'OPTIONS') {
+      res.status(204).send('');
+      return;
+    }
+    
+    console.log('🔥 getErrorLogs 시작');
+    res.json({ success: true, message: '에러 로그 기능은 현재 구현 중입니다.' });
+  } catch (error) {
+    console.error('❌ getErrorLogs 오류:', error);
+    res.status(500).json({ success: false, error: 'internal', message: '서버 내부 오류가 발생했습니다.' });
+  }
+});
+
+exports.getNotices = onRequest({
+  region: 'asia-northeast3',
+  cors: true  
+}, async (req, res) => {
+  try {
+    // CORS 헤더 명시적 설정
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    
+    if (req.method === 'OPTIONS') {
+      res.status(204).send('');
+      return;
+    }
+    
+    console.log('🔥 getNotices 시작');
+    res.json({ success: true, notices: [] });
+  } catch (error) {
+    console.error('❌ getNotices 오류:', error);
+    res.status(500).json({ success: false, error: 'internal', message: '서버 내부 오류가 발생했습니다.' });
+  }
+});
+
+exports.getUsers = onRequest({
+  region: 'asia-northeast3',
+  cors: true  
+}, async (req, res) => {
+  try {
+    // CORS 헤더 명시적 설정
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    
+    if (req.method === 'OPTIONS') {
+      res.status(204).send('');
+      return;
+    }
+    
+    console.log('🔥 getUsers 시작');
+    
+    // 실제 Firestore에서 사용자 데이터 가져오기
+    const { admin, db } = require('./utils/firebaseAdmin');
+    
+    const reqData = req.body || {};
+    const limit = reqData.limit || 100;
+    const orderBy = reqData.orderBy || 'createdAt';
+    const orderDirection = reqData.orderDirection || 'desc';
+    
+    console.log('📊 사용자 목록 조회 파라미터:', { limit, orderBy, orderDirection });
+    
+    let query = db.collection('users')
+      .orderBy(orderBy, orderDirection)
+      .limit(Math.min(limit, 200)); // 최대 200명까지 제한
+    
+    const snapshot = await query.get();
+    
+    const users = [];
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      
+      // 디버깅을 위해 첫 번째 사용자의 전체 데이터 구조 로깅
+      if (users.length === 0) {
+        console.log('🔍 첫 번째 사용자 데이터 구조:', JSON.stringify(data, null, 2));
+        console.log('🔍 사용 가능한 필드들:', Object.keys(data));
+      }
+      
+      // 이메일 필드에서 직접 가져오기 (없으면 'no email' 표시)
+      const finalEmail = data.email || '이메일 없음';
+
+      users.push({
+        uid: doc.id,
+        name: data.name || data.displayName || '이름 없음',
+        email: finalEmail,
+        electoralDistrict: data.electoralDistrict || data.district || '선거구 미설정',
+        status: data.status || '상태 미설정',
+        createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+        // 추가 정보
+        phone: data.phone || data.phoneNumber || '',
+        role: data.role || 'user',
+        isActive: data.isActive !== false,
+        lastLoginAt: data.lastLoginAt?.toDate?.()?.toISOString(),
+        profileComplete: data.profileComplete || false,
+        // 디버깅용 원본 데이터 일부 포함
+        _debug: {
+          docId: doc.id,
+          allFields: Object.keys(data).sort(),
+          emailFields: Object.keys(data).filter(key => key.toLowerCase().includes('email') || key.toLowerCase().includes('mail'))
+        }
+      });
+    });
+    
+    console.log('✅ 사용자 목록 조회 성공:', { count: users.length });
+    
+    res.json({ 
+      success: true, 
+      users: users,
+      total: users.length,
+      limit: limit
+    });
+  } catch (error) {
+    console.error('❌ getUsers 오류:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'internal', 
+      message: '사용자 목록 조회에 실패했습니다: ' + error.message 
+    });
+  }
+});
+
+// 중복 선거구 진단 및 수정 함수
+exports.fixDuplicateDistricts = onRequest({
+  region: 'asia-northeast3',
+  cors: true
+}, async (req, res) => {
+  try {
+    // CORS 헤더 명시적 설정
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    
+    if (req.method === 'OPTIONS') {
+      res.status(204).send('');
+      return;
+    }
+    
+    console.log('🔥 중복 선거구 진단 및 수정 시작');
+    
+    const { admin, db } = require('./utils/firebaseAdmin');
+    
+    // 모든 사용자 가져오기
+    const usersSnapshot = await db.collection('users').get();
+    const usersByDistrict = {};
+    const duplicates = [];
+    
+    // 선거구별로 사용자 그룹핑
+    usersSnapshot.forEach(doc => {
+      const data = doc.data();
+      if (data.electoralDistrict && data.position && data.regionMetro && data.regionLocal) {
+        try {
+          const key = districtKey({
+            position: data.position,
+            regionMetro: data.regionMetro,
+            regionLocal: data.regionLocal,
+            electoralDistrict: data.electoralDistrict
+          });
+          
+          if (!usersByDistrict[key]) {
+            usersByDistrict[key] = [];
+          }
+          
+          usersByDistrict[key].push({
+            uid: doc.id,
+            name: data.name,
+            email: data.email || '이메일 없음',
+            createdAt: data.createdAt?.toDate?.()?.getTime() || 0,
+            districtKey: key,
+            electoralDistrict: data.electoralDistrict
+          });
+        } catch (error) {
+          console.warn('선거구 키 생성 실패:', doc.id, error.message);
+        }
+      }
+    });
+    
+    // 중복 찾기
+    for (const [key, users] of Object.entries(usersByDistrict)) {
+      if (users.length > 1) {
+        duplicates.push({
+          districtKey: key,
+          users: users,
+          count: users.length
+        });
+      }
+    }
+    
+    console.log('📊 중복 선거구 발견:', duplicates.length);
+    
+    // district_claims 상태 확인
+    const claimsSnapshot = await db.collection('district_claims').get();
+    const claims = {};
+    claimsSnapshot.forEach(doc => {
+      claims[doc.id] = doc.data();
+    });
+    
+    console.log('📋 district_claims 현황:', Object.keys(claims).length + '개');
+    
+    // 수정 모드인 경우 실제 수정 수행
+    const shouldFix = req.body?.fix === true;
+    let fixResults = [];
+    
+    if (shouldFix && duplicates.length > 0) {
+      console.log('🔧 선착순 원칙으로 중복 선거구 수정 시작');
+      
+      for (const duplicate of duplicates) {
+        const { districtKey: key, users } = duplicate;
+        
+        // 선착순 정렬 (createdAt 기준 오름차순)
+        const sortedUsers = users.sort((a, b) => a.createdAt - b.createdAt);
+        const keeper = sortedUsers[0]; // 가장 먼저 가입한 사용자
+        const toRemove = sortedUsers.slice(1); // 나머지 사용자들
+        
+        console.log(`📍 ${key}:`, {
+          keeper: keeper.name,
+          toRemove: toRemove.map(u => u.name)
+        });
+        
+        try {
+          // 1. district_claims에서 선착순 사용자로 업데이트
+          await db.collection('district_claims').doc(key).set({
+            userId: keeper.uid,
+            claimedAt: admin.firestore.FieldValue.serverTimestamp(),
+            lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+            fixedAt: admin.firestore.FieldValue.serverTimestamp(),
+            fixReason: '선착순 원칙 적용'
+          });
+          
+          // 2. 제거될 사용자들의 선거구 정보 초기화
+          const batch = db.batch();
+          for (const user of toRemove) {
+            const userRef = db.collection('users').doc(user.uid);
+            batch.update(userRef, {
+              electoralDistrict: '',
+              districtKey: null,
+              districtConflictAt: admin.firestore.FieldValue.serverTimestamp(),
+              districtConflictReason: `선착순 원칙에 의해 ${keeper.name}에게 양보됨`
+            });
+          }
+          await batch.commit();
+          
+          fixResults.push({
+            districtKey: key,
+            keeper: keeper,
+            removed: toRemove,
+            success: true
+          });
+          
+        } catch (error) {
+          console.error(`❌ ${key} 수정 실패:`, error);
+          fixResults.push({
+            districtKey: key,
+            error: error.message,
+            success: false
+          });
+        }
+      }
+      
+      console.log('✅ 중복 선거구 수정 완료:', fixResults.length);
+    }
+
+    res.json({
+      success: true,
+      message: shouldFix ? '중복 선거구 수정 완료' : '중복 선거구 진단 완료',
+      duplicates: duplicates,
+      districtClaims: claims,
+      totalUsers: usersSnapshot.size,
+      duplicateCount: duplicates.length,
+      fixed: shouldFix,
+      fixResults: fixResults
+    });
+    
+  } catch (error) {
+    console.error('❌ fixDuplicateDistricts 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: 'internal',
+      message: '중복 선거구 진단 실패: ' + error.message
+    });
+  }
+});
+
+// 시스템 상태 함수 (HTTP 함수로 변경)
+exports.getSystemStatus = onRequest({
+  region: 'asia-northeast3',
+  cors: true
+}, async (req, res) => {
+  try {
+    // CORS 헤더 명시적 설정
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    
+    if (req.method === 'OPTIONS') {
+      res.status(204).send('');
+      return;
+    }
+    
+    console.log('🔥 getSystemStatus 시작');
+    
+    const { admin, db } = require('./utils/firebaseAdmin');
+    
+    // Firestore에서 시스템 상태 조회
+    const systemStatusDoc = await db.collection('system_status').doc('current').get();
+    let status = 'operational'; // 기본값
+    let maintenanceInfo = null;
+    let reason = '';
+    
+    if (systemStatusDoc.exists) {
+      const data = systemStatusDoc.data();
+      status = data.status || 'operational';
+      maintenanceInfo = data.maintenanceInfo || null;
+      reason = data.reason || '';
+      console.log('📋 Firestore에서 상태 조회:', { status, hasMaintenanceInfo: !!maintenanceInfo });
+    } else {
+      console.log('⚠️ 시스템 상태 문서가 존재하지 않음 - 기본값 사용');
+    }
+    
+    res.json({
+      success: true,
+      status: status,
+      reason: reason,
+      maintenanceInfo: maintenanceInfo,
+      timestamp: new Date().toISOString(),
+      services: {
+        functions: 'operational',
+        firestore: 'operational',
+        auth: 'operational'
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ getSystemStatus 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: 'internal',
+      message: '시스템 상태 확인에 실패했습니다: ' + error.message
+    });
+  }
+});
+
+// 시스템 상태 업데이트 함수 (HTTP 함수로 변경)
+exports.updateSystemStatus = onRequest({
+  region: 'asia-northeast3',
+  cors: true
+}, async (req, res) => {
+  try {
+    // CORS 헤더 명시적 설정
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    
+    if (req.method === 'OPTIONS') {
+      res.status(204).send('');
+      return;
+    }
+    
+    console.log('🔥 updateSystemStatus 시작');
+    console.log('📊 요청 데이터:', JSON.stringify(req.body, null, 2));
+    
+    const { admin, db } = require('./utils/firebaseAdmin');
+    const reqData = req.body || {};
+    const { status, reason, maintenanceInfo } = reqData;
+    
+    console.log('🔍 파싱된 데이터:', { status, reason, hasStatus: !!status });
+    
+    if (!status) {
+      console.log('❌ 상태 필드 누락');
+      return res.status(400).json({
+        success: false,
+        error: 'invalid-argument',
+        message: '상태가 필요합니다.'
+      });
+    }
+    
+    // 시스템 상태 업데이트 (system_status 컬렉션에 저장)
+    const statusUpdate = {
+      status: status,
+      reason: reason || '',
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      timestamp: new Date().toISOString()
     };
 
-    const prompt = await buildSmartPrompt(fullOptions);
-    rawResult = await callGenerativeModel(prompt);
-    
-    let result;
-    try {
-      const cleanText = rawResult.replace(/```json|```/g, '').trim();
-      result = JSON.parse(cleanText);
-      if (typeof result.title !== 'string' || typeof result.content !== 'string') {
-        throw new Error('파싱된 객체에 title 또는 content가 없습니다.');
-      }
-    } catch (e) {
-      console.error('Gemini 결과 파싱 실패:', { rawText: rawResult, error: e.message });
-      result = {
-        title: '제목 파싱 실패',
-        content: `<p>AI 모델의 응답을 처리하는 중 오류가 발생했습니다.</p><pre>${rawResult}</pre>`,
-      };
+    // 점검 중인 경우 추가 정보 저장
+    if (status === 'maintenance' && maintenanceInfo) {
+      statusUpdate.maintenanceInfo = maintenanceInfo;
     }
 
-    const postRef = await db.collection('users').doc(request.auth.uid).collection('posts').add({
-      ...result,
-      prompt,
-      options: fullOptions,
-      status: 'draft',
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    await db.collection('system_status').doc('current').set(statusUpdate, { merge: true });
+    
+    console.log('✅ 시스템 상태 업데이트 완료:', { status, reason });
+    
+    res.json({
+      success: true,
+      message: '시스템 상태가 업데이트되었습니다.',
+      status: status,
+      timestamp: new Date().toISOString()
     });
-
-    return { success: true, postId: postRef.id, ...result };
-  } catch(e) {
-      console.error('generatePost 함수 오류:', { error: e.message, rawResult });
-      throw new HttpsError('internal', '게시물 생성 중 오류가 발생했습니다.');
-  }
-});
-
-/**
- * 특정 사용자의 게시물 목록을 조회합니다.
- */
-exports.getUserPosts = onCall({ cors: true }, async (request) => {
-    if (!request.auth) throw new HttpsError('unauthenticated', '인증이 필요합니다.');
-    const { uid } = request.auth;
-
-    const postsSnapshot = await db.collection('users').doc(uid).collection('posts')
-        .orderBy('createdAt', 'desc')
-        .get();
     
-    const posts = postsSnapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-            id: doc.id,
-            ...data,
-            createdAt: data.createdAt?.toDate?.().toISOString(),
-            updatedAt: data.updatedAt?.toDate?.().toISOString(),
-        };
+  } catch (error) {
+    console.error('❌ updateSystemStatus 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: 'internal',
+      message: '시스템 상태 업데이트에 실패했습니다: ' + error.message
     });
-
-    return { success: true, posts };
-});
-
-
-// ============================================================================
-// 2. 사용자 프로필 관련 함수 (Profile Handlers)
-// ============================================================================
-
-/**
- * 사용자 프로필을 조회합니다.
- */
-exports.getUserProfile = onCall({ cors: true }, async (request) => {
-  if (!request.auth) throw new HttpsError('unauthenticated', '인증이 필요합니다.');
-  const userDoc = await db.collection('users').doc(request.auth.uid).get();
-  if (!userDoc.exists) {
-    return { success: true, profile: null, isNewUser: true };
   }
-  return { success: true, profile: userDoc.data() };
 });
 
-/**
- * 사용자 프로필을 업데이트합니다.
- */
-exports.updateProfile = onCall({ cors: true }, async (request) => {
-  if (!request.auth) throw new HttpsError('unauthenticated', '인증이 필요합니다.');
-  const { uid } = request.auth;
-  const profileData = request.data;
-  if (!profileData || typeof profileData !== 'object') {
-    throw new HttpsError('invalid-argument', '올바른 프로필 데이터를 입력해주세요.');
-  }
-
-  const allowed = ['name', 'position', 'regionMetro', 'regionLocal', 'electoralDistrict', 'status', 'bio'];
-  const sanitized = {};
-  allowed.forEach(key => {
-    if (profileData[key] !== undefined) sanitized[key] = profileData[key];
-  });
-
-  await db.collection('users').doc(uid).set({
-    ...sanitized,
-    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-  }, { merge: true });
-
-  return { success: true, message: '프로필이 성공적으로 업데이트되었습니다.' };
+// 기존 함수들의 호환성을 위한 간단한 구현
+exports.generatePost = onCall(heavyConfig, (req) => {
+  throw new HttpsError('unimplemented', '가챠뽑기 시스템으로 재구현 예정입니다.');
 });
 
-/**
- * 선거구 중복 여부를 확인합니다.
- */
-exports.checkDistrictAvailability = onCall({ cors: true }, async (request) => {
-    const { regionMetro, regionLocal, electoralDistrict, position } = request.data || {};
-    if (!regionMetro || !regionLocal || !electoralDistrict || !position) {
-        throw new HttpsError('invalid-argument', '지역/선거구/직책을 모두 입력해주세요.');
-    }
-    const newKey = districtKey({ position, regionMetro, regionLocal, electoralDistrict });
-    const excludeUid = request.auth?.uid;
-    const result = await checkDistrictAvailabilityService({ newKey, excludeUid });
-    return { success: true, ...result };
+exports.generateSinglePost = onCall(heavyConfig, (req) => {
+  throw new HttpsError('unimplemented', '가챠뽑기 시스템으로 재구현 예정입니다.');
 });
 
-/**
- * 회원가입 (선거구 중복 확인 포함)
- */
-exports.registerWithDistrictCheck = onCall({ cors: true }, async (request) => {
-    if (!request.auth) throw new HttpsError('unauthenticated', '인증이 필요합니다.');
-    const { uid } = request.auth;
-    const { profileData } = request.data || {};
-    if (!profileData) throw new HttpsError('invalid-argument', '프로필 데이터가 필요합니다.');
-
-    const { position, regionMetro, regionLocal, electoralDistrict } = profileData;
-    if (!position || !regionMetro || !regionLocal || !electoralDistrict) {
-        throw new HttpsError('invalid-argument', '직책과 지역 정보를 모두 입력해주세요.');
-    }
-
-    const newKey = districtKey({ position, regionMetro, regionLocal, electoralDistrict });
-    const availability = await checkDistrictAvailabilityService({ newKey });
-    if (!availability.available) {
-        throw new HttpsError('already-exists', '해당 선거구는 이미 다른 사용자가 사용 중입니다.');
-    }
-
-    await claimDistrict({ uid, newKey, oldKey: null });
-    
-    const bio = typeof profileData.bio === 'string' ? profileData.bio.trim() : '';
-    const isActive = !!bio;
-
-    delete profileData.isAdmin;
-    delete profileData.role;
-
-    await db.collection('users').doc(uid).set({
-        ...profileData,
-        bio,
-        isActive,
-        districtKey: newKey,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    }, { merge: true });
-
-    return { success: true, message: '회원가입이 완료되었습니다.' };
+exports.regeneratePost = onCall(heavyConfig, (req) => {
+  throw new HttpsError('unimplemented', '가챠뽑기 시스템으로 재구현 예정입니다.');
 });
 
-
-// ============================================================================
-// 3. 대시보드 및 공지사항 함수 (Dashboard & Notices)
-// ============================================================================
-
-/**
- * 대시보드 데이터를 조회합니다.
- */
-exports.getDashboardData = onCall({ cors: true }, async (request) => {
-  if (!request.auth) throw new HttpsError('unauthenticated', '인증이 필요합니다.');
-  const { uid } = request.auth;
-
-  const now = new Date();
-  const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const usageSnapshot = await db.collection('users').doc(uid).collection('posts')
-    .where('createdAt', '>=', thisMonth)
-    .get();
-  
-  const usage = {
-    postsGenerated: usageSnapshot.size,
-    monthlyLimit: 50,
-  };
-
-  const postsSnapshot = await db.collection('users').doc(uid).collection('posts')
-    .orderBy('createdAt', 'desc')
-    .limit(5)
-    .get();
-    
-  const recentPosts = postsSnapshot.docs.map(doc => {
-      const data = doc.data();
-      return {
-          id: doc.id,
-          ...data,
-          createdAt: data.createdAt?.toDate?.().toISOString(),
-          updatedAt: data.updatedAt?.toDate?.().toISOString(),
-      };
-  });
-
-  return { success: true, usage, recentPosts };
+exports.saveSelectedPost = onCall(defaultConfig, (req) => {
+  throw new HttpsError('unimplemented', '가챠뽑기 시스템으로 재구현 예정입니다.');
 });
 
-/**
- * 활성화된 공지사항을 조회합니다.
- */
-exports.getActiveNotices = onCall({ cors: true }, async (request) => {
-  const now = admin.firestore.Timestamp.now();
-  // [수정] 복잡한 쿼리 대신, 생성일 기준으로만 정렬하여 안정성 확보
-  const snapshot = await db.collection('notices')
-    .where('isActive', '==', true)
-    .where('expiresAt', '>=', now)
-    .orderBy('createdAt', 'desc')
-    .limit(5)
-    .get();
-
-  const notices = snapshot.docs.map(doc => {
-      const data = doc.data();
-      return {
-          id: doc.id,
-          ...data,
-          createdAt: data.createdAt?.toDate?.().toISOString(),
-          updatedAt: data.updatedAt?.toDate?.().toISOString(),
-          expiresAt: data.expiresAt?.toDate?.().toISOString(),
-      };
-  });
-  return { success: true, notices };
+exports.getUserMetadata = onCall(fastConfig, (req) => {
+  throw new HttpsError('unimplemented', '가챠뽑기 시스템으로 재구현 예정입니다.');
 });
 
-
-// ============================================================================
-// 4. 백그라운드 트리거 (Background Triggers)
-// ============================================================================
-
-/**
- * 사용자 프로필의 'bio'가 업데이트되면 자동으로 스타일을 분석합니다.
- */
-exports.analyzeUserProfile = onDocumentUpdated('users/{userId}', async (event) => {
-  const newData = event.data.after.data();
-  const oldData = event.data.before.data();
-  const userId = event.params.userId;
-
-  if (newData.bio && newData.bio !== oldData.bio && newData.bio.length > 50) {
-    console.log(`사용자 ${userId}의 자기소개 변경, 스타일 분석 시작...`);
-    try {
-      const styleProfile = await analyzeBioForStyle(newData.bio);
-      if (styleProfile) {
-        await event.data.after.ref.update({
-          writingStyle: styleProfile,
-          styleLastAnalyzed: new Date(),
-        });
-        console.log(`사용자 ${userId}의 스타일 프로필 저장 완료.`);
-      }
-    } catch (error) {
-      console.error(`사용자 ${userId}의 스타일 프로필 분석 실패:`, error);
-    }
-  }
+// 사용자 프로필 업데이트 트리거 (프로필 핸들러에서 이동)
+exports.analyzeUserProfile = onDocumentUpdated({
+  document: 'users/{userId}',
+  memory: '1GiB',
+  timeoutSeconds: 300
+}, async (event) => {
+  console.log('사용자 프로필 트리거 호출됨 (구현 예정)');
   return null;
 });

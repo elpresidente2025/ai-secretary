@@ -7,10 +7,10 @@
 'use strict';
 
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const functions = require('firebase-functions');
 const { logError } = require('../common/log');
+const { HttpsError } = require('firebase-functions/v2/https');
 
-// Gemini API 키는 환경 변수 또는 Secret Manager를 통해 안전하게 관리됩니다.
+// Gemini API 키는 환경변수를 통해 관리됩니다.
 const API_KEY = process.env.GEMINI_API_KEY;
 
 /**
@@ -23,7 +23,7 @@ const API_KEY = process.env.GEMINI_API_KEY;
 async function callGenerativeModel(prompt, retries = 3) {
   if (!API_KEY) {
     logError('callGenerativeModel', 'Gemini API 키가 설정되지 않았습니다.');
-    throw new functions.https.HttpsError('internal', 'AI 서비스 설정에 오류가 발생했습니다.');
+    throw new HttpsError('internal', 'AI 서비스 설정에 오류가 발생했습니다.');
   }
 
   const genAI = new GoogleGenerativeAI(API_KEY);
@@ -62,7 +62,7 @@ async function callGenerativeModel(prompt, retries = 3) {
       logError('callGenerativeModel', `Gemini API 시도 ${attempt} 실패`, { error: error.message });
       if (attempt === retries) {
         // 마지막 시도에서도 실패하면 에러를 던짐
-        throw new functions.https.HttpsError('unavailable', 'AI 모델 호출에 실패했습니다. 잠시 후 다시 시도해주세요.');
+        throw new HttpsError('unavailable', 'AI 모델 호출에 실패했습니다. 잠시 후 다시 시도해주세요.');
       }
       // 재시도 전 잠시 대기 (Exponential backoff)
       await new Promise(resolve => setTimeout(resolve, 1000 * attempt));

@@ -18,7 +18,7 @@ import {
 } from '@mui/material';
 import { Download, Warning, Error } from '@mui/icons-material';
 import { useAuth } from '../../hooks/useAuth';
-import { callFunctionWithRetry } from '../../services/firebaseService';
+import { getErrorLogs } from '../../services/firebaseService';
 
 function ErrorsMiniTable() {
   const { user } = useAuth();
@@ -31,10 +31,8 @@ function ErrorsMiniTable() {
       setLoading(true);
       setError(null);
       
-      // 직접 getErrorLogs 함수 호출 (getErrors는 존재하지 않음)
-      const result = await callFunctionWithRetry('getErrorLogs', { 
-        limit: 50  // 최근 50건만
-      });
+      // HTTP getErrorLogs 함수 호출
+      const result = await getErrorLogs();
       
       console.log('🔍 에러 로그 조회 결과:', result);
       
@@ -68,10 +66,8 @@ function ErrorsMiniTable() {
     try {
       console.log('📊 에러 로그 CSV 내보내기...');
       
-      // 전체 에러 데이터 가져오기 (1000건) - 직접 getErrorLogs 호출
-      const result = await callFunctionWithRetry('getErrorLogs', { 
-        limit: 1000
-      });
+      // 전체 에러 데이터 가져오기 - HTTP getErrorLogs 호출
+      const result = await getErrorLogs();
 
       console.log('📊 CSV 내보내기용 데이터:', result);
 

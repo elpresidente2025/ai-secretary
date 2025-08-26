@@ -4,9 +4,23 @@
       "Bash(npm run deploy:*)",
       "Bash(firebase deploy:*)",
       "Bash(npm run build:*)",
-      "Bash(firebase functions:log:*)"
+      "Bash(firebase functions:log:*)",
+      "Bash(firebase functions:list:*)",
+      "Bash(firebase firestore:export:*)",
+      "Bash(firebase functions:config:get:*)",
+      "Bash(npm run lint)",
+      "Bash(node:*)",
+      "Bash(curl:*)",
+      "Bash(gcloud functions logs read:*)",
+      "Bash(firebase functions:delete:*)",
+      "Bash(firebase firestore:indexes:*)",
+      "Bash(npm install:*)",
+      "Bash(grep:*)"
     ],
     "deny": [],
-    "ask": []
+    "ask": [],
+    "additionalDirectories": [
+      "E:\\e"
+    ]
   }
 }

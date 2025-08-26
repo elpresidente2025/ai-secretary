@@ -5,13 +5,12 @@
 
 'use strict';
 
-const { onCall } = require('firebase-functions/v2/https');
 const { db, admin } = require('../utils/firebaseAdmin');
 const { wrap } = require('../common/wrap');
 const { ok } = require('../common/response');
 const { auth } = require('../common/auth');
 
-exports.getDashboardData = onCall({ cors: true }, wrap(async (req) => {
+exports.getDashboardData = wrap(async (req) => {
   const { uid } = auth(req);
 
   // 사용량 정보
@@ -51,4 +50,4 @@ exports.getDashboardData = onCall({ cors: true }, wrap(async (req) => {
     usage,
     recentPosts
   });
-}));
+});

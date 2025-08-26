@@ -8,21 +8,17 @@ import {
   Box
 } from '@mui/material';
 import {
-  Search,
-  Article,
   Settings,
   Download,
   People,
   Api
 } from '@mui/icons-material';
-import UserSearchModal from './UserSearchModal';
-import PostSearchModal from './PostSearchModal';
+import UserListModal from './UserListModal';
 import StatusUpdateModal from './StatusUpdateModal';
-import { callFunctionWithRetry } from '../../services/firebaseService';
+import { getAdminStats } from '../../services/firebaseService';
 
 function QuickActions() {
-  const [userSearchOpen, setUserSearchOpen] = useState(false);
-  const [postSearchOpen, setPostSearchOpen] = useState(false);
+  const [userListOpen, setUserListOpen] = useState(false);
   const [statusUpdateOpen, setStatusUpdateOpen] = useState(false);
 
   const exportAllData = async () => {
@@ -33,7 +29,7 @@ function QuickActions() {
       const [usersResult, errorsResult, statsResult] = await Promise.all([
         callFunctionWithRetry('getUsers'),
         callFunctionWithRetry('getErrors', { limit: 1000 }),
-        callFunctionWithRetry('getAdminStats')
+        getAdminStats()
       ]);
 
       // CSV 생성 함수
@@ -113,12 +109,12 @@ function QuickActions() {
         </Typography>
         
         <Grid container spacing={2}>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid item xs={12} sm={6} md={4}>
             <Button
               fullWidth
               variant="outlined"
               startIcon={<People />}
-              onClick={() => setUserSearchOpen(true)}
+              onClick={() => setUserListOpen(true)}
               sx={{ 
                 py: 2,
                 borderColor: '#152484',
@@ -129,31 +125,11 @@ function QuickActions() {
                 }
               }}
             >
-              사용자 찾기
+              사용자 목록
             </Button>
           </Grid>
           
-          <Grid item xs={12} sm={6} md={3}>
-            <Button
-              fullWidth
-              variant="outlined"
-              startIcon={<Article />}
-              onClick={() => setPostSearchOpen(true)}
-              sx={{ 
-                py: 2,
-                borderColor: '#003A87',
-                color: '#003A87',
-                '&:hover': {
-                  borderColor: '#003A87',
-                  backgroundColor: 'rgba(0, 58, 135, 0.04)'
-                }
-              }}
-            >
-              원고 찾기
-            </Button>
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid item xs={12} sm={6} md={4}>
             <Button
               fullWidth
               variant="outlined"
@@ -173,7 +149,7 @@ function QuickActions() {
             </Button>
           </Grid>
           
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid item xs={12} sm={6} md={4}>
             <Button
               fullWidth
               variant="outlined"
@@ -215,13 +191,9 @@ function QuickActions() {
       </Paper>
 
       {/* 모달들 */}
-      <UserSearchModal 
-        open={userSearchOpen} 
-        onClose={() => setUserSearchOpen(false)} 
-      />
-      <PostSearchModal 
-        open={postSearchOpen} 
-        onClose={() => setPostSearchOpen(false)} 
+      <UserListModal 
+        open={userListOpen} 
+        onClose={() => setUserListOpen(false)} 
       />
       <StatusUpdateModal 
         open={statusUpdateOpen} 

@@ -22,7 +22,7 @@ import {
   Api
 } from '@mui/icons-material';
 import { useAuth } from '../../hooks/useAuth';
-import { callFunctionWithRetry } from '../../services/firebaseService';
+import { getAdminStats } from '../../services/firebaseService';
 
 // Gemini 상태 수정 함수
 const handleGeminiStatusUpdate = async (newState) => {
@@ -60,7 +60,7 @@ function DashboardCards() {
         setLoading(true);
         setError(null);
         
-        const result = await callFunctionWithRetry('getAdminStats');
+        const result = await getAdminStats();
         
         console.log('📊 관리자 통계 조회 결과:', result);
         
@@ -104,7 +104,7 @@ function DashboardCards() {
     setError(null);
     
     try {
-      const result = await callFunctionWithRetry('getAdminStats');
+      const result = await getAdminStats();
       
       console.log('🔄 새로고침 결과:', result);
       

@@ -139,7 +139,7 @@ export default function ProfilePage() {
         bio: profile.bio,
       };
       
-      console.log('전송할 데이터:', payload);
+      console.log('전송할 데이터 (전체):', JSON.stringify(payload, null, 2));
       
       const res = await callUpdateProfile(payload);
       console.log('updateProfile 응답:', res);
@@ -159,18 +159,29 @@ export default function ProfilePage() {
       }
       
     } catch (e) {
-      console.error('[updateProfile 오류]', e);
-      
-      // 🔧 선거구 중복 에러를 우선적으로 체크
-      if (e.code === 'functions/already-exists') {
-        setError('해당 선거구에는 이미 등록된 사용자가 있습니다. 다른 선거구를 선택해주세요.');
-        return;
-      }
+      console.error('[updateProfile 오류 - 전체 객체]', {
+        error: e,
+        code: e?.code,
+        message: e?.message,
+        details: e?.details,
+        customData: e?.customData
+      });
       
       // 사용자 친화적인 에러 메시지
       let errorMessage = '저장 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.';
       
-      if (e.code === 'functions/not-found') {
+      // 다양한 경로로 오는 에러 메시지 체크
+      const actualMessage = e?.message || e?.details?.message || '';
+      console.log('[오류 메시지 분석]', { actualMessage });
+      
+      // 선거구 중복 관련 메시지 우선 체크
+      if (actualMessage.includes('선거구') || actualMessage.includes('사용 중') || actualMessage.includes('다른 사용자')) {
+        errorMessage = '해당 선거구는 이미 다른 사용자가 사용 중입니다. 다른 선거구를 선택해주세요.';
+      } else if (e.code === 'functions/already-exists') {
+        errorMessage = '해당 선거구에는 이미 등록된 사용자가 있습니다. 다른 선거구를 선택해주세요.';
+      } else if (e.code === 'functions/failed-precondition') {
+        errorMessage = actualMessage || '선거구 정보 업데이트에 실패했습니다.';
+      } else if (e.code === 'functions/not-found') {
         errorMessage = '일시적으로 서비스에 접속할 수 없습니다. 잠시 후 다시 시도해주세요.';
       } else if (e.code === 'functions/unauthenticated') {
         errorMessage = '로그인이 만료되었습니다. 다시 로그인해주세요.';
@@ -178,8 +189,6 @@ export default function ProfilePage() {
         errorMessage = '서버에 일시적인 문제가 발생했습니다. 잠시 후 다시 시도해주세요.';
       } else if (e.code === 'functions/permission-denied') {
         errorMessage = '권한이 없습니다. 관리자에게 문의해주세요.';
-      } else if (e.code === 'functions/failed-precondition') {
-        errorMessage = '선거구 설정 중 문제가 발생했습니다. 다시 시도해주세요.';
       } else if (e.message && e.message.includes('CORS')) {
         errorMessage = '서비스 연결에 문제가 있습니다. 잠시 후 다시 시도해주세요.';
       } else if (e.details?.message) {

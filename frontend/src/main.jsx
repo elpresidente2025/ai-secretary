@@ -58,10 +58,6 @@ const router = createBrowserRouter([
         element: <AdminRoute><AdminPage /></AdminRoute>,
       },
       {
-        path: 'post/:postId',
-        element: <ProtectedRoute><PostDetailPage /></ProtectedRoute>,
-      },
-      {
         path: 'posts',
         element: <ProtectedRoute><PostsListPage /></ProtectedRoute>,
       },

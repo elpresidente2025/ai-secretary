@@ -38,6 +38,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout';
 import NoticeBanner from '../components/dashboard/NoticeBanner';
+import ElectionDDay from '../components/dashboard/ElectionDDay';
 import { useAuth } from '../hooks/useAuth';
 import { getUserFullTitle, getUserDisplayTitle, getUserRegionInfo, getUserStatusIcon } from '../utils/userUtils';
 import { functions } from '../services/firebase';
@@ -171,7 +172,7 @@ const Dashboard = () => {
   };
 
   const handlePostClick = (postId) => {
-    navigate(`/post/${postId}`);
+    navigate('/posts');
   };
 
   const handleViewBilling = () => {
@@ -517,6 +518,14 @@ const Dashboard = () => {
               )}
             </Paper>
 
+            {/* 선거 일정 카드 */}
+            <Box sx={{ mb: 3 }}>
+              <ElectionDDay 
+                position={user?.position || '기초의원'} 
+                status={user?.status || '현역'} 
+              />
+            </Box>
+
             {/* 다음 인증 일정 카드 */}
             <Paper elevation={1} sx={{ mb: 3 }}>
               <Box sx={{ p: 3 }}>
@@ -708,6 +717,12 @@ const Dashboard = () => {
                     )}
                   </Box>
                 </Paper>
+
+                {/* 선거 일정 */}
+                <ElectionDDay 
+                  position={user?.position || '기초의원'} 
+                  status={user?.status || '현역'} 
+                />
 
                 {/* 당원 인증 상태 */}
                 <Paper elevation={1}>

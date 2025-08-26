@@ -3,9 +3,7 @@
 const { HttpsError } = require('firebase-functions/v2/https');
 const { wrap } = require('../common/wrap');
 const { auth } = require('../common/auth');
-const admin = require('firebase-admin');
-
-const db = admin.firestore();
+const { admin, db } = require('../utils/firebaseAdmin');
 
 // 간단한 응답 헬퍼
 const ok = (data) => ({ success: true, ...data });

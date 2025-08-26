@@ -37,7 +37,7 @@ import {
   Campaign,
   Schedule
 } from '@mui/icons-material';
-import { callFunctionWithRetry } from '../../services/firebaseService';
+import { getNotices } from '../../services/firebaseService';
 
 function NoticeManager() {
   const [notices, setNotices] = useState([]);
@@ -58,7 +58,7 @@ function NoticeManager() {
   const fetchNotices = async () => {
     try {
       setLoading(true);
-      const result = await callFunctionWithRetry('getNotices', { includeInactive: true });
+      const result = await getNotices();
       setNotices(result?.notices || []);
     } catch (error) {
       console.error('공지 조회 실패:', error);

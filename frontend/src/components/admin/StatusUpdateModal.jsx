@@ -18,7 +18,12 @@ import {
   Grid,
   IconButton,
   CircularProgress,
-  Divider
+  Divider,
+  FormControlLabel,
+  Switch,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails
 } from '@mui/material';
 import { 
   Close, 
@@ -26,9 +31,12 @@ import {
   CheckCircle, 
   Warning, 
   Error as ErrorIcon,
-  Refresh
+  Refresh,
+  ExpandMore,
+  Schedule,
+  ContactSupport
 } from '@mui/icons-material';
-import { callFunctionWithRetry } from '../../services/firebaseService';
+import { updateSystemStatus, getSystemStatus } from '../../services/firebaseService';
 
 function StatusUpdateModal({ open, onClose }) {
   const [currentStatus, setCurrentStatus] = useState(null);
@@ -38,6 +46,13 @@ function StatusUpdateModal({ open, onClose }) {
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
+  
+  // 점검 중 페이지 관련 필드들
+  const [maintenanceTitle, setMaintenanceTitle] = useState('시스템 점검 안내');
+  const [maintenanceMessage, setMaintenanceMessage] = useState('');
+  const [estimatedEndTime, setEstimatedEndTime] = useState('');
+  const [contactInfo, setContactInfo] = useState('문의사항이 있으시면 고객센터로 연락해 주세요.');
+  const [allowAdminAccess, setAllowAdminAccess] = useState(true);
 
   // 현재 상태 조회
   const fetchCurrentStatus = async () => {
@@ -45,8 +60,8 @@ function StatusUpdateModal({ open, onClose }) {
     setError(null);
     
     try {
-      const result = await callFunctionWithRetry('getSystemStatus');
-      setCurrentStatus(result?.status || null);
+      const result = await getSystemStatus();
+      setCurrentStatus(result);
     } catch (err) {
       console.error('상태 조회 실패:', err);
       setError('현재 상태를 조회하는데 실패했습니다.');
@@ -79,11 +94,24 @@ function StatusUpdateModal({ open, onClose }) {
     setError(null);
 
     try {
-      await callFunctionWithRetry('updateSystemStatus', {
+      const statusData = {
         status: newStatus,
         reason: reason.trim(),
         timestamp: new Date().toISOString()
-      });
+      };
+
+      // 점검 중인 경우 추가 정보 포함
+      if (newStatus === 'maintenance') {
+        statusData.maintenanceInfo = {
+          title: maintenanceTitle.trim(),
+          message: maintenanceMessage.trim(),
+          estimatedEndTime: estimatedEndTime,
+          contactInfo: contactInfo.trim(),
+          allowAdminAccess: allowAdminAccess
+        };
+      }
+
+      await updateSystemStatus(statusData);
 
       setSuccess(true);
       setCurrentStatus(prev => ({
@@ -171,13 +199,13 @@ function StatusUpdateModal({ open, onClose }) {
                 현재 시스템 상태
               </Typography>
               
-              {currentStatus?.geminiStatus ? (
+              {currentStatus?.status ? (
                 <Grid container spacing={2} alignItems="center">
                   <Grid item>
                     <Chip
-                      icon={getStatusIcon(currentStatus.geminiStatus.state)}
-                      label={getStatusText(currentStatus.geminiStatus.state)}
-                      color={getStatusColor(currentStatus.geminiStatus.state)}
+                      icon={getStatusIcon(currentStatus.status === 'operational' ? 'active' : currentStatus.status)}
+                      label={currentStatus.status === 'operational' ? '정상 운영' : getStatusText(currentStatus.status)}
+                      color={getStatusColor(currentStatus.status === 'operational' ? 'active' : currentStatus.status)}
                     />
                   </Grid>
                   <Grid item>
@@ -197,9 +225,9 @@ function StatusUpdateModal({ open, onClose }) {
                 </Alert>
               )}
 
-              {currentStatus?.lastUpdated && (
+              {currentStatus?.timestamp && (
                 <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                  마지막 업데이트: {new Date(currentStatus.lastUpdated).toLocaleString()}
+                  마지막 조회: {new Date(currentStatus.timestamp).toLocaleString()}
                 </Typography>
               )}
             </Box>
@@ -249,6 +277,96 @@ function StatusUpdateModal({ open, onClose }) {
               placeholder="상태 변경 이유를 입력해주세요..."
               sx={{ mb: 2 }}
             />
+
+            {/* 점검 중 세부 설정 */}
+            {newStatus === 'maintenance' && (
+              <Accordion sx={{ mb: 2 }}>
+                <AccordionSummary
+                  expandIcon={<ExpandMore />}
+                  aria-controls="maintenance-settings-content"
+                  id="maintenance-settings-header"
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Warning color="warning" />
+                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                      점검 중 페이지 설정
+                    </Typography>
+                  </Box>
+                </AccordionSummary>
+                <AccordionDetails>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12}>
+                      <TextField
+                        fullWidth
+                        label="점검 안내 제목"
+                        value={maintenanceTitle}
+                        onChange={(e) => setMaintenanceTitle(e.target.value)}
+                        placeholder="시스템 점검 안내"
+                      />
+                    </Grid>
+                    
+                    <Grid item xs={12}>
+                      <TextField
+                        fullWidth
+                        multiline
+                        rows={4}
+                        label="점검 안내 메시지"
+                        value={maintenanceMessage}
+                        onChange={(e) => setMaintenanceMessage(e.target.value)}
+                        placeholder="더 나은 서비스 제공을 위해 시스템 점검을 진행하고 있습니다..."
+                      />
+                    </Grid>
+                    
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        type="datetime-local"
+                        label="예상 복구 시간"
+                        value={estimatedEndTime}
+                        onChange={(e) => setEstimatedEndTime(e.target.value)}
+                        InputLabelProps={{
+                          shrink: true,
+                        }}
+                        InputProps={{
+                          startAdornment: <Schedule sx={{ mr: 1, color: 'action.active' }} />
+                        }}
+                      />
+                    </Grid>
+                    
+                    <Grid item xs={12} sm={6}>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={allowAdminAccess}
+                            onChange={(e) => setAllowAdminAccess(e.target.checked)}
+                            color="primary"
+                          />
+                        }
+                        label="점검 페이지에 관리자 버튼 표시"
+                      />
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                        관리자는 항상 접근 가능하며, 이 옵션은 점검 페이지에 관리자 버튼 표시 여부를 설정합니다.
+                      </Typography>
+                    </Grid>
+                    
+                    <Grid item xs={12}>
+                      <TextField
+                        fullWidth
+                        multiline
+                        rows={2}
+                        label="문의 안내"
+                        value={contactInfo}
+                        onChange={(e) => setContactInfo(e.target.value)}
+                        placeholder="문의사항이 있으시면 고객센터로 연락해 주세요."
+                        InputProps={{
+                          startAdornment: <ContactSupport sx={{ mr: 1, color: 'action.active', alignSelf: 'flex-start', mt: 1 }} />
+                        }}
+                      />
+                    </Grid>
+                  </Grid>
+                </AccordionDetails>
+              </Accordion>
+            )}
 
             {/* 예시 사유 */}
             <Box sx={{ mb: 2 }}>

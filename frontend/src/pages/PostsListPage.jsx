@@ -72,20 +72,34 @@ export default function PostsListPage() {
 
   useEffect(() => {
     let mounted = true;
+    console.log('📋 PostsListPage useEffect 실행 중...', { user: !!user, uid: user?.uid });
     (async () => {
       try {
+        console.log('🔄 getUserPosts 호출 시작...');
         setLoading(true);
         if (!user?.uid) {
+          console.log('❌ 사용자 UID 없음');
           setError('사용자 정보를 불러올 수 없습니다. 다시 로그인해주세요.');
           return;
         }
+        
+        console.log('🚀 Firebase Functions 호출:', { uid: user.uid });
         const res = await callGetUserPosts();
+        console.log('✅ getUserPosts 응답:', res);
         const list = res?.data?.posts || [];
+        console.log('📝 처리된 posts 목록:', list);
+        console.log('📝 posts 개수:', list.length);
+        console.log('📝 첫 번째 post:', list[0]);
         if (!mounted) return;
         setPosts(list);
       } catch (e) {
-        console.error(e);
-        setError('목록을 불러오지 못했습니다.');
+        console.error('❌ getUserPosts 에러:', e);
+        console.error('❌ 에러 세부사항:', {
+          message: e.message,
+          code: e.code,
+          stack: e.stack
+        });
+        setError('목록을 불러오지 못했습니다: ' + e.message);
       } finally {
         if (mounted) setLoading(false);
       }

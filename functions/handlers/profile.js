@@ -8,12 +8,11 @@
 'use strict';
 
 const { HttpsError } = require('firebase-functions/v2/https');
-const { onCall } = require('firebase-functions/v2/https');
 const { onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const { wrap } = require('../common/wrap');
 const { ok } = require('../common/response');
 const { auth } = require('../common/auth');
-const { log } = require('../common/log');
+const { logInfo } = require('../common/log');
 const { admin, db } = require('../utils/firebaseAdmin');
 const {
   districtKey,
@@ -30,9 +29,9 @@ const { analyzeBioForStyle } = require('../services/style-analysis');
 /**
  * 사용자 프로필 조회
  */
-exports.getUserProfile = onCall({ cors: true }, wrap(async (req) => {
+exports.getUserProfile = wrap(async (req) => {
   const { uid, token } = auth(req);
-  log('PROFILE', 'getUserProfile 호출', { userId: uid });
+  logInfo('getUserProfile 호출', { userId: uid });
 
   const userDoc = await db.collection('users').doc(uid).get();
 
@@ -49,21 +48,21 @@ exports.getUserProfile = onCall({ cors: true }, wrap(async (req) => {
 
   if (userDoc.exists) profile = { ...profile, ...(userDoc.data() || {}) };
 
-  log('PROFILE', '성공');
+  logInfo('getUserProfile 성공', { userId: uid });
   return ok({ profile });
-}));
+});
 
 /**
  * 프로필 업데이트 (+ 선거구 유일성 락)
  */
-exports.updateProfile = onCall({ cors: true }, wrap(async (req) => {
-  const { uid } = auth(req);
+exports.updateProfile = wrap(async (req) => {
+  const { uid, token } = auth(req);
   const profileData = req.data;
   if (!profileData || typeof profileData !== 'object') {
     throw new HttpsError('invalid-argument', '올바른 프로필 데이터를 입력해주세요.');
   }
 
-  log('PROFILE', 'updateProfile 호출', { userId: uid });
+  logInfo('updateProfile 호출', { userId: uid, email: token?.email });
 
   const allowed = [
     'name', 'position', 'regionMetro', 'regionLocal',
@@ -88,15 +87,28 @@ exports.updateProfile = onCall({ cors: true }, wrap(async (req) => {
     ? districtKey(nextFields)
     : null;
 
-  if (newKey && newKey !== oldKey) {
+  console.log('🔍 [DEBUG] 선거구 키 생성 결과:', { 
+    uid, 
+    oldKey, 
+    newKey, 
+    nextFields,
+    willCheckDistrict: !!(newKey && newKey !== oldKey),
+    timestamp: new Date().toISOString()
+  });
+
+  if (newKey) {
     try {
+      console.log('🔒 선거구 점유 시도 중...', { uid, newKey, oldKey });
       await claimDistrict({ uid, newKey, oldKey });
+      console.log('🧹 중복 점유자 정리 중...', { uid, newKey });
       await scrubDuplicateHolders({ key: newKey, ownerUid: uid });
-      log('PROFILE', '선거구 변경 성공', { oldKey, newKey });
+      logInfo('선거구 점유 성공', { oldKey, newKey, changed: oldKey !== newKey });
     } catch (e) {
-      console.error('[updateProfile][claimDistrict]', { uid, oldKey, newKey, msg: e?.message });
+      console.error('❌ [updateProfile][claimDistrict] 실패:', { uid, oldKey, newKey, error: e?.message, code: e?.code });
       throw new HttpsError('failed-precondition', e?.message || '선거구 점유 중 오류');
     }
+  } else {
+    console.log('ℹ️ 선거구 키 생성 불가', { oldKey, newKey, hasAllFields: !!(nextFields.position && nextFields.regionMetro && nextFields.regionLocal && nextFields.electoralDistrict) });
   }
 
   const bio = typeof sanitized.bio === 'string' ? sanitized.bio.trim() : '';
@@ -108,6 +120,7 @@ exports.updateProfile = onCall({ cors: true }, wrap(async (req) => {
   await userRef.set(
     {
       ...sanitized,
+      email: token?.email || null, // Firebase Auth에서 이메일 가져와서 저장
       bio,
       isActive,
       districtKey: newKey ?? oldKey,
@@ -116,14 +129,14 @@ exports.updateProfile = onCall({ cors: true }, wrap(async (req) => {
     { merge: true }
   );
 
-  log('PROFILE', 'updateProfile 성공', { isActive });
+  logInfo('updateProfile 성공', { isActive });
   return ok({ message: '프로필이 성공적으로 업데이트되었습니다.', isActive });
-}));
+});
 
 /**
  * 가입 전 선거구 중복 확인
  */
-exports.checkDistrictAvailability = onCall({ cors: true }, wrap(async (req) => {
+exports.checkDistrictAvailability = wrap(async (req) => {
   const { regionMetro, regionLocal, electoralDistrict, position } = req.data || {};
   if (!regionMetro || !regionLocal || !electoralDistrict || !position) {
     throw new HttpsError('invalid-argument', '지역/선거구/직책을 모두 입력해주세요.');
@@ -131,19 +144,19 @@ exports.checkDistrictAvailability = onCall({ cors: true }, wrap(async (req) => {
   const newKey = districtKey({ position, regionMetro, regionLocal, electoralDistrict });
   const excludeUid = req.auth?.uid;
   const result = await checkDistrictAvailabilityService({ newKey, excludeUid });
-  log('DISTRICT_CHECK', '성공', { newKey, available: result.available });
+  logInfo('선거구 중복 확인 성공', { newKey, available: result.available });
   return ok(result);
-}));
+});
 
 /**
  * 회원가입 + 선거구 중복 검사
  */
-exports.registerWithDistrictCheck = onCall({ cors: true }, wrap(async (req) => {
-  const { uid } = auth(req);
+exports.registerWithDistrictCheck = wrap(async (req) => {
+  const { uid, token } = auth(req);
   const { profileData } = req.data || {};
   if (!profileData) throw new HttpsError('invalid-argument', '프로필 데이터가 필요합니다.');
 
-  log('REGISTER', 'registerWithDistrictCheck 호출', { userId: uid });
+  logInfo('registerWithDistrictCheck 호출', { userId: uid, email: token?.email });
 
   const { position, regionMetro, regionLocal, electoralDistrict } = profileData;
   if (!position || !regionMetro || !regionLocal || !electoralDistrict) {
@@ -168,6 +181,7 @@ exports.registerWithDistrictCheck = onCall({ cors: true }, wrap(async (req) => {
   await db.collection('users').doc(uid).set(
     {
       ...sanitizedProfileData,
+      email: token?.email || null, // Firebase Auth에서 이메일 가져오기
       bio,
       isActive,
       districtKey: newKey,
@@ -177,9 +191,9 @@ exports.registerWithDistrictCheck = onCall({ cors: true }, wrap(async (req) => {
     { merge: true }
   );
 
-  log('REGISTER', '성공', { newKey, isActive });
+  logInfo('회원가입 성공', { newKey, isActive });
   return ok({ message: '회원가입이 완료되었습니다.', isActive });
-}));
+});
 
 
 // ============================================================================

@@ -94,15 +94,27 @@ export const logError = async (error, context = '', metadata = {}) => {
 };
 
 /**
- * 시스템 상태 확인
+ * 시스템 상태 확인 (HTTP 요청으로 변경)
  * @returns {Promise<object>} 시스템 상태 정보
  */
 export const getSystemStatus = async () => {
   try {
-    return await callFunctionWithRetry('getSystemStatus');
+    const response = await fetch('https://asia-northeast3-ai-secretary-6e9c8.cloudfunctions.net/getSystemStatus', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({})
+    });
+    
+    const result = await response.json();
+    console.log('✅ getSystemStatus HTTP 호출 성공:', result);
+    
+    return result;
   } catch (error) {
     console.error('시스템 상태 확인 실패:', error);
     return {
+      success: false,
       status: 'unknown',
       message: '상태를 확인할 수 없습니다.'
     };
@@ -110,23 +122,27 @@ export const getSystemStatus = async () => {
 };
 
 /**
- * 관리자 통계 조회
+ * 관리자 통계 조회 (HTTP 요청으로 변경)
  * @returns {Promise<object>} 관리자 통계 데이터
  */
 export const getAdminStats = async () => {
   try {
-    const result = await callFunctionWithRetry('getAdminStats');
+    const response = await fetch('https://asia-northeast3-ai-secretary-6e9c8.cloudfunctions.net/getAdminStats', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({})
+    });
     
-    // 응답 구조 정규화
-    if (result.success && result.data) {
-      return { stats: result.data };
-    }
+    const result = await response.json();
+    console.log('✅ getAdminStats HTTP 호출 성공:', result);
     
-    // 직접 stats 객체가 반환되는 경우도 처리
-    return { stats: result };
+    return result;
   } catch (error) {
     console.error('관리자 통계 조회 실패:', error);
     return {
+      success: false,
       stats: {
         todaySuccess: 0,
         todayFail: 0,
@@ -139,12 +155,86 @@ export const getAdminStats = async () => {
 };
 
 /**
- * 사용자 목록 조회
+ * 에러 로그 조회 (HTTP 요청으로 변경)
+ * @returns {Promise<object>} 에러 로그 데이터
+ */
+export const getErrorLogs = async () => {
+  try {
+    const response = await fetch('https://asia-northeast3-ai-secretary-6e9c8.cloudfunctions.net/getErrorLogs', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({})
+    });
+    
+    const result = await response.json();
+    console.log('✅ getErrorLogs HTTP 호출 성공:', result);
+    
+    return result;
+  } catch (error) {
+    console.error('에러 로그 조회 실패:', error);
+    return {
+      success: false,
+      message: '에러 로그를 불러올 수 없습니다.'
+    };
+  }
+};
+
+/**
+ * 공지사항 조회 (HTTP 요청으로 변경)
+ * @returns {Promise<object>} 공지사항 데이터
+ */
+export const getNotices = async () => {
+  try {
+    const response = await fetch('https://asia-northeast3-ai-secretary-6e9c8.cloudfunctions.net/getNotices', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({})
+    });
+    
+    const result = await response.json();
+    console.log('✅ getNotices HTTP 호출 성공:', result);
+    
+    return result;
+  } catch (error) {
+    console.error('공지사항 조회 실패:', error);
+    return {
+      success: false,
+      notices: []
+    };
+  }
+};
+
+/**
+ * 사용자 목록 조회 (HTTP 요청으로 변경)
  * @param {object} params - 조회 파라미터
  * @returns {Promise<object>} 사용자 목록
  */
 export const getUsers = async (params = {}) => {
-  return await callFunctionWithRetry('getUsers', params);
+  try {
+    const response = await fetch('https://asia-northeast3-ai-secretary-6e9c8.cloudfunctions.net/getUsers', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(params)
+    });
+    
+    const result = await response.json();
+    console.log('✅ getUsers HTTP 호출 성공:', result);
+    
+    return result;
+  } catch (error) {
+    console.error('사용자 목록 조회 실패:', error);
+    return {
+      success: false,
+      users: [],
+      total: 0
+    };
+  }
 };
 
 /**
@@ -202,12 +292,31 @@ export const getUserDetail = async (userEmail) => {
 };
 
 /**
- * 시스템 상태 업데이트
+ * 시스템 상태 업데이트 (HTTP 요청으로 변경)
  * @param {object} statusData - 상태 데이터
  * @returns {Promise<object>} 업데이트 결과
  */
 export const updateSystemStatus = async (statusData) => {
-  return await callFunctionWithRetry('updateSystemStatus', statusData);
+  try {
+    const response = await fetch('https://asia-northeast3-ai-secretary-6e9c8.cloudfunctions.net/updateSystemStatus', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(statusData)
+    });
+    
+    const result = await response.json();
+    console.log('✅ updateSystemStatus HTTP 호출 성공:', result);
+    
+    return result;
+  } catch (error) {
+    console.error('시스템 상태 업데이트 실패:', error);
+    return {
+      success: false,
+      message: '시스템 상태 업데이트에 실패했습니다: ' + error.message
+    };
+  }
 };
 
 /**
