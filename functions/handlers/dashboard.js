@@ -42,7 +42,10 @@ exports.getDashboardData = wrap(async (req) => {
       title: data.title || '제목 없음',
       category: data.options?.category || '일반',
       status: data.status || 'draft',
-      createdAt: data.createdAt?.toDate?.().toISOString() || new Date().toISOString()
+      content: data.content || '', // content 필드 추가
+      wordCount: data.wordCount || 0, // 추가로 wordCount도 포함
+      createdAt: data.createdAt?.toDate?.().toISOString() || new Date().toISOString(),
+      updatedAt: data.updatedAt?.toDate?.().toISOString() || null // updatedAt도 추가
     });
   });
 

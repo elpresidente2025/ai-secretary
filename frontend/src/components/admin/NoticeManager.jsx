@@ -202,7 +202,7 @@ function NoticeManager() {
           onClick={() => handleOpenDialog()}
           sx={{ 
             backgroundColor: '#152484',
-            '&:hover': { backgroundColor: '#1a2a9e' }
+            '&:hover': { backgroundColor: '#003A87' }
           }}
         >
           공지 작성
@@ -417,7 +417,7 @@ function NoticeManager() {
             onClick={handleSave}
             sx={{ 
               backgroundColor: '#152484',
-              '&:hover': { backgroundColor: '#1a2a9e' }
+              '&:hover': { backgroundColor: '#003A87' }
             }}
           >
             {editingNotice ? '수정' : '작성'}

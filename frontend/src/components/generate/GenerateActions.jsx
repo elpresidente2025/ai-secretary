@@ -8,7 +8,7 @@ import {
   CircularProgress,
   Alert
 } from '@mui/material';
-import { AutoAwesome, Refresh } from '@mui/icons-material';
+import { AutoAwesome, Refresh, EmojiEvents } from '@mui/icons-material';
 
 export default function GenerateActions({
   onGenerate,
@@ -18,7 +18,9 @@ export default function GenerateActions({
   attempts = 0,
   maxAttempts = 3,
   drafts = [],
-  isMobile = false
+  isMobile = false,
+  bonusStats = { hasBonus: false, availableBonus: 0 },
+  onBonusGenerate
 }) {
   const attemptsRemaining = maxAttempts - attempts;
 
@@ -43,7 +45,7 @@ export default function GenerateActions({
             variant="contained"
             size={isMobile ? "medium" : "large"}
             startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <AutoAwesome />}
-            onClick={onGenerate}
+            onClick={() => onGenerate(false)}
             disabled={!canGenerate || loading}
             sx={{ 
               minWidth: isMobile ? 'auto' : 160,
@@ -52,6 +54,25 @@ export default function GenerateActions({
           >
             {loading ? '생성 중...' : attempts === 0 ? '새 원고 생성' : '다른 버전 생성'}
           </Button>
+
+          {/* 보너스 생성 버튼 */}
+          {bonusStats.hasBonus && (
+            <Button
+              variant="contained"
+              size={isMobile ? "medium" : "large"}
+              startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <EmojiEvents />}
+              onClick={() => onGenerate(true)}
+              disabled={!canGenerate || loading}
+              sx={{ 
+                minWidth: isMobile ? 'auto' : 140,
+                bgcolor: '#006261',
+                '&:hover': { bgcolor: '#003A87' },
+                flex: isMobile ? 1 : 'none'
+              }}
+            >
+              보너스 생성 ({bonusStats.availableBonus})
+            </Button>
+          )}
 
           {drafts.length > 0 && (
             <Button

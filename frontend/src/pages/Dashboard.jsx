@@ -20,7 +20,12 @@ import {
   Chip,
   LinearProgress,
   Card,
-  CardContent
+  CardContent,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Snackbar
 } from '@mui/material';
 import {
   Create,
@@ -33,12 +38,15 @@ import {
   CheckCircle,
   Warning,
   CreditCard,
-  Schedule
+  Schedule,
+  ContentCopy,
+  DeleteOutline
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout';
 import NoticeBanner from '../components/dashboard/NoticeBanner';
 import ElectionDDay from '../components/dashboard/ElectionDDay';
+import PublishingProgress from '../components/dashboard/PublishingProgress';
 import { useAuth } from '../hooks/useAuth';
 import { getUserFullTitle, getUserDisplayTitle, getUserRegionInfo, getUserStatusIcon } from '../utils/userUtils';
 import { functions } from '../services/firebase';
@@ -56,6 +64,11 @@ const Dashboard = () => {
   const [notices, setNotices] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // 모달 관리
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerPost, setViewerPost] = useState(null);
+  const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
 
   // 사용자 정보
   const userTitle = getUserFullTitle(user);
@@ -85,51 +98,72 @@ const Dashboard = () => {
 
   const planColor = getPlanColor(planName);
 
+  // 데이터 로딩 함수 (재사용 가능하도록 분리)
+  const fetchDashboardData = async () => {
+    if (!user?.uid) return;
+    
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      console.log('🔥 Dashboard 데이터 로딩 시작');
+      
+      // 사용량 정보와 포스트 목록을 별도로 호출
+      const getDashboardDataFn = httpsCallable(functions, 'getDashboardData');
+      const getUserPostsFn = httpsCallable(functions, 'getUserPosts');
+      
+      // 병렬로 두 함수 호출
+      const [dashboardResponse, postsResponse] = await Promise.all([
+        getDashboardDataFn(),
+        getUserPostsFn()
+      ]);
+      
+      console.log('✅ Dashboard 응답:', dashboardResponse.data);
+      console.log('✅ Posts 응답:', postsResponse.data);
+      
+      const dashboardData = dashboardResponse.data;
+      const postsData = postsResponse.data?.posts || [];
+      
+      // 사용량 정보 설정
+      setUsage(dashboardData.usage || { postsGenerated: 0, monthlyLimit: 50 });
+      
+      // 히스토리 페이지와 동일한 포스트 목록 사용 (최신순으로 정렬)
+      const sortedPosts = postsData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      setRecentPosts(sortedPosts);
+      
+    } catch (err) {
+      console.error('❌ Dashboard: 데이터 요청 실패:', err);
+      
+      // 에러 처리
+      let errorMessage = '데이터를 불러오는 데 실패했습니다.';
+      if (err.code === 'functions/unauthenticated') {
+        errorMessage = '로그인이 필요합니다.';
+      } else if (err.code === 'functions/internal') {
+        errorMessage = '서버에서 오류가 발생했습니다.';
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // 실제 데이터 로딩
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      if (!user?.uid) return;
-      
-      setIsLoading(true);
-      setError(null);
+    fetchDashboardData();
+  }, [user]);
 
-      try {
-        console.log('🔥 Dashboard 데이터 로딩 시작');
-        
-        // Firebase Functions 호출
-        const getDashboardDataFn = httpsCallable(functions, 'getDashboardData');
-        const response = await getDashboardDataFn();
-        
-        console.log('✅ Dashboard 응답:', response.data);
-        
-        const dashboardData = response.data;
-        
-        // 사용량 정보 설정
-        setUsage(dashboardData.usage || { postsGenerated: 0, monthlyLimit: 50 });
-        
-        // 최근 포스트 설정
-        setRecentPosts(dashboardData.recentPosts || []);
-        
-      } catch (err) {
-        console.error('❌ Dashboard: 데이터 요청 실패:', err);
-        
-        // 에러 처리
-        let errorMessage = '데이터를 불러오는 데 실패했습니다.';
-        if (err.code === 'functions/unauthenticated') {
-          errorMessage = '로그인이 필요합니다.';
-        } else if (err.code === 'functions/internal') {
-          errorMessage = '서버에서 오류가 발생했습니다.';
-        } else if (err.message) {
-          errorMessage = err.message;
-        }
-        
-        setError(errorMessage);
-      } finally {
-        setIsLoading(false);
-      }
+  // 페이지 포커스 시 데이터 새로고침 (새 포스트 생성 후 대시보드 복귀 시)
+  useEffect(() => {
+    const handleFocus = () => {
+      console.log('🔄 Dashboard 페이지 포커스 - 데이터 새로고침');
+      fetchDashboardData();
     };
 
-    fetchDashboardData();
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
   }, [user]);
 
   // 공지사항 별도 로딩 (대시보드 데이터와 독립적으로)
@@ -171,12 +205,86 @@ const Dashboard = () => {
     navigate('/posts');
   };
 
-  const handlePostClick = (postId) => {
-    navigate('/posts');
-  };
-
   const handleViewBilling = () => {
     navigate('/billing');
+  };
+
+  // 유틸리티 함수들 (PostsListPage에서 가져옴)
+  const formatDate = (iso) => {
+    try {
+      if (!iso) return '-';
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return '-';
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mm = String(d.getMinutes()).padStart(2, '0');
+      return `${y}-${m}-${day} ${hh}:${mm}`;
+    } catch {
+      return '-';
+    }
+  };
+
+  const stripHtml = (html = '') => {
+    try {
+      return html.replace(/<[^>]*>/g, '');
+    } catch {
+      return html || '';
+    }
+  };
+
+  // 모달 관련 함수들
+  const openViewer = (post) => {
+    setViewerPost(post);
+    setViewerOpen(true);
+  };
+
+  const closeViewer = () => {
+    setViewerOpen(false);
+    setViewerPost(null);
+  };
+
+  const handlePostClick = (postId) => {
+    const post = recentPosts.find(p => p.id === postId);
+    if (post) {
+      openViewer(post);
+    }
+  };
+
+  const handleCopy = (content, e) => {
+    if (e) e.stopPropagation();
+    try {
+      const text = stripHtml(content);
+      navigator.clipboard.writeText(text);
+      setSnack({ open: true, message: '클립보드에 복사되었습니다!', severity: 'success' });
+    } catch (err) {
+      console.error(err);
+      setSnack({ open: true, message: '복사에 실패했습니다.', severity: 'error' });
+    }
+  };
+
+  const handleDelete = async (postId, e) => {
+    if (e) e.stopPropagation();
+    if (!postId) return;
+    const ok = window.confirm('정말 이 원고를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.');
+    if (!ok) return;
+    try {
+      const callDeletePost = httpsCallable(functions, 'deletePost');
+      await callDeletePost({ postId });
+      
+      // 대시보드의 최근 포스트 목록에서 제거
+      setRecentPosts((prev) => prev.filter((p) => p.id !== postId));
+      
+      setSnack({ open: true, message: '삭제되었습니다.', severity: 'info' });
+      if (viewerPost?.id === postId) {
+        setViewerOpen(false);
+        setViewerPost(null);
+      }
+    } catch (err) {
+      console.error(err);
+      setSnack({ open: true, message: '삭제에 실패했습니다.', severity: 'error' });
+    }
   };
 
   // 사용량 퍼센트 계산
@@ -211,11 +319,39 @@ const Dashboard = () => {
     );
   }
 
+  // 자기소개 완성 여부 확인
+  const hasBio = user?.bio && user.bio.trim().length > 0;
+  const showBioAlert = !hasBio && !isAdmin;
+
   return (
     <DashboardLayout>
       <Container maxWidth="xl" sx={{ py: 4, px: { xs: 2, md: 4 } }}>
         {/* 공지사항 배너 - 최상단에 위치 */}
         <NoticeBanner />
+        
+        {/* 자기소개 미작성 알림 */}
+        {showBioAlert && (
+          <Alert 
+            severity="warning" 
+            sx={{ mb: 3 }}
+            action={
+              <Button 
+                color="inherit" 
+                size="small" 
+                onClick={() => navigate('/profile')}
+              >
+                작성하기
+              </Button>
+            }
+          >
+            <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+              프로필 설정이 완료되지 않았습니다
+            </Typography>
+            <Typography variant="body2">
+              AI 원고 생성 등 일부 기능을 이용하려면 자기소개 작성이 필요합니다.
+            </Typography>
+          </Alert>
+        )}
         
         {/* 인사말 + 플랜 카드 */}
         <Paper 
@@ -456,7 +592,7 @@ const Dashboard = () => {
             <Paper elevation={1} sx={{ mb: 3 }}>
               <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
                 <Typography variant="h6" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center' }}>
-                  <Notifications sx={{ mr: 1, color: '#e91e63' }} />
+                  <Notifications sx={{ mr: 1, color: '#55207D' }} />
                   공지사항
                 </Typography>
               </Box>
@@ -518,6 +654,11 @@ const Dashboard = () => {
               )}
             </Paper>
 
+            {/* 발행 진행률 카드 */}
+            <Box sx={{ mb: 3 }}>
+              <PublishingProgress />
+            </Box>
+
             {/* 선거 일정 카드 */}
             <Box sx={{ mb: 3 }}>
               <ElectionDDay 
@@ -566,7 +707,7 @@ const Dashboard = () => {
               {recentPosts.length > 0 ? (
                 <>
                   <List>
-                    {recentPosts.slice(0, 3).map((post, index) => (
+                    {recentPosts.slice(0, 5).map((post, index) => (
                       <React.Fragment key={post.id}>
                         <ListItem 
                           button 
@@ -582,7 +723,7 @@ const Dashboard = () => {
                             </IconButton>
                           </ListItemSecondaryAction>
                         </ListItem>
-                        {index < Math.min(recentPosts.length, 3) - 1 && <Divider />}
+                        {index < Math.min(recentPosts.length, 5) - 1 && <Divider />}
                       </React.Fragment>
                     ))}
                   </List>
@@ -650,11 +791,14 @@ const Dashboard = () => {
             {/* 우측: 사이드바 카드들 */}
             <Grid item xs={12} md={6}>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                {/* 발행 진행률 카드 */}
+                <PublishingProgress />
+
                 {/* 공지사항 카드 - 항상 표시 */}
                 <Paper elevation={1}>
                   <Box sx={{ p: 3 }}>
                     <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
-                      <Notifications sx={{ mr: 1, color: '#e91e63' }} />
+                      <Notifications sx={{ mr: 1, color: '#55207D' }} />
                       공지사항
                     </Typography>
                     
@@ -675,7 +819,7 @@ const Dashboard = () => {
                                 border: '1px solid', 
                                 borderColor: 'divider',
                                 borderRadius: 1,
-                                bgcolor: notice.priority === 'high' ? '#ffebee' : 'background.paper'
+                                bgcolor: notice.priority === 'high' ? '#55207D20' : 'background.paper'
                               }}
                             >
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
@@ -757,6 +901,59 @@ const Dashboard = () => {
           </Grid>
         )}
       </Container>
+
+      {/* 원고 보기 모달 */}
+      <Dialog open={viewerOpen} onClose={closeViewer} fullWidth maxWidth="md">
+        <DialogTitle sx={{ pr: 2 }}>
+          {viewerPost?.title || '제목 없음'}
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+            생성일 {formatDate(viewerPost?.createdAt)} · 수정일 {formatDate(viewerPost?.updatedAt)}
+          </Typography>
+        </DialogTitle>
+        <DialogContent dividers>
+          <Box
+            sx={{
+              '& p': { my: 1 },
+              '& h1, & h2, & h3': { mt: 2, mb: 1 },
+              fontSize: '0.95rem',
+              lineHeight: 1.7,
+              maxHeight: '70vh',
+              overflow: 'auto',
+              bgcolor: 'grey.50',
+              p: 2,
+              borderRadius: 1,
+              border: '1px solid',
+              borderColor: 'grey.200',
+            }}
+            dangerouslySetInnerHTML={{ __html: viewerPost?.content || '<p>내용이 없습니다.</p>' }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={(e) => handleCopy(viewerPost?.content || '', e)} startIcon={<ContentCopy />}>
+            복사
+          </Button>
+          <Button onClick={(e) => handleDelete(viewerPost?.id, e)} color="error" startIcon={<DeleteOutline />}>
+            삭제
+          </Button>
+          <Button onClick={closeViewer} variant="contained">닫기</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 스낵바 */}
+      <Snackbar
+        open={snack.open}
+        autoHideDuration={4000}
+        onClose={() => setSnack((s) => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setSnack((s) => ({ ...s, open: false }))}
+          severity={snack.severity}
+          sx={{ width: '100%' }}
+        >
+          {snack.message}
+        </Alert>
+      </Snackbar>
     </DashboardLayout>
   );
 };

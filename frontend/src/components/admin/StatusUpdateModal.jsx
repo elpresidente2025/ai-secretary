@@ -420,7 +420,7 @@ function StatusUpdateModal({ open, onClose }) {
           disabled={updating || !newStatus || !reason.trim() || success}
           sx={{ 
             backgroundColor: '#152484',
-            '&:hover': { backgroundColor: '#1a2a9e' }
+            '&:hover': { backgroundColor: '#003A87' }
           }}
         >
           {updating ? (

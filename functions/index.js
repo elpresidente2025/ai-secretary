@@ -15,9 +15,17 @@ setGlobalOptions({ region: 'asia-northeast3' });
 // 각 핸들러 모듈 임포트
 const postsHandler = require('./handlers/posts');
 const profileHandler = require('./handlers/profile');
+const bioHandler = require('./handlers/bio');
 const dashboardHandler = require('./handlers/dashboard');
 const noticesHandler = require('./handlers/notices');
 const adminHandler = require('./handlers/admin');
+const performanceHandler = require('./handlers/performance');
+const publishingHandler = require('./handlers/publishing');
+const adminUsersHandler = require('./handlers/admin-users');
+
+// 스크래핑 테스트 함수들
+const { testElectionScraping, checkCacheStatus, refreshCache } = require('./handlers/test-scraper');
+const { debugElection } = require('./handlers/debug-election');
 
 // 기본 함수 설정 (메모리와 타임아웃 최적화)
 const defaultConfig = {
@@ -49,8 +57,18 @@ exports.generatePosts = postsHandler.generatePosts;
 // 프로필 관련 함수들 (이미 wrap으로 onCall이 적용됨)
 exports.getUserProfile = profileHandler.getUserProfile;
 exports.updateProfile = profileHandler.updateProfile;
+exports.updateUserPlan = profileHandler.updateUserPlan;
 exports.checkDistrictAvailability = profileHandler.checkDistrictAvailability;
 exports.registerWithDistrictCheck = profileHandler.registerWithDistrictCheck;
+
+// Bio 관련 함수들 (새로 추가)
+exports.getUserBio = bioHandler.getUserBio;
+exports.updateUserBio = bioHandler.updateUserBio;
+exports.updateBioEntry = bioHandler.updateBioEntry;
+exports.deleteBioEntry = bioHandler.deleteBioEntry;
+exports.deleteUserBio = bioHandler.deleteUserBio;
+exports.reanalyzeBioMetadata = bioHandler.reanalyzeBioMetadata;
+exports.onBioUpdate = bioHandler.onBioUpdate;
 
 // 대시보드 관련 함수들 (이미 wrap으로 onCall이 적용됨)
 exports.getDashboardData = dashboardHandler.getDashboardData;
@@ -60,6 +78,27 @@ exports.getActiveNotices = noticesHandler.getActiveNotices;
 
 // 관리자 관련 함수들 (이미 wrap으로 onCall이 적용됨)
 exports.syncDistrictKey = adminHandler.syncDistrictKey;
+
+// 스크래핑 테스트 함수들 (개발/테스트용)
+exports.testElectionScraping = testElectionScraping;
+exports.checkCacheStatus = checkCacheStatus;
+exports.refreshCache = refreshCache;
+exports.debugElection = debugElection;
+
+// 성능 모니터링 관련 함수들
+exports.getPerformanceMetrics = performanceHandler.getPerformanceMetrics;
+
+// 발행 및 게이미피케이션 관련 함수들
+exports.publishPost = publishingHandler.publishPost;
+exports.getPublishingStats = publishingHandler.getPublishingStats;
+exports.checkBonusEligibility = publishingHandler.checkBonusEligibility;
+exports.useBonusGeneration = publishingHandler.useBonusGeneration;
+
+// 관리자 사용자 관리 함수들
+exports.getAllUsers = adminUsersHandler.getAllUsers;
+exports.deactivateUser = adminUsersHandler.deactivateUser;
+exports.reactivateUser = adminUsersHandler.reactivateUser;
+exports.deleteUser = adminUsersHandler.deleteUser;
 
 // 관리자 전용 함수들 (HTTP 함수로 변경하여 CORS 문제 해결)
 const { onRequest } = require('firebase-functions/v2/https');
@@ -509,21 +548,10 @@ exports.updateSystemStatus = onRequest({
 });
 
 // 기존 함수들의 호환성을 위한 간단한 구현
-exports.generatePost = onCall(heavyConfig, (req) => {
-  throw new HttpsError('unimplemented', '가챠뽑기 시스템으로 재구현 예정입니다.');
-});
-
-exports.generateSinglePost = onCall(heavyConfig, (req) => {
-  throw new HttpsError('unimplemented', '가챠뽑기 시스템으로 재구현 예정입니다.');
-});
-
-exports.regeneratePost = onCall(heavyConfig, (req) => {
-  throw new HttpsError('unimplemented', '가챠뽑기 시스템으로 재구현 예정입니다.');
-});
-
-exports.saveSelectedPost = onCall(defaultConfig, (req) => {
-  throw new HttpsError('unimplemented', '가챠뽑기 시스템으로 재구현 예정입니다.');
-});
+exports.generatePost = postsHandler.generatePosts;
+exports.regeneratePost = postsHandler.generatePosts;
+exports.saveSelectedPost = postsHandler.saveSelectedPost;
+exports.savePost = postsHandler.saveSelectedPost; // 프론트엔드에서 savePost로 호출하므로 추가
 
 exports.getUserMetadata = onCall(fastConfig, (req) => {
   throw new HttpsError('unimplemented', '가챠뽑기 시스템으로 재구현 예정입니다.');

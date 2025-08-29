@@ -1,5 +1,5 @@
 // frontend/src/pages/Billing.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Container,
   Paper,
@@ -43,34 +43,49 @@ import {
 } from '@mui/icons-material';
 import DashboardLayout from '../components/DashboardLayout';
 import { useAuth } from '../hooks/useAuth';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../services/firebase';
 
 const Billing = () => {
-  const { user } = useAuth();
-  const [currentPlan, setCurrentPlan] = useState('리전 인플루언서');
+  const { user, refreshUserProfile } = useAuth();
+  const [currentPlan, setCurrentPlan] = useState(user?.plan || user?.subscription || '리전 인플루언서');
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
   const [membershipDialogOpen, setMembershipDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [updatingPlan, setUpdatingPlan] = useState(false);
+
+  // 사용자 정보가 변경될 때 currentPlan 동기화
+  useEffect(() => {
+    const actualPlan = user?.plan || user?.subscription;
+    console.log('🔍 Billing: 사용자 플랜 확인:', { user, actualPlan });
+    if (actualPlan) {
+      setCurrentPlan(actualPlan);
+    }
+  }, [user?.plan, user?.subscription]);
+
+  // 플랜 업데이트 함수
+  const callUpdateUserPlan = httpsCallable(functions, 'updateUserPlan');
 
   // 더미 데이터
   const plans = [
     {
       name: '로컬 블로거',
       price: 55000, // 부가세 10% 포함
-      features: ['월 10회 원고 생성', '기본 카테고리', '이메일 지원'],
+      features: ['월 8회 원고 생성', '8회 모두 발행 시 익월 4회 추가 증정', '12회 모두 발행 시 익월 SNS 원고 무료 생성'],
       color: '#003a87',
       recommended: false
     },
     {
       name: '리전 인플루언서',
       price: 132000, // 부가세 10% 포함
-      features: ['월 30회 원고 생성', '모든 카테고리', '우선 지원', 'RAG 검색'],
+      features: ['월 20회 원고 생성', '20회 모두 발행 시 익월 10회 추가 증정', '30회 모두 발행 시 익월 SNS 원고 무료 생성'],
       color: '#55207d',
       recommended: true
     },
     {
       name: '오피니언 리더',
       price: 330000, // 부가세 10% 포함
-      features: ['월 90회 원고 생성', '전용 템플릿', '1:1 컨설팅', 'AI 튜닝'],
+      features: ['월 90회 원고 생성+SNS 원고 무료 생성'],
       color: '#006261',
       recommended: false
     }
@@ -88,10 +103,33 @@ const Billing = () => {
     { quarter: '2024년 3분기', status: '인증완료', date: '2024-07-02', method: 'OCR 자동인증' }
   ];
 
-  const handlePlanChange = (planName) => {
-    setCurrentPlan(planName);
-    // 실제로는 결제 API 호출
-    alert(`${planName} 플랜으로 변경 요청이 완료되었습니다.`);
+  const handlePlanChange = async (planName) => {
+    if (updatingPlan) return;
+    
+    setUpdatingPlan(true);
+    try {
+      // 백엔드 함수 호출하여 사용자 플랜 업데이트
+      const response = await callUpdateUserPlan({ plan: planName });
+      console.log('플랜 업데이트 응답:', response.data);
+      
+      if (response.data.success) {
+        setCurrentPlan(planName);
+        
+        // 사용자 컨텍스트 새로고침 (가능한 경우)
+        if (refreshUserProfile) {
+          await refreshUserProfile();
+        }
+        
+        alert(`${planName} 플랜으로 변경이 완료되었습니다.`);
+      } else {
+        throw new Error(response.data.message || '플랜 변경에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('플랜 변경 실패:', error);
+      alert(`플랜 변경에 실패했습니다: ${error.message}`);
+    } finally {
+      setUpdatingPlan(false);
+    }
   };
 
   const handleFileUpload = (event) => {
@@ -159,95 +197,15 @@ const Billing = () => {
                 </Typography>
                 <Box sx={{ mb: 1 }}>
                   <Typography variant="body2" color="text.secondary">
-                    원고 생성: 23/30회
+                    원고 생성: 15/20회
                   </Typography>
                   <LinearProgress 
                     variant="determinate" 
-                    value={76.7} 
+                    value={75} 
                     sx={{ mt: 0.5, height: 8, borderRadius: 4 }}
                   />
                 </Box>
               </Box>
-            </Paper>
-
-            {/* 당원 인증 상태 */}
-            <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
-                <VerifiedUser sx={{ mr: 1 }} />
-                당원 인증 상태
-              </Typography>
-              
-              <Alert severity="success" sx={{ mb: 2 }}>
-                <Typography variant="body2">
-                  2025년 1분기 당원 인증이 완료되었습니다.
-                </Typography>
-              </Alert>
-
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                  다음 인증 예정: 2025년 4월 1일
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  * 매 분기마다 당적증명서 제출이 필요합니다.
-                </Typography>
-              </Box>
-
-              {/* 인증 요구사항 */}
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 'bold' }}>
-                  인증 요구사항
-                </Typography>
-                <List dense>
-                  <ListItem sx={{ px: 0 }}>
-                    <ListItemIcon sx={{ minWidth: 30 }}>
-                      <CheckCircle sx={{ fontSize: 16, color: 'success.main' }} />
-                    </ListItemIcon>
-                    <ListItemText 
-                      primary="당적증명서 제출" 
-                      secondary="분기별 최신 당적증명서 필요"
-                      primaryTypographyProps={{ variant: 'body2' }}
-                      secondaryTypographyProps={{ variant: 'caption' }}
-                    />
-                  </ListItem>
-                  <ListItem sx={{ px: 0 }}>
-                    <ListItemIcon sx={{ minWidth: 30 }}>
-                      <CheckCircle sx={{ fontSize: 16, color: 'success.main' }} />
-                    </ListItemIcon>
-                    <ListItemText 
-                      primary="당비 납부 내역" 
-                      secondary="최근 3개월 당비 납부 확인"
-                      primaryTypographyProps={{ variant: 'body2' }}
-                      secondaryTypographyProps={{ variant: 'caption' }}
-                    />
-                  </ListItem>
-                </List>
-              </Box>
-
-              {/* 인증 관련 버튼들 */}
-              <Grid container spacing={1}>
-                <Grid item xs={12}>
-                  <Button 
-                    variant="outlined" 
-                    fullWidth 
-                    onClick={() => setAuthDialogOpen(true)}
-                    startIcon={<Upload />}
-                    sx={{ mb: 1 }}
-                  >
-                    새 인증서 제출
-                  </Button>
-                </Grid>
-                <Grid item xs={12}>
-                  <Button 
-                    variant="outlined" 
-                    fullWidth 
-                    onClick={() => setMembershipDialogOpen(true)}
-                    startIcon={<Payment />}
-                    color="secondary"
-                  >
-                    당비 납부 내역 제출
-                  </Button>
-                </Grid>
-              </Grid>
             </Paper>
           </Grid>
 
@@ -301,7 +259,7 @@ const Billing = () => {
                         <Button
                           variant="contained"
                           fullWidth
-                          disabled={currentPlan === plan.name}
+                          disabled={currentPlan === plan.name || updatingPlan}
                           onClick={() => handlePlanChange(plan.name)}
                           sx={{ 
                             bgcolor: plan.color,
@@ -315,7 +273,7 @@ const Billing = () => {
                             }
                           }}
                         >
-                          {currentPlan === plan.name ? '현재 플랜' : '선택하기'}
+                          {updatingPlan ? '처리 중...' : currentPlan === plan.name ? '현재 플랜' : '선택하기'}
                         </Button>
                       </CardActions>
                     </Card>
@@ -351,27 +309,57 @@ const Billing = () => {
               <Grid item xs={12} md={6}>
                 <Paper sx={{ p: 3 }}>
                   <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
-                    <Schedule sx={{ mr: 1 }} />
-                    인증 내역
+                    <VerifiedUser sx={{ mr: 1 }} />
+                    당원 인증 상태
                   </Typography>
-                  <List>
-                    {authHistory.map((auth, index) => (
-                      <ListItem key={index} sx={{ px: 0 }}>
-                        <ListItemIcon>
-                          <VerifiedUser color="primary" />
-                        </ListItemIcon>
-                        <ListItemText
-                          primary={`${auth.quarter} ${auth.status}`}
-                          secondary={`${auth.date} (${auth.method})`}
-                        />
-                      </ListItem>
-                    ))}
-                  </List>
+                  
+                  <Alert severity="success" sx={{ mb: 2 }}>
+                    <Typography variant="body2">
+                      2025년 1분기 당원 인증이 완료되었습니다.
+                    </Typography>
+                  </Alert>
+
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      다음 인증 예정: 2025년 4월 1일
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      분기마다 당적증명서 제출 및 최근 3개월 당비 납부 확인이 필요합니다.
+                    </Typography>
+                  </Box>
+
+                  <Grid container spacing={1}>
+                    <Grid item xs={12}>
+                      <Button 
+                        variant="outlined" 
+                        fullWidth 
+                        size="small"
+                        onClick={() => setAuthDialogOpen(true)}
+                        startIcon={<Upload />}
+                        sx={{ mb: 1 }}
+                      >
+                        새 인증서 제출
+                      </Button>
+                    </Grid>
+                    <Grid item xs={12}>
+                      <Button 
+                        variant="outlined" 
+                        fullWidth 
+                        size="small"
+                        onClick={() => setMembershipDialogOpen(true)}
+                        startIcon={<Payment />}
+                        color="secondary"
+                      >
+                        당비 납부 내역 제출
+                      </Button>
+                    </Grid>
+                  </Grid>
                 </Paper>
               </Grid>
             </Grid>
           </Grid>
         </Grid>
+
 
         {/* 당원 인증 다이얼로그 */}
         <Dialog open={authDialogOpen} onClose={() => setAuthDialogOpen(false)} maxWidth="sm" fullWidth>

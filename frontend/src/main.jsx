@@ -9,6 +9,7 @@ import App from './App.jsx';
 import ErrorPage from './pages/ErrorPage.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import AdminRoute from './components/AdminRoute.jsx';
+import ProfileRequiredRoute from './components/ProfileRequiredRoute.jsx';
 import './index.css';
 
 // 🚀 라우트 레벨 lazy loading
@@ -21,6 +22,8 @@ const AdminPage = lazy(() => import('./pages/AdminPage.jsx'));
 const PostDetailPage = lazy(() => import('./pages/PostDetailPage.jsx'));
 const PostsListPage = lazy(() => import('./pages/PostsListPage.jsx'));
 const Billing = lazy(() => import('./pages/Billing.jsx'));
+const GuidelinesPage = lazy(() => import('./pages/GuidelinesPage.jsx'));
+const TermsOfService = lazy(() => import('./pages/TermsOfService.jsx'));
 
 // 🎯 프리로드 함수들 (사용자 의도 감지 시 사용)
 export const preloadGenerate = () => import('./pages/GeneratePage.jsx');
@@ -43,7 +46,7 @@ const router = createBrowserRouter([
       },
       {
         path: 'generate',
-        element: <ProtectedRoute><GeneratePage /></ProtectedRoute>,
+        element: <ProtectedRoute><ProfileRequiredRoute><GeneratePage /></ProfileRequiredRoute></ProtectedRoute>,
       },
       {
         path: 'profile',
@@ -59,7 +62,15 @@ const router = createBrowserRouter([
       },
       {
         path: 'posts',
-        element: <ProtectedRoute><PostsListPage /></ProtectedRoute>,
+        element: <ProtectedRoute><ProfileRequiredRoute><PostsListPage /></ProfileRequiredRoute></ProtectedRoute>,
+      },
+      {
+        path: 'guidelines',
+        element: <ProtectedRoute><ProfileRequiredRoute><GuidelinesPage /></ProfileRequiredRoute></ProtectedRoute>,
+      },
+      {
+        path: 'terms',
+        element: <TermsOfService />,
       },
     ],
   },

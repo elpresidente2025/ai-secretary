@@ -24,7 +24,8 @@ import {
   Settings,
   Logout,
   CreditCard,
-  AdminPanelSettings
+  AdminPanelSettings,
+  MenuBook
 } from '@mui/icons-material';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -44,14 +45,27 @@ const DashboardLayout = ({ children }) => {
 
   const userIcon = getUserStatusIcon(user);
   const regionInfo = getUserRegionInfo(user);
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role === 'admin' || user?.isAdmin;
+  const hasBio = user?.bio && user.bio.trim().length > 0;
 
-  const menuItems = [
-    { text: '새 원고 생성', icon: <Create />, path: '/generate' },
-    { text: '히스토리', icon: <History />, path: '/posts' },
+  // 자기소개가 없는 사용자는 제한된 메뉴만 표시
+  const menuItems = [];
+  
+  if (hasBio || isAdmin) {
+    // 자기소개가 있거나 관리자인 경우 전체 메뉴 표시
+    menuItems.push(
+      { text: '새 원고 생성', icon: <Create />, path: '/generate' },
+      { text: '히스토리', icon: <History />, path: '/posts' },
+      { text: '가이드라인', icon: <MenuBook />, path: '/guidelines' }
+    );
+  }
+  
+  // 프로필과 결제는 항상 표시
+  menuItems.push(
     { text: '프로필 수정', icon: <Settings />, path: '/profile' },
-    { text: '인증 및 결제', icon: <CreditCard />, path: '/billing' },
-  ];
+    { text: '인증 및 결제', icon: <CreditCard />, path: '/billing' }
+  );
+  
   if (isAdmin) {
     menuItems.push({ text: '관리', icon: <AdminPanelSettings />, path: '/admin' });
   }

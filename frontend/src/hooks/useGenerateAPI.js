@@ -21,13 +21,16 @@ export function useGenerateAPI() {
     }
   }, []);
 
-  // 🆕 메타데이터 축적 및 분석 함수
+  // 🆕 메타데이터 축적 및 분석 함수 (임시 비활성화)
   const collectMetadata = useCallback(async (draft) => {
     try {
-      console.log('📊 메타데이터 수집 시작:', draft.title);
+      console.log('📊 메타데이터 수집 시작 (비활성화):', draft.title);
       
-      const collectMetadata = httpsCallable(functions, 'collectMetadata');
+      // 메타데이터 함수가 백엔드에 없으므로 임시 비활성화
+      // const collectMetadata = httpsCallable(functions, 'collectMetadata');
+      return null; // 바로 반환
       
+      /* 임시 비활성화
       const metadataPackage = {
         // 원고 기본 정보
         contentData: {
@@ -64,6 +67,7 @@ export function useGenerateAPI() {
         console.log('✅ 메타데이터 수집 완료:', result.data.insights);
         return result.data.insights; // 학습된 인사이트 반환
       }
+      */
       
     } catch (error) {
       console.warn('⚠️ 메타데이터 수집 실패 (기능에는 영향 없음):', error.message);
@@ -96,7 +100,7 @@ export function useGenerateAPI() {
   }, []);
 
   // 원고 생성 함수
-  const generate = useCallback(async (formData) => {
+  const generate = useCallback(async (formData, useBonus = false) => {
     if (attempts >= maxAttempts) {
       return { success: false, error: '재생성 한도에 도달했습니다.' };
     }
@@ -105,13 +109,14 @@ export function useGenerateAPI() {
     setError(null);
 
     try {
-      console.log('🔥 generateSinglePost 호출 시작');
-      const generateSinglePost = httpsCallable(functions, 'generateSinglePost');
+      console.log('🔥 generatePosts 호출 시작');
+      const generatePosts = httpsCallable(functions, 'generatePosts');
       
       const requestData = {
         ...formData,
         prompt: formData.topic || formData.prompt,
         generateSingle: true,
+        useBonus: useBonus,
         // 🆕 editorial.js 규칙 적용 요청 (백엔드에서 처리)
         applyEditorialRules: true
       };
@@ -120,21 +125,24 @@ export function useGenerateAPI() {
       
       console.log('📝 요청 데이터:', requestData);
       
-      const result = await generateSinglePost(requestData);
-      console.log('✅ generateSinglePost 응답 수신:', result);
+      const result = await generatePosts(requestData);
+      console.log('✅ generatePosts 응답 수신:', result);
 
       const responseData = result?.data;
-      const variations = responseData?.variations;
+      console.log('🔍 백엔드 응답 전체 구조:', responseData);
+      
+      const drafts = responseData?.drafts;
 
-      if (!variations || !Array.isArray(variations) || variations.length === 0) {
+      if (!drafts) {
         console.error('⚠️ 유효하지 않은 응답 구조:', result.data);
+        console.error('⚠️ responseData:', responseData);
         throw new Error('AI 응답에서 유효한 원고 데이터를 찾을 수 없습니다.');
       }
       
-      console.log('👍 원고 데이터 추출 성공:', variations.length + '개 variations');
+      console.log('👍 원고 데이터 추출 성공:', drafts);
 
-      // 🔥 핵심 수정: 첫 번째 variation만 선택
-      const selectedVariation = variations[0];
+      // 🔥 핵심 수정: drafts 데이터 직접 사용
+      const selectedVariation = drafts;
       
       const newDraft = {
         id: Date.now(),
@@ -157,12 +165,12 @@ export function useGenerateAPI() {
         meta: selectedVariation.meta,
         
         // 🆕 추가 메타정보
-        aiGeneratedVariations: variations.length, // 총 생성된 개수
+        aiGeneratedVariations: 1, // 총 생성된 개수
         selectedVariationIndex: 0, // 선택된 인덱스
         seoOptimized: selectedVariation.wordCount >= 1500 // SEO 최적화 여부
       };
 
-      setDrafts(prev => [newDraft, ...prev]);
+      setDrafts(prev => [...prev, newDraft]);
       setAttempts(prev => prev + 1);
       
       // 🆕 메타데이터 수집 (비동기, 에러 무시)
@@ -174,13 +182,17 @@ export function useGenerateAPI() {
         seoOptimized: newDraft.seoOptimized 
       });
       
+      const message = useBonus 
+        ? `보너스 원고가 성공적으로 생성되었습니다! (${newDraft.wordCount}자)` 
+        : `AI 원고가 성공적으로 생성되었습니다! (${newDraft.wordCount}자)`;
+
       return { 
         success: true, 
-        message: `AI 원고가 성공적으로 생성되었습니다! (${newDraft.wordCount}자)` 
+        message: message
       };
 
     } catch (err) {
-      console.error('❌ generateSinglePost 호출 실패:', err);
+      console.error('❌ generatePosts 호출 실패:', err);
       
       let errorMessage = '원고 생성 중 오류가 발생했습니다.';
       if (err.code === 'functions/resource-exhausted') {

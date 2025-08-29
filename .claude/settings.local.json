@@ -15,7 +15,15 @@
       "Bash(firebase functions:delete:*)",
       "Bash(firebase firestore:indexes:*)",
       "Bash(npm install:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(npm run:*)",
+      "Bash(firebase functions:shell:*)",
+      "WebSearch",
+      "WebFetch(domain:easylaw.go.kr)",
+      "WebFetch(domain:www.nec.go.kr)",
+      "Bash(pkill:*)",
+      "Bash(firebase login:*)",
+      "Bash(firebase projects:list:*)"
     ],
     "deny": [],
     "ask": [],

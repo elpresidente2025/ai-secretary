@@ -48,7 +48,7 @@ function MaintenancePage({ maintenanceInfo, onRetry, isAdmin, onLogout }) {
     <Box
       sx={{
         minHeight: '100vh',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        backgroundColor: '#f5f5f5',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -146,7 +146,7 @@ function MaintenancePage({ maintenanceInfo, onRetry, isAdmin, onLogout }) {
                 onClick={() => window.location.href = '/admin'}
                 sx={{
                   backgroundColor: '#152484',
-                  '&:hover': { backgroundColor: '#1a2a9e' },
+                  '&:hover': { backgroundColor: '#003A87' },
                   mr: 2
                 }}
               >
@@ -166,7 +166,7 @@ function MaintenancePage({ maintenanceInfo, onRetry, isAdmin, onLogout }) {
                 borderColor: '#152484',
                 color: '#152484',
                 '&:hover': {
-                  borderColor: '#1a2a9e',
+                  borderColor: '#003A87',
                   backgroundColor: 'rgba(21, 36, 132, 0.1)'
                 }
               }}
@@ -183,11 +183,11 @@ function MaintenancePage({ maintenanceInfo, onRetry, isAdmin, onLogout }) {
                 size="large"
                 color="secondary"
                 sx={{
-                  borderColor: '#666',
-                  color: '#666',
+                  borderColor: '#55207D',
+                  color: '#55207D',
                   '&:hover': {
-                    borderColor: '#888',
-                    backgroundColor: 'rgba(102, 102, 102, 0.1)'
+                    borderColor: '#152484',
+                    backgroundColor: 'rgba(85, 32, 125, 0.1)'
                   }
                 }}
               >
@@ -205,7 +205,7 @@ function MaintenancePage({ maintenanceInfo, onRetry, isAdmin, onLogout }) {
           </Box>
 
           {/* 푸터 */}
-          <Box sx={{ mt: 5, pt: 3, borderTop: '1px solid #e0e0e0' }}>
+          <Box sx={{ mt: 5, pt: 3, borderTop: '1px solid', borderColor: 'divider' }}>
             <Typography variant="body2" color="text.secondary">
               AI Secretary • 서비스 일시 중단
             </Typography>

@@ -47,10 +47,11 @@ export const CATEGORIES = [
   {
     value: 'daily-communication',
     label: '일상 소통',
-    description: '주민들과 더 가까이 소통하기 위한 감사, 격려, 일상 이야기 등을 나눕니다.',
+    description: '주민들과 더 가까이 소통하기 위한 감사, 격려, 축하, 일상 이야기 등을 나눕니다.',
     subCategories: [
       { value: 'gratitude_message', label: '감사 메시지', writingMethod: 'emotional_writing', needsAudienceStance: true },
       { value: 'encouragement_support', label: '격려 및 응원', writingMethod: 'emotional_writing', needsAudienceStance: true },
+      { value: 'celebration_congratulation', label: '축하 및 기념', writingMethod: 'emotional_writing', needsAudienceStance: true },
       { value: 'daily_life_sharing', label: '일상 공유', writingMethod: 'emotional_writing', needsAudienceStance: false },
     ],
   },

@@ -17,8 +17,8 @@ import {
   FormControlLabel,
   Checkbox,
 } from '@mui/material';
-import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import UserInfoForm from '../components/UserInfoForm';
+import TermsModal from '../components/TermsModal';
 
 function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -40,6 +40,7 @@ function RegisterPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const [termsModalOpen, setTermsModalOpen] = useState(false);
   const navigate = useNavigate();
   const { register } = useAuth();
 
@@ -164,9 +165,16 @@ function RegisterPage() {
             alignItems: 'center',
           }}
         >
-          <Avatar sx={{ m: 1, bgcolor: 'success.main' }}>
-            <PersonAddIcon />
-          </Avatar>
+          <Box
+            component="img"
+            src="/logo.png"
+            alt="AI비서관 로고"
+            sx={{
+              height: 80,
+              width: 'auto',
+              mb: 2
+            }}
+          />
           <Typography component="h1" variant="h5">
             회원가입 완료
           </Typography>
@@ -188,9 +196,16 @@ function RegisterPage() {
           alignItems: 'center',
         }}
       >
-        <Avatar sx={{ m: 1, bgcolor: 'primary.main' }}>
-          <PersonAddIcon />
-        </Avatar>
+        <Box
+          component="img"
+          src="/logo.png"
+          alt="AI비서관 로고"
+          sx={{
+            height: 80,
+            width: 'auto',
+            mb: 2
+          }}
+        />
         <Typography component="h1" variant="h5">
           AI비서관 회원가입
         </Typography>
@@ -293,9 +308,9 @@ function RegisterPage() {
                         variant="body2" 
                         onClick={(e) => {
                           e.preventDefault();
-                          // TODO: 약관 모달 또는 페이지 열기
-                          alert('이용약관 페이지가 구현 예정입니다.');
+                          setTermsModalOpen(true);
                         }}
+                        sx={{ cursor: 'pointer' }}
                       >
                         약관 내용 보기
                       </Link>
@@ -319,7 +334,11 @@ function RegisterPage() {
                   variant="contained"
                   size="large"
                   disabled={loading}
-                  sx={{ mt: 2, mb: 2, py: 1.5 }}
+                  sx={{ 
+                    mt: 2, mb: 2, py: 1.5,
+                    bgcolor: '#152484',
+                    '&:hover': { bgcolor: '#003A87' }
+                  }}
                 >
                   {loading ? <CircularProgress size={24} /> : '회원가입'}
                 </Button>
@@ -338,6 +357,11 @@ function RegisterPage() {
           </Box>
         </Paper>
       </Box>
+
+      <TermsModal 
+        open={termsModalOpen} 
+        onClose={() => setTermsModalOpen(false)} 
+      />
     </Container>
   );
 }

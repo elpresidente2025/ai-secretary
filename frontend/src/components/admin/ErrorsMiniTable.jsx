@@ -157,7 +157,7 @@ function ErrorsMiniTable() {
     <Paper sx={{ p: 2 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Warning sx={{ color: '#ff9800' }} />
+          <Warning sx={{ color: '#55207D' }} />
           <Typography variant="h6" sx={{ color: '#152484', fontWeight: 600 }}>
             최근 에러 로그
           </Typography>

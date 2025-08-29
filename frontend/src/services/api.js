@@ -49,15 +49,6 @@ export const api = {
     });
   },
 
-  // 나중에 변경할 때 사용할 함수 (generateSinglePost)
-  generateSinglePost: async (data) => {
-    return await apiCall('generateSinglePost', {
-      body: JSON.stringify({
-        ...data,
-        generateSingle: true
-      })
-    });
-  },
 
   // 사용자 프로필 조회
   getUserProfile: async (userId) => {

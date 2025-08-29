@@ -14,12 +14,15 @@ import DashboardCards from '../components/admin/DashboardCards';
 import QuickActions from '../components/admin/QuickActions';
 import ErrorsMiniTable from '../components/admin/ErrorsMiniTable';
 import NoticeManager from '../components/admin/NoticeManager';
+import PerformanceMonitor from '../components/admin/PerformanceMonitor';
+import UserManagement from '../components/admin/UserManagement';
 import { useAuth } from '../hooks/useAuth';
 
 function AdminPage() {
   const { user } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'info' });
+  const [performanceMonitorOpen, setPerformanceMonitorOpen] = useState(false);
 
   // 전체 새로고침 함수
   const handleGlobalRefresh = async () => {
@@ -101,6 +104,7 @@ function AdminPage() {
             <Button
               variant="outlined"
               startIcon={<Speed />}
+              onClick={() => setPerformanceMonitorOpen(true)}
               sx={{ 
                 borderColor: '#006261',
                 color: '#006261',
@@ -120,7 +124,7 @@ function AdminPage() {
               sx={{ 
                 backgroundColor: '#152484',
                 '&:hover': { 
-                  backgroundColor: '#1a2a9e'
+                  backgroundColor: '#003A87'
                 }
               }}
             >
@@ -149,6 +153,11 @@ function AdminPage() {
           <NoticeManager />
         </Box>
 
+        {/* 사용자 관리 영역 */}
+        <Box sx={{ mb: 4 }}>
+          <UserManagement />
+        </Box>
+
         {/* 푸터 정보 */}
         <Box 
           sx={{ 
@@ -175,6 +184,12 @@ function AdminPage() {
         autoHideDuration={6000}
         onClose={() => setNotification({ ...notification, open: false })}
         message={notification.message}
+      />
+
+      {/* 성능 모니터 다이얼로그 */}
+      <PerformanceMonitor
+        open={performanceMonitorOpen}
+        onClose={() => setPerformanceMonitorOpen(false)}
       />
     </DashboardLayout>
   );

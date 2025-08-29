@@ -81,11 +81,27 @@ const HomePage = () => {
   }
 
   return (
-    <Container component="main" maxWidth="xs">
-      <Box sx={{ marginTop: 8, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <Typography component="h1" variant="h5">
-          로그인
-        </Typography>
+    <Box sx={{ 
+      minHeight: '100vh', 
+      display: 'flex', 
+      alignItems: 'center', 
+      justifyContent: 'center' 
+    }}>
+      <Container component="main" maxWidth="xs">
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <Box
+            component="img"
+            src="/logo.png"
+            alt="AI비서관 로고"
+            sx={{ 
+              width: '80%', 
+              mb: 3,
+              objectFit: 'contain'
+            }}
+          />
+          <Typography component="h1" variant="h5" sx={{ mb: 3 }}>
+            AI비서관 로그인
+          </Typography>
         <Box component="form" onSubmit={handleSubmit} noValidate sx={{ mt: 1 }}>
           <TextField
             margin="normal"
@@ -122,7 +138,14 @@ const HomePage = () => {
             type="submit"
             fullWidth
             variant="contained"
-            sx={{ mt: 3, mb: 2 }}
+            sx={{ 
+              mt: 3, 
+              mb: 2,
+              bgcolor: '#152484',
+              '&:hover': {
+                bgcolor: '#003A87'
+              }
+            }}
             disabled={isSubmitting}
           >
             {isSubmitting ? <CircularProgress size={24} color="inherit" /> : '로그인'}
@@ -135,8 +158,9 @@ const HomePage = () => {
             </Grid>
           </Grid>
         </Box>
-      </Box>
-    </Container>
+        </Box>
+      </Container>
+    </Box>
   );
 };
 

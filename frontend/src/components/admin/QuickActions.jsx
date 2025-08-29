@@ -181,7 +181,7 @@ function QuickActions() {
                 size="small"
                 variant="text"
                 onClick={clearCache}
-                sx={{ color: '#ff6b6b' }}
+                sx={{ color: '#55207D' }}
               >
                 캐시 비우기
               </Button>

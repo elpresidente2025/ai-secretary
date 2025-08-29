@@ -22,13 +22,50 @@ export default function PreviewPane({ draft }) {
     return null;
   }
 
+  // HTML을 텍스트로 변환하면서 줄바꿈과 공백을 보존하는 함수
+  const convertHtmlToFormattedText = (html) => {
+    if (!html) return '';
+    
+    // 임시 div 엘리먼트 생성
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html;
+    
+    // HTML 태그를 텍스트로 변환하면서 formatting 보존
+    let text = tempDiv.innerHTML;
+    
+    // 블록 요소들을 줄바꿈으로 변환
+    text = text.replace(/<\/?(h[1-6]|p|div|br|li)[^>]*>/gi, '\n');
+    text = text.replace(/<\/?(ul|ol)[^>]*>/gi, '\n\n');
+    
+    // 나머지 HTML 태그 제거
+    text = text.replace(/<[^>]*>/g, '');
+    
+    // HTML 엔티티 변환
+    text = text.replace(/&nbsp;/g, ' ');
+    text = text.replace(/&amp;/g, '&');
+    text = text.replace(/&lt;/g, '<');
+    text = text.replace(/&gt;/g, '>');
+    text = text.replace(/&quot;/g, '"');
+    
+    // 연속된 줄바꿈을 정리 (3개 이상을 2개로)
+    text = text.replace(/\n{3,}/g, '\n\n');
+    
+    // 앞뒤 공백 제거
+    return text.trim();
+  };
+
   const handleCopy = async () => {
     try {
-      const textToCopy = draft.plainText || draft.content || '';
+      // 제목과 내용을 조합하여 복사할 텍스트 생성
+      const title = draft.title || '제목 없음';
+      const content = convertHtmlToFormattedText(draft.htmlContent || draft.content || '');
+      
+      const textToCopy = `제목: ${title}\n\n${content}`;
+      
       await navigator.clipboard.writeText(textToCopy);
       setSnackbar({
         open: true,
-        message: '클립보드에 복사되었습니다!',
+        message: '제목과 내용이 클립보드에 복사되었습니다!',
         severity: 'success'
       });
     } catch (err) {
@@ -75,7 +112,7 @@ export default function PreviewPane({ draft }) {
           // 🔥 'strong' 태그 스타일 개선 (가이드 역할 강화)
           '.article-content strong': {
             fontWeight: 700,
-            color: '#1a237e', // 남색 계열로 텍스트 색상 강조
+            color: '#152484', // 남색 계열로 텍스트 색상 강조
             backgroundColor: 'rgba(33, 150, 243, 0.1)', // 아주 연한 하늘색 배경 추가
             padding: '2px 5px',
             borderRadius: '4px',
@@ -94,7 +131,7 @@ export default function PreviewPane({ draft }) {
             {draft.title || '제목 없음'}
           </Typography>
           <Box>
-            <Tooltip title="클립보드에 복사 (텍스트만)">
+            <Tooltip title="제목과 내용 복사 (줄바꿈 보존)">
               <IconButton 
                 size="small" 
                 onClick={handleCopy}

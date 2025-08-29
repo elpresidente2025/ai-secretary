@@ -1,5 +1,6 @@
 // frontend/src/pages/PostsListPage.jsx
 import React, { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Box,
   Container,
@@ -22,8 +23,9 @@ import {
   DialogActions,
   Button,
   Divider,
+  TextField,
 } from '@mui/material';
-import { ContentCopy, DeleteOutline, Assignment } from '@mui/icons-material';
+import { ContentCopy, DeleteOutline, Assignment, Publish, Link } from '@mui/icons-material';
 import DashboardLayout from '../components/DashboardLayout';
 import { useAuth } from '../hooks/useAuth';
 import { httpsCallable } from 'firebase/functions';
@@ -55,12 +57,17 @@ function stripHtml(html = '') {
 
 export default function PostsListPage() {
   const { user, loading: authLoading } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [posts, setPosts] = useState([]);
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
   const [error, setError] = useState('');
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerPost, setViewerPost] = useState(null);
+  const [publishDialogOpen, setPublishDialogOpen] = useState(false);
+  const [publishPost, setPublishPost] = useState(null);
+  const [publishUrl, setPublishUrl] = useState('');
 
   // 디버깅 로그
   console.log('🔍 user:', user);
@@ -69,6 +76,7 @@ export default function PostsListPage() {
 
   const callGetUserPosts = httpsCallable(functions, 'getUserPosts');
   const callDeletePost = httpsCallable(functions, 'deletePost');
+  const callPublishPost = httpsCallable(functions, 'publishPost');
 
   useEffect(() => {
     let mounted = true;
@@ -92,6 +100,20 @@ export default function PostsListPage() {
         console.log('📝 첫 번째 post:', list[0]);
         if (!mounted) return;
         setPosts(list);
+        
+        // URL 쿼리 파라미터에서 openPost 확인하고 자동으로 Modal 열기
+        const urlParams = new URLSearchParams(location.search);
+        const openPostId = urlParams.get('openPost');
+        if (openPostId && list.length > 0) {
+          const postToOpen = list.find(post => post.id === openPostId);
+          if (postToOpen) {
+            console.log('🔍 자동으로 열 원고 찾음:', postToOpen);
+            setViewerPost(postToOpen);
+            setViewerOpen(true);
+            // URL에서 쿼리 파라미터 제거 (깔끔하게)
+            navigate('/posts', { replace: true });
+          }
+        }
       } catch (e) {
         console.error('❌ getUserPosts 에러:', e);
         console.error('❌ 에러 세부사항:', {
@@ -146,6 +168,48 @@ export default function PostsListPage() {
   const closeViewer = () => {
     setViewerOpen(false);
     setViewerPost(null);
+  };
+
+  const handlePublish = (post, e) => {
+    if (e) e.stopPropagation();
+    setPublishPost(post);
+    setPublishUrl(post.publishUrl || '');
+    setPublishDialogOpen(true);
+  };
+
+  const handlePublishSubmit = async () => {
+    if (!publishPost || !publishUrl.trim()) {
+      setSnack({ open: true, message: '발행 URL을 입력해주세요.', severity: 'error' });
+      return;
+    }
+
+    try {
+      await callPublishPost({ 
+        postId: publishPost.id, 
+        publishUrl: publishUrl.trim() 
+      });
+      
+      // 로컬 상태 업데이트
+      setPosts(prev => prev.map(p => 
+        p.id === publishPost.id 
+          ? { ...p, publishUrl: publishUrl.trim(), publishedAt: new Date().toISOString() }
+          : p
+      ));
+      
+      setPublishDialogOpen(false);
+      setPublishPost(null);
+      setPublishUrl('');
+      setSnack({ open: true, message: '발행 완료! 게이미피케이션 포인트를 획득했습니다.', severity: 'success' });
+    } catch (err) {
+      console.error(err);
+      setSnack({ open: true, message: '발행 등록에 실패했습니다.', severity: 'error' });
+    }
+  };
+
+  const closePublishDialog = () => {
+    setPublishDialogOpen(false);
+    setPublishPost(null);
+    setPublishUrl('');
   };
 
   if (authLoading) {
@@ -267,17 +331,40 @@ export default function PostsListPage() {
                         </CardContent>
                       </CardActionArea>
 
-                      <CardActions sx={{ justifyContent: 'flex-end', pt: 0 }}>
-                        <Tooltip title="복사">
-                          <IconButton size="small" onClick={(e) => handleCopy(p.content, e)}>
-                            <ContentCopy fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="삭제">
-                          <IconButton size="small" color="error" onClick={(e) => handleDelete(p.id, e)}>
-                            <DeleteOutline fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
+                      <CardActions sx={{ justifyContent: 'space-between', pt: 0 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          {p.publishUrl && (
+                            <Chip 
+                              size="small" 
+                              label="발행완료" 
+                              color="primary" 
+                              variant="outlined"
+                              icon={<Publish />}
+                              sx={{ fontSize: '0.7rem' }}
+                            />
+                          )}
+                        </Box>
+                        <Box>
+                          <Tooltip title="발행">
+                            <IconButton 
+                              size="small" 
+                              onClick={(e) => handlePublish(p, e)}
+                              sx={{ color: p.publishUrl ? '#006261' : '#152484' }}
+                            >
+                              <Publish fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="복사">
+                            <IconButton size="small" onClick={(e) => handleCopy(p.content, e)}>
+                              <ContentCopy fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="삭제">
+                            <IconButton size="small" color="error" onClick={(e) => handleDelete(p.id, e)}>
+                              <DeleteOutline fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
                       </CardActions>
                     </Card>
                   </Grid>
@@ -320,6 +407,51 @@ export default function PostsListPage() {
               삭제
             </Button>
             <Button onClick={closeViewer} variant="contained">닫기</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* 발행 URL 입력 다이얼로그 */}
+        <Dialog open={publishDialogOpen} onClose={closePublishDialog} maxWidth="sm" fullWidth>
+          <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Publish sx={{ color: '#152484' }} />
+            원고 발행 등록
+          </DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              실제 발행한 블로그/SNS 주소를 입력하여 게이미피케이션 포인트를 획득하세요!
+            </Typography>
+            <Typography variant="h6" sx={{ mb: 1, fontWeight: 600 }}>
+              "{publishPost?.title || '원고 제목'}"
+            </Typography>
+            <TextField
+              autoFocus
+              margin="dense"
+              label="발행 URL"
+              placeholder="https://blog.example.com/my-post"
+              fullWidth
+              variant="outlined"
+              value={publishUrl}
+              onChange={(e) => setPublishUrl(e.target.value)}
+              InputProps={{
+                startAdornment: <Link sx={{ color: 'text.secondary', mr: 1 }} />,
+              }}
+              helperText="네이버 블로그, 티스토리, 브런치, 인스타그램 등 실제 발행한 주소를 입력하세요."
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={closePublishDialog} color="inherit">
+              취소
+            </Button>
+            <Button 
+              onClick={handlePublishSubmit} 
+              variant="contained"
+              sx={{ 
+                bgcolor: '#152484',
+                '&:hover': { bgcolor: '#003A87' }
+              }}
+            >
+              발행 완료
+            </Button>
           </DialogActions>
         </Dialog>
 

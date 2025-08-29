@@ -14,10 +14,10 @@ export function usePostGenerator() {
     setLoading(true);
     setError(null);
     try {
-      // 기존 함수명 유지 (백엔드에서 single로 래핑)
-      const generatePostFn = httpsCallable(functions, 'generateSinglePost');
+      // generatePosts 함수 사용 (실제 AI 생성)
+      const generatePostFn = httpsCallable(functions, 'generatePosts');
       const { data } = await generatePostFn(formData);
-      const newDraft = data?.singlePost ?? data;
+      const newDraft = data?.drafts ?? data;
       if (!newDraft) throw new Error('Invalid response from generatePosts');
       setDrafts(prev => [newDraft, ...prev].slice(0, 3));
       setAttempts(prev => prev + 1);
