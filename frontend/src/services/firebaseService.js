@@ -335,3 +335,34 @@ export const updateGeminiStatus = async (newState) => {
 export const clearSystemCache = async () => {
   return await callFunctionWithRetry('clearSystemCache');
 };
+
+// ============================================================================
+// SNS 애드온 관련 함수들
+// ============================================================================
+
+/**
+ * 원고를 SNS용으로 변환
+ * @param {string} postId - 원고 ID
+ * @param {string} platform - SNS 플랫폼 ('facebook', 'instagram', 'twitter', 'linkedin')
+ * @param {string} tone - 톤 ('friendly', 'professional', 'energetic', 'informative')
+ * @returns {Promise<object>} 변환 결과
+ */
+export const convertToSNS = async (postId, platform, tone = 'friendly') => {
+  return await callFunctionWithRetry('convertToSNS', { postId, platform, tone });
+};
+
+/**
+ * SNS 애드온 사용량 조회
+ * @returns {Promise<object>} 사용량 정보
+ */
+export const getSNSUsage = async () => {
+  return await callFunctionWithRetry('getSNSUsage');
+};
+
+/**
+ * SNS 애드온 구매/활성화
+ * @returns {Promise<object>} 구매 결과
+ */
+export const purchaseSNSAddon = async () => {
+  return await callFunctionWithRetry('purchaseSNSAddon');
+};

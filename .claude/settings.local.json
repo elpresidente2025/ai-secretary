@@ -23,7 +23,8 @@
       "WebFetch(domain:www.nec.go.kr)",
       "Bash(pkill:*)",
       "Bash(firebase login:*)",
-      "Bash(firebase projects:list:*)"
+      "Bash(firebase projects:list:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": [],

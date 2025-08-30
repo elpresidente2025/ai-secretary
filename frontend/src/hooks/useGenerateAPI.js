@@ -277,6 +277,7 @@ export function useGenerateAPI() {
     loading,
     error,
     drafts,
+    setDrafts,
     attempts,
     maxAttempts,
     generate,

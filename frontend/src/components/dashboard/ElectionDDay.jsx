@@ -28,35 +28,72 @@ function ElectionDDay({ position, status }) {
   // 선거 정보 설정
   useEffect(() => {
     const getElectionInfo = () => {
-      const currentYear = new Date().getFullYear();
+      const today = new Date();
+      const currentYear = today.getFullYear();
       
       if (position === '국회의원') {
-        // 국회의원 선거 (4년마다, 2024년 기준 - 다음은 2028년)
-        const nextElectionYear = currentYear <= 2024 ? 2024 : Math.ceil((currentYear - 2024) / 4) * 4 + 2024;
-        const electionDate = new Date(nextElectionYear, 3, 12); // 4월 12일
+        // 총선: 4년 주기, 기준일 2028-04-12
+        const baseElection = {
+          year: 2028,
+          month: 3, // 0-based (4월)
+          day: 12,
+          cycle: 4
+        };
+        
+        const nextElection = getNextElectionDate(baseElection, today);
+        const termNumber = Math.floor((nextElection.year - 2024) / 4) + 22; // 22대부터 시작
         
         return {
-          type: nextElectionYear === 2024 ? '제22대 국회의원 선거' : '제23대 국회의원 선거',
-          date: electionDate,
+          type: `제${termNumber}대 국회의원 선거`,
+          date: nextElection.date,
           description: '총선',
           icon: HowToVote,
-          color: '#003A87'
+          color: '#003A87',
+          cycle: '4년'
         };
       } else if (position === '광역의원' || position === '기초의원') {
-        // 지방선거 (4년마다, 2026년 기준)
-        const nextElectionYear = Math.ceil((currentYear - 2026) / 4) * 4 + 2026;
-        const electionDate = new Date(nextElectionYear, 5, 3); // 6월 3일
+        // 지선: 4년 주기, 기준일 2026-06-03
+        const baseElection = {
+          year: 2026,
+          month: 5, // 0-based (6월)
+          day: 3,
+          cycle: 4
+        };
+        
+        const nextElection = getNextElectionDate(baseElection, today);
+        const termNumber = Math.floor((nextElection.year - 2026) / 4) + 9; // 9회부터 시작
         
         return {
-          type: '제9회 전국동시지방선거',
-          date: electionDate,
+          type: `제${termNumber}회 전국동시지방선거`,
+          date: nextElection.date,
           description: '지선',
           icon: People,
-          color: '#006261'
+          color: '#006261',
+          cycle: '4년'
         };
       }
       
       return null;
+    };
+
+    // 다음 선거일 계산 함수
+    const getNextElectionDate = (baseElection, today) => {
+      const { year: baseYear, month: baseMonth, day: baseDay, cycle } = baseElection;
+      
+      // 기준 선거일
+      let candidateYear = baseYear;
+      let candidateDate = new Date(candidateYear, baseMonth, baseDay);
+      
+      // 오늘 이후의 가장 가까운 선거일 찾기
+      while (candidateDate <= today) {
+        candidateYear += cycle;
+        candidateDate = new Date(candidateYear, baseMonth, baseDay);
+      }
+      
+      return {
+        year: candidateYear,
+        date: candidateDate
+      };
     };
 
     const info = getElectionInfo();
@@ -164,6 +201,9 @@ function ElectionDDay({ position, status }) {
             <Typography variant="body2" color="text.secondary">
               {electionInfo.type}
             </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+              {electionInfo.cycle} 주기 자동 계산
+            </Typography>
           </Box>
         </Box>
 
@@ -198,7 +238,7 @@ function ElectionDDay({ position, status }) {
 
       {/* 하단: 날짜 정보 */}
       <Box sx={{ mb: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
           <CalendarToday sx={{ fontSize: 16, color: 'text.secondary' }} />
           <Typography variant="body2" color="text.secondary">
             {electionInfo.date.toLocaleDateString('ko-KR', {
@@ -209,6 +249,16 @@ function ElectionDDay({ position, status }) {
             })}
           </Typography>
         </Box>
+        
+        {/* 정확한 일수 표시 (윤년 고려) */}
+        <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+          {dDay > 0 && (
+            <>정확히 {dDay.toLocaleString()}일 후 
+            {dDay > 365 && ` (약 ${(dDay/365).toFixed(1)}년)`}</>
+          )}
+          {dDay === 0 && '오늘이 투표일입니다!'}
+          {dDay < 0 && `선거 종료 후 ${Math.abs(dDay).toLocaleString()}일 경과`}
+        </Typography>
       </Box>
 
         {/* 선거법 준수 알림 */}

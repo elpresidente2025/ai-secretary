@@ -10,14 +10,16 @@ import {
   Divider,
   Paper
 } from '@mui/material';
-import { AutoAwesome, Save } from '@mui/icons-material';
+import { AutoAwesome, Save, Share } from '@mui/icons-material';
 
 export default function DraftGrid({ 
   items = [], 
   onSelect, 
   onSave,
+  onSNSConvert,
   maxAttempts = 3,
-  isMobile = false 
+  isMobile = false,
+  showSNSButton = false
 }) {
   if (items.length === 0) {
     return (
@@ -137,7 +139,7 @@ export default function DraftGrid({
               </Box>
             </CardContent>
             
-            <CardActions sx={{ justifyContent: 'space-between', px: 2, pb: 2 }}>
+            <CardActions sx={{ justifyContent: 'space-between', px: 2, pb: 2, flexWrap: 'wrap' }}>
               <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)' }}>
                 {draft.generatedAt ? 
                   new Date(draft.generatedAt).toLocaleString() : 
@@ -145,21 +147,44 @@ export default function DraftGrid({
                 }
               </Typography>
               
-              <Button 
-                size="small" 
-                startIcon={<Save />}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSave?.(draft);
-                }}
-                sx={{ 
-                  color: 'white', 
-                  borderColor: 'white',
-                  '&:hover': {
-                    borderColor: 'rgba(255,255,255,0.8)',
-                    backgroundColor: 'rgba(255,255,255,0.1)'
-                  }
-                }}
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                {showSNSButton && (
+                  <Button 
+                    size="small" 
+                    startIcon={<Share />}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSNSConvert?.(draft);
+                    }}
+                    sx={{ 
+                      color: 'white', 
+                      borderColor: 'white',
+                      '&:hover': {
+                        borderColor: 'rgba(255,255,255,0.8)',
+                        backgroundColor: 'rgba(255,255,255,0.1)'
+                      }
+                    }}
+                    variant="outlined"
+                  >
+                    SNS 변환
+                  </Button>
+                )}
+                
+                <Button 
+                  size="small" 
+                  startIcon={<Save />}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSave?.(draft);
+                  }}
+                  sx={{ 
+                    color: 'white', 
+                    borderColor: 'white',
+                    '&:hover': {
+                      borderColor: 'rgba(255,255,255,0.8)',
+                      backgroundColor: 'rgba(255,255,255,0.1)'
+                    }
+                  }}
                 variant="outlined"
               >
                 저장

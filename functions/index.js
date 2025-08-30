@@ -22,6 +22,7 @@ const adminHandler = require('./handlers/admin');
 const performanceHandler = require('./handlers/performance');
 const publishingHandler = require('./handlers/publishing');
 const adminUsersHandler = require('./handlers/admin-users');
+const snsAddonHandler = require('./handlers/sns-addon');
 
 // 스크래핑 테스트 함수들
 const { testElectionScraping, checkCacheStatus, refreshCache } = require('./handlers/test-scraper');
@@ -50,7 +51,7 @@ const heavyConfig = {
 exports.getUserPosts = postsHandler.getUserPosts;
 exports.getPost = postsHandler.getPost;
 exports.updatePost = postsHandler.updatePost;
-exports.deletePost = postsHandler.deletePost;
+// deletePost는 HTTP 함수로 별도 구현 (CORS 문제 해결)
 exports.checkUsageLimit = postsHandler.checkUsageLimit;
 exports.generatePosts = postsHandler.generatePosts;
 
@@ -66,6 +67,11 @@ exports.getUserBio = bioHandler.getUserBio;
 exports.updateUserBio = bioHandler.updateUserBio;
 exports.updateBioEntry = bioHandler.updateBioEntry;
 exports.deleteBioEntry = bioHandler.deleteBioEntry;
+
+// 사용자 계정 관리 함수들
+const userManagementHandler = require('./handlers/user-management');
+exports.deleteUserAccount = userManagementHandler.deleteUserAccount;
+exports.sendPasswordResetEmail = userManagementHandler.sendPasswordResetEmail;
 exports.deleteUserBio = bioHandler.deleteUserBio;
 exports.reanalyzeBioMetadata = bioHandler.reanalyzeBioMetadata;
 exports.onBioUpdate = bioHandler.onBioUpdate;
@@ -99,6 +105,11 @@ exports.getAllUsers = adminUsersHandler.getAllUsers;
 exports.deactivateUser = adminUsersHandler.deactivateUser;
 exports.reactivateUser = adminUsersHandler.reactivateUser;
 exports.deleteUser = adminUsersHandler.deleteUser;
+
+// SNS 애드온 관련 함수들
+exports.convertToSNS = snsAddonHandler.convertToSNS;
+exports.getSNSUsage = snsAddonHandler.getSNSUsage;
+exports.purchaseSNSAddon = snsAddonHandler.purchaseSNSAddon;
 
 // 관리자 전용 함수들 (HTTP 함수로 변경하여 CORS 문제 해결)
 const { onRequest } = require('firebase-functions/v2/https');
@@ -143,10 +154,105 @@ exports.getErrorLogs = onRequest({
     }
     
     console.log('🔥 getErrorLogs 시작');
-    res.json({ success: true, message: '에러 로그 기능은 현재 구현 중입니다.' });
+    
+    const { admin, db } = require('./utils/firebaseAdmin');
+    
+    // 요청 파라미터 파싱
+    const reqData = req.body || {};
+    const limit = Math.min(reqData.limit || 50, 200); // 최대 200개까지
+    const severity = reqData.severity; // 'critical', 'error', 'warning' 필터
+    const functionName = reqData.functionName; // 특정 함수 필터
+    
+    console.log('📊 에러 로그 조회 파라미터:', { limit, severity, functionName });
+    
+    // Firestore에서 에러 로그 조회
+    let query = db.collection('error_logs')
+      .orderBy('timestamp', 'desc')
+      .limit(limit);
+    
+    // 필터 적용
+    if (severity) {
+      query = query.where('severity', '==', severity);
+    }
+    
+    if (functionName) {
+      query = query.where('functionName', '==', functionName);
+    }
+    
+    const snapshot = await query.get();
+    
+    if (snapshot.empty) {
+      console.log('✅ 에러 로그 없음');
+      return res.json({
+        success: true,
+        data: {
+          errors: [],
+          total: 0
+        }
+      });
+    }
+    
+    const errors = [];
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      
+      // 타임스탬프 변환
+      let timestamp = null;
+      if (data.timestamp) {
+        try {
+          // Firestore Timestamp 객체인 경우
+          if (data.timestamp.toDate) {
+            timestamp = data.timestamp.toDate().toISOString();
+          } 
+          // 이미 ISO 문자열인 경우
+          else if (typeof data.timestamp === 'string') {
+            timestamp = data.timestamp;
+          }
+          // 밀리초 숫자인 경우
+          else if (typeof data.timestamp === 'number') {
+            timestamp = new Date(data.timestamp).toISOString();
+          }
+        } catch (e) {
+          console.warn('타임스탬프 변환 실패:', doc.id, e.message);
+          timestamp = new Date().toISOString(); // 현재 시간으로 fallback
+        }
+      }
+      
+      errors.push({
+        id: doc.id,
+        message: data.message || '메시지 없음',
+        stack: data.stack || '',
+        code: data.code || 'UNKNOWN',
+        severity: data.severity || 'error',
+        functionName: data.functionName || '알 수 없음',
+        userId: data.userId || null,
+        userAgent: data.userAgent || null,
+        ipAddress: data.ipAddress || null,
+        environment: data.environment || 'production',
+        buildVersion: data.buildVersion || null,
+        timestamp: timestamp,
+        requestData: data.requestData || null
+      });
+    });
+    
+    console.log('✅ 에러 로그 조회 성공:', { count: errors.length });
+    
+    res.json({
+      success: true,
+      data: {
+        errors: errors,
+        total: errors.length,
+        limit: limit
+      }
+    });
+    
   } catch (error) {
     console.error('❌ getErrorLogs 오류:', error);
-    res.status(500).json({ success: false, error: 'internal', message: '서버 내부 오류가 발생했습니다.' });
+    res.status(500).json({ 
+      success: false, 
+      error: 'internal', 
+      message: '에러 로그 조회에 실패했습니다: ' + error.message 
+    });
   }
 });
 
@@ -555,6 +661,63 @@ exports.savePost = postsHandler.saveSelectedPost; // 프론트엔드에서 saveP
 
 exports.getUserMetadata = onCall(fastConfig, (req) => {
   throw new HttpsError('unimplemented', '가챠뽑기 시스템으로 재구현 예정입니다.');
+});
+
+// deletePost HTTP 함수 (CORS 문제 해결)
+const { httpWrap } = require('./common/http-wrap');
+
+exports.deletePost = httpWrap(async (request) => {
+  const { admin, db } = require('./utils/firebaseAdmin');
+  const { HttpsError } = require('firebase-functions/v2/https');
+  
+  console.log('🔥 deletePost HTTP 시작');
+  console.log('📋 Request data:', JSON.stringify(request.data));
+  console.log('📋 Raw request body:', JSON.stringify(request.rawRequest.body));
+  
+  // Authorization 헤더에서 토큰 추출
+  const authHeader = request.rawRequest.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    throw new HttpsError('unauthenticated', '인증이 필요합니다.');
+  }
+  
+  const idToken = authHeader.split('Bearer ')[1];
+  let decodedToken;
+  
+  try {
+    decodedToken = await admin.auth().verifyIdToken(idToken);
+  } catch (authError) {
+    console.error('토큰 검증 실패:', authError);
+    throw new HttpsError('unauthenticated', '유효하지 않은 토큰입니다.');
+  }
+  
+  const uid = decodedToken.uid;
+  // Firebase SDK 스타일 응답에서 data 필드를 추출
+  const postId = request.data?.data?.postId || request.data?.postId;
+  
+  console.log('📋 Extracted postId:', postId);
+  
+  if (!postId) {
+    throw new HttpsError('invalid-argument', 'postId가 필요합니다.');
+  }
+  
+  // 게시물 조회 및 소유자 확인
+  const postDoc = await db.collection('posts').doc(postId).get();
+  
+  if (!postDoc.exists) {
+    throw new HttpsError('not-found', '게시물을 찾을 수 없습니다.');
+  }
+  
+  const postData = postDoc.data();
+  if (postData.userId !== uid) {
+    throw new HttpsError('permission-denied', '삭제 권한이 없습니다.');
+  }
+  
+  // 게시물 삭제
+  await db.collection('posts').doc(postId).delete();
+  
+  console.log('✅ deletePost 성공:', postId);
+  
+  return { success: true, postId };
 });
 
 // 사용자 프로필 업데이트 트리거 (프로필 핸들러에서 이동)

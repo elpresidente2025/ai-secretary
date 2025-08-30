@@ -13,12 +13,15 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  IconButton
+  DialogActions,
+  IconButton,
+  Button
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import DashboardLayout from '../components/DashboardLayout';
 import PromptForm from '../components/generate/PromptForm';
 import GenerateActions from '../components/generate/GenerateActions';
+import SNSConversionModal from '../components/SNSConversionModal';
 // 기능별로 분리된 커스텀 훅(Hook)들을 가져옵니다.
 import { useAuth } from '../hooks/useAuth';
 import { useGenerateForm } from '../hooks/useGenerateForm';
@@ -45,6 +48,7 @@ const GeneratePage = () => {
     loading,      // 로딩 중인지 여부 (true/false)
     error,        // API 에러 메시지
     drafts,       // 생성된 원고 초안 목록
+    setDrafts,    // 원고 목록 직접 설정 함수
     attempts,     // 현재 생성 시도 횟수
     maxAttempts,  // 최대 생성 시도 횟수
     generate,     // 원고 생성 API 호출 함수
@@ -65,6 +69,10 @@ const GeneratePage = () => {
 
   // --- 👁️ 미리보기 상태 관리 ---
   const [selectedDraft, setSelectedDraft] = React.useState(null); // 사용자가 선택한 초안
+  
+  // --- 📱 SNS 변환 상태 관리 ---
+  const [snsModalOpen, setSnsModalOpen] = React.useState(false);
+  const [snsPost, setSnsPost] = React.useState(null);
 
   // 🔥 성능 최적화: Firebase 연결을 미리 준비하여 API 호출 속도를 개선합니다.
   useEffect(() => {
@@ -130,6 +138,24 @@ const GeneratePage = () => {
     resetForm();        // 폼 데이터 초기화
     reset();            // API 관련 상태(초안, 에러 등) 초기화
     setSelectedDraft(null); // 선택된 초안 초기화
+    setSnsPost(null);   // SNS 포스트 상태 초기화
+  };
+
+  /** 원고 선택 시 실행되는 함수 - 선택된 원고만 남기고 나머지 제거 */
+  const handleSelectDraft = (draft) => {
+    setDrafts([draft]); // 선택된 원고만 배열에 남김
+    setSelectedDraft(null); // 미리보기 다이얼로그는 닫음
+    setSnackbar({ 
+      open: true, 
+      message: '원고가 선택되었습니다. 이제 SNS 변환을 할 수 있습니다.', 
+      severity: 'success' 
+    });
+  };
+
+  /** SNS 변환 버튼 클릭 시 실행되는 함수 */
+  const handleSNSConvert = (draft) => {
+    setSnsPost(draft);
+    setSnsModalOpen(true);
   };
 
   /** 초안 저장 버튼 클릭 시 실행되는 함수 */
@@ -206,10 +232,12 @@ const GeneratePage = () => {
         }>
           <DraftGrid
             items={drafts}
-            onSelect={setSelectedDraft} // 초안 선택 시 호출될 함수
+            onSelect={drafts.length > 1 ? setSelectedDraft : null} // 여러 개일 때만 미리보기
             onSave={handleSave}         // 초안 저장 시 호출될 함수
+            onSNSConvert={handleSNSConvert} // SNS 변환 함수 추가
             maxAttempts={maxAttempts}
             isMobile={isMobile}
+            showSNSButton={drafts.length === 1} // 원고가 1개일 때만 SNS 버튼 표시
           />
         </Suspense>
 
@@ -248,6 +276,18 @@ const GeneratePage = () => {
               </Suspense>
             )}
           </DialogContent>
+          <DialogActions sx={{ p: 2, gap: 1 }}>
+            <Button onClick={() => setSelectedDraft(null)}>
+              취소
+            </Button>
+            <Button 
+              variant="contained" 
+              onClick={() => handleSelectDraft(selectedDraft)}
+              color="primary"
+            >
+              이 원고 선택
+            </Button>
+          </DialogActions>
         </Dialog>
       </Container>
 
@@ -266,6 +306,13 @@ const GeneratePage = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      {/* SNS 변환 모달 */}
+      <SNSConversionModal
+        open={snsModalOpen}
+        onClose={() => setSnsModalOpen(false)}
+        post={snsPost}
+      />
     </DashboardLayout>
   );
 };

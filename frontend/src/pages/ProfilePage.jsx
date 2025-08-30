@@ -22,9 +22,13 @@ import {
   CardActions,
   Chip,
   Divider,
-  Stack
+  Stack,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material';
-import { Add, Remove, AutoAwesome } from '@mui/icons-material';
+import { Add, Remove, AutoAwesome, DeleteForever, Warning } from '@mui/icons-material';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../services/firebase';
 import DashboardLayout from '../components/DashboardLayout';
@@ -33,16 +37,22 @@ import { useAuth } from '../hooks/useAuth';
 import { BIO_ENTRY_TYPES, BIO_TYPE_ORDER, BIO_CATEGORIES, VALIDATION_RULES } from '../constants/bio-types';
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   
   // httpsCallable 메모이즈
   const callGetProfile = useMemo(() => httpsCallable(functions, 'getUserProfile'), []);
   const callUpdateProfile = useMemo(() => httpsCallable(functions, 'updateProfile'), []);
+  const callDeleteUserAccount = useMemo(() => httpsCallable(functions, 'deleteUserAccount'), []);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
+  
+  // 회원탈퇴 다이얼로그 상태
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   const [profile, setProfile] = useState({
     name: '',
@@ -53,6 +63,65 @@ export default function ProfilePage() {
     electoralDistrict: '',
     bio: '',
   });
+
+  // 회원탈퇴 처리
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText !== '회원탈퇴') {
+      setSnack({
+        open: true,
+        message: '확인 문구를 정확히 입력해주세요.',
+        severity: 'error'
+      });
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      console.log('회원탈퇴 시작...');
+      await callDeleteUserAccount();
+      
+      setSnack({
+        open: true,
+        message: '회원탈퇴가 완료되었습니다. 그동안 이용해 주셔서 감사합니다.',
+        severity: 'success'
+      });
+      
+      // 잠시 후 로그아웃 처리
+      setTimeout(async () => {
+        try {
+          await logout();
+        } catch (logoutError) {
+          console.error('로그아웃 오류:', logoutError);
+          window.location.href = '/login';
+        }
+      }, 2000);
+      
+    } catch (error) {
+      console.error('회원탈퇴 오류:', error);
+      let errorMessage = '회원탈퇴 처리 중 오류가 발생했습니다.';
+      
+      if (error.code === 'unauthenticated') {
+        errorMessage = '로그인이 필요합니다.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setSnack({
+        open: true,
+        message: errorMessage,
+        severity: 'error'
+      });
+    } finally {
+      setDeleting(false);
+      setDeleteDialogOpen(false);
+      setDeleteConfirmText('');
+    }
+  };
+
+  const handleCloseDeleteDialog = () => {
+    setDeleteDialogOpen(false);
+    setDeleteConfirmText('');
+  };
 
   // Bio 엔트리 상태 관리
   const [bioEntries, setBioEntries] = useState([
@@ -612,7 +681,18 @@ export default function ProfilePage() {
 
               {/* 저장 버튼 */}
               <Grid item xs={12}>
-                <Box display="flex" justifyContent="flex-end">
+                <Box display="flex" justifyContent="space-between" alignItems="center">
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    startIcon={<DeleteForever />}
+                    onClick={() => setDeleteDialogOpen(true)}
+                    size="large"
+                    disabled={saving || deleting}
+                  >
+                    회원탈퇴
+                  </Button>
+                  
                   <Button
                     type="submit"
                     variant="contained"
@@ -646,6 +726,78 @@ export default function ProfilePage() {
             {snack.message}
           </Alert>
         </Snackbar>
+
+        {/* 회원탈퇴 확인 다이얼로그 */}
+        <Dialog 
+          open={deleteDialogOpen} 
+          onClose={handleCloseDeleteDialog}
+          maxWidth="sm" 
+          fullWidth
+        >
+          <DialogTitle>
+            <Box display="flex" alignItems="center" gap={1}>
+              <Warning color="error" />
+              <Typography variant="h6" component="span">
+                회원탈퇴 확인
+              </Typography>
+            </Box>
+          </DialogTitle>
+          
+          <DialogContent>
+            <Alert severity="error" sx={{ mb: 3 }}>
+              <Typography variant="body1" sx={{ fontWeight: 600, mb: 1 }}>
+                ⚠️ 회원탈퇴 시 다음 데이터가 영구적으로 삭제됩니다:
+              </Typography>
+              <Typography component="div">
+                • 모든 게시물 및 댓글<br/>
+                • 프로필 정보 및 Bio 데이터<br/>
+                • 선거구 점유 정보<br/>
+                • 계정 정보 (복구 불가능)
+              </Typography>
+            </Alert>
+            
+            <Typography variant="body1" sx={{ mb: 2 }}>
+              정말로 회원탈퇴를 진행하시겠습니까?
+            </Typography>
+            
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              탈퇴를 확인하려면 아래에 <strong>"회원탈퇴"</strong>를 정확히 입력해주세요.
+            </Typography>
+            
+            <TextField
+              fullWidth
+              label="확인 문구 입력"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder="회원탈퇴"
+              disabled={deleting}
+              error={deleteConfirmText !== '' && deleteConfirmText !== '회원탈퇴'}
+              helperText={
+                deleteConfirmText !== '' && deleteConfirmText !== '회원탈퇴' 
+                  ? '정확히 "회원탈퇴"를 입력해주세요.' 
+                  : ''
+              }
+            />
+          </DialogContent>
+          
+          <DialogActions>
+            <Button 
+              onClick={handleCloseDeleteDialog} 
+              disabled={deleting}
+            >
+              취소
+            </Button>
+            <Button
+              onClick={handleDeleteAccount}
+              color="error"
+              variant="contained"
+              disabled={deleting || deleteConfirmText !== '회원탈퇴'}
+              startIcon={deleting ? <CircularProgress size={20} /> : <DeleteForever />}
+            >
+              {deleting ? '처리 중...' : '회원탈퇴'}
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Container>
     </DashboardLayout>
   );

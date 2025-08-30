@@ -25,8 +25,9 @@ import {
   Divider,
   TextField,
 } from '@mui/material';
-import { ContentCopy, DeleteOutline, Assignment, Publish, Link } from '@mui/icons-material';
+import { ContentCopy, DeleteOutline, Assignment, Publish, Link, Share } from '@mui/icons-material';
 import DashboardLayout from '../components/DashboardLayout';
+import SNSConversionModal from '../components/SNSConversionModal';
 import { useAuth } from '../hooks/useAuth';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../services/firebase';
@@ -68,6 +69,8 @@ export default function PostsListPage() {
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
   const [publishPost, setPublishPost] = useState(null);
   const [publishUrl, setPublishUrl] = useState('');
+  const [snsModalOpen, setSnsModalOpen] = useState(false);
+  const [snsPost, setSnsPost] = useState(null);
 
   // 디버깅 로그
   console.log('🔍 user:', user);
@@ -75,7 +78,7 @@ export default function PostsListPage() {
   console.log('🔍 authLoading:', authLoading);
 
   const callGetUserPosts = httpsCallable(functions, 'getUserPosts');
-  const callDeletePost = httpsCallable(functions, 'deletePost');
+  // deletePost는 HTTP 함수로 변경 (CORS 문제 해결)
   const callPublishPost = httpsCallable(functions, 'publishPost');
 
   useEffect(() => {
@@ -147,7 +150,23 @@ export default function PostsListPage() {
     const ok = window.confirm('정말 이 원고를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.');
     if (!ok) return;
     try {
-      await callDeletePost({ postId });
+      // HTTP 요청으로 변경 (CORS 문제 해결)
+      const token = await user.getIdToken();
+      const response = await fetch('https://asia-northeast3-ai-secretary-6e9c8.cloudfunctions.net/deletePost', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ postId })
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.message || '삭제에 실패했습니다.');
+      }
+      
       setPosts((prev) => prev.filter((p) => p.id !== postId));
       setSnack({ open: true, message: '삭제되었습니다.', severity: 'info' });
       if (viewerPost?.id === postId) {
@@ -156,7 +175,7 @@ export default function PostsListPage() {
       }
     } catch (err) {
       console.error(err);
-      setSnack({ open: true, message: '삭제에 실패했습니다.', severity: 'error' });
+      setSnack({ open: true, message: err.message || '삭제에 실패했습니다.', severity: 'error' });
     }
   };
 
@@ -168,6 +187,12 @@ export default function PostsListPage() {
   const closeViewer = () => {
     setViewerOpen(false);
     setViewerPost(null);
+  };
+
+  const handleSNSConvert = (post, e) => {
+    if (e) e.stopPropagation();
+    setSnsPost(post);
+    setSnsModalOpen(true);
   };
 
   const handlePublish = (post, e) => {
@@ -345,6 +370,15 @@ export default function PostsListPage() {
                           )}
                         </Box>
                         <Box>
+                          <Tooltip title="SNS 변환">
+                            <IconButton 
+                              size="small" 
+                              onClick={(e) => handleSNSConvert(p, e)}
+                              sx={{ color: '#E4405F' }}
+                            >
+                              <Share fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
                           <Tooltip title="발행">
                             <IconButton 
                               size="small" 
@@ -469,6 +503,13 @@ export default function PostsListPage() {
             {snack.message}
           </Alert>
         </Snackbar>
+
+        {/* SNS 변환 모달 */}
+        <SNSConversionModal
+          open={snsModalOpen}
+          onClose={() => setSnsModalOpen(false)}
+          post={snsPost}
+        />
       </Container>
     </DashboardLayout>
   );
