@@ -151,10 +151,10 @@ function LoginPage() {
           component="img"
           src="/logo.png"
           alt="AI비서관 로고"
-          sx={{
-            height: 80,
-            width: 'auto',
-            mb: 2
+          sx={{ 
+            width: '80%', 
+            mb: 3,
+            objectFit: 'contain'
           }}
         />
         <Typography component="h1" variant="h5">
