@@ -185,10 +185,11 @@ export default function DraftGrid({
                       backgroundColor: 'rgba(255,255,255,0.1)'
                     }
                   }}
-                variant="outlined"
-              >
-                저장
-              </Button>
+                  variant="outlined"
+                >
+                  저장
+                </Button>
+              </Box>
             </CardActions>
           </Card>
         ))}
