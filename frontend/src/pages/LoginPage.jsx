@@ -30,6 +30,7 @@ function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
+  const [resetName, setResetName] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
   const [resetMessage, setResetMessage] = useState('');
   
@@ -99,8 +100,27 @@ function LoginPage() {
   };
 
   const handlePasswordReset = async () => {
-    if (!resetEmail) {
+    // 입력 검증
+    if (!resetEmail.trim()) {
       setResetMessage('이메일을 입력해주세요.');
+      return;
+    }
+    
+    if (!resetName.trim()) {
+      setResetMessage('사용자 이름을 입력해주세요.');
+      return;
+    }
+
+    // 이메일 형식 검증
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(resetEmail.trim())) {
+      setResetMessage('올바른 이메일 형식을 입력해주세요.');
+      return;
+    }
+
+    // 사용자 이름 길이 검증
+    if (resetName.trim().length < 2) {
+      setResetMessage('사용자 이름은 2글자 이상 입력해주세요.');
       return;
     }
 
@@ -108,8 +128,9 @@ function LoginPage() {
     setResetMessage('');
 
     try {
-      await sendPasswordResetEmail(auth, resetEmail);
-      setResetMessage('비밀번호 재설정 이메일을 발송했습니다. 메일함을 확인해주세요.');
+      // Firebase Auth로 비밀번호 재설정 이메일 발송
+      await sendPasswordResetEmail(auth, resetEmail.trim());
+      setResetMessage(`${resetName.trim()}님, 비밀번호 재설정 이메일을 ${resetEmail.trim()}로 발송했습니다. 메일함을 확인해주세요.`);
     } catch (error) {
       console.error('비밀번호 재설정 오류:', error);
       let errorMessage = '비밀번호 재설정 이메일 발송에 실패했습니다.';
@@ -119,7 +140,10 @@ function LoginPage() {
           errorMessage = '유효하지 않은 이메일 주소입니다.';
           break;
         case 'auth/user-not-found':
-          errorMessage = '존재하지 않는 이메일 주소입니다.';
+          errorMessage = '해당 이메일로 등록된 계정이 존재하지 않습니다.';
+          break;
+        case 'auth/too-many-requests':
+          errorMessage = '너무 많은 요청이 발생했습니다. 잠시 후 다시 시도해주세요.';
           break;
         default:
           errorMessage = `오류: ${error.message}`;
@@ -134,6 +158,7 @@ function LoginPage() {
   const handleResetDialogClose = () => {
     setResetDialogOpen(false);
     setResetEmail('');
+    setResetName('');
     setResetMessage('');
   };
 
@@ -231,10 +256,25 @@ function LoginPage() {
 
         {/* 비밀번호 재설정 다이얼로그 */}
         <Dialog open={resetDialogOpen} onClose={handleResetDialogClose} maxWidth="sm" fullWidth>
-        <DialogTitle>비밀번호 재설정</DialogTitle>
-        <DialogContent>
+          <DialogTitle>비밀번호 재설정</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              계정 확인을 위해 사용자 이름과 이메일 주소를 입력해주세요.
+            </Typography>
           <TextField
             autoFocus
+            margin="dense"
+            label="사용자 이름"
+            type="text"
+            fullWidth
+            variant="outlined"
+            value={resetName}
+            onChange={(e) => setResetName(e.target.value)}
+            disabled={resetLoading}
+            placeholder="홍길동"
+            sx={{ mt: 2 }}
+          />
+          <TextField
             margin="dense"
             label="이메일 주소"
             type="email"
@@ -243,6 +283,7 @@ function LoginPage() {
             value={resetEmail}
             onChange={(e) => setResetEmail(e.target.value)}
             disabled={resetLoading}
+            placeholder="example@domain.com"
             sx={{ mt: 2 }}
           />
           {resetMessage && (
