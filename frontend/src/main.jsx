@@ -13,7 +13,7 @@ import ProfileRequiredRoute from './components/ProfileRequiredRoute.jsx';
 import './index.css';
 
 // 🚀 라우트 레벨 lazy loading
-const LoginPage = lazy(() => import('./pages/HomePage.jsx'));
+const LoginPage = lazy(() => import('./pages/LoginPage.jsx'));
 const RegisterPage = lazy(() => import('./pages/RegisterPage.jsx'));
 const Dashboard = lazy(() => import('./pages/Dashboard.jsx'));
 const GeneratePage = lazy(() => import('./pages/GeneratePage.jsx'));

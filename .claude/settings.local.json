@@ -25,7 +25,8 @@
       "Bash(firebase login:*)",
       "Bash(firebase projects:list:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(firebase hosting:channel:list:*)"
     ],
     "deny": [],
     "ask": [],
