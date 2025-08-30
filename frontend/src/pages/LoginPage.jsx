@@ -138,15 +138,14 @@ function LoginPage() {
   };
 
   return (
-    <Container component="main" maxWidth="sm">
-      <Box
-        sx={{
-          marginTop: 8,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-        }}
-      >
+    <Box sx={{ 
+      minHeight: '100vh', 
+      display: 'flex', 
+      alignItems: 'center', 
+      justifyContent: 'center' 
+    }}>
+      <Container component="main" maxWidth="xs">
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <Box
           component="img"
           src="/logo.png"
@@ -200,7 +199,14 @@ function LoginPage() {
               type="submit"
               fullWidth
               variant="contained"
-              sx={{ mt: 3, mb: 2 }}
+              sx={{ 
+                mt: 3, 
+                mb: 2,
+                bgcolor: '#152484',
+                '&:hover': {
+                  bgcolor: '#003A87'
+                }
+              }}
               disabled={loading}
             >
               {loading ? <CircularProgress size={24} /> : '로그인'}
@@ -222,10 +228,9 @@ function LoginPage() {
             </Box>
           </Box>
         </Paper>
-      </Box>
 
-      {/* 비밀번호 재설정 다이얼로그 */}
-      <Dialog open={resetDialogOpen} onClose={handleResetDialogClose} maxWidth="sm" fullWidth>
+        {/* 비밀번호 재설정 다이얼로그 */}
+        <Dialog open={resetDialogOpen} onClose={handleResetDialogClose} maxWidth="sm" fullWidth>
         <DialogTitle>비밀번호 재설정</DialogTitle>
         <DialogContent>
           <TextField
@@ -261,8 +266,10 @@ function LoginPage() {
             {resetLoading ? <CircularProgress size={20} /> : '재설정 이메일 발송'}
           </Button>
         </DialogActions>
-      </Dialog>
-    </Container>
+        </Dialog>
+        </Box>
+      </Container>
+    </Box>
   );
 }
 
