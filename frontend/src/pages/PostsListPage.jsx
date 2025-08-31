@@ -28,6 +28,7 @@ import {
 import { ContentCopy, DeleteOutline, Assignment, Publish, Link, Share } from '@mui/icons-material';
 import DashboardLayout from '../components/DashboardLayout';
 import SNSConversionModal from '../components/SNSConversionModal';
+import PostViewerModal from '../components/PostViewerModal';
 import { useAuth } from '../hooks/useAuth';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../services/firebase';
@@ -47,6 +48,7 @@ function formatDate(iso) {
     return '-';
   }
 }
+
 
 function stripHtml(html = '') {
   try {
@@ -408,41 +410,13 @@ export default function PostsListPage() {
           )}
         </Paper>
 
-        <Dialog open={viewerOpen} onClose={closeViewer} fullWidth maxWidth="md">
-          <DialogTitle sx={{ pr: 2 }}>
-            {viewerPost?.title || '제목 없음'}
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-              생성일 {formatDate(viewerPost?.createdAt)} · 수정일 {formatDate(viewerPost?.updatedAt)}
-            </Typography>
-          </DialogTitle>
-          <DialogContent dividers>
-            <Box
-              sx={{
-                '& p': { my: 1 },
-                '& h1, & h2, & h3': { mt: 2, mb: 1 },
-                fontSize: '0.95rem',
-                lineHeight: 1.7,
-                maxHeight: '70vh',
-                overflow: 'auto',
-                bgcolor: 'grey.50',
-                p: 2,
-                borderRadius: 1,
-                border: '1px solid',
-                borderColor: 'grey.200',
-              }}
-              dangerouslySetInnerHTML={{ __html: viewerPost?.content || '<p>내용이 없습니다.</p>' }}
-            />
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={(e) => handleCopy(viewerPost?.content || '', e)} startIcon={<ContentCopy />}>
-              복사
-            </Button>
-            <Button onClick={(e) => handleDelete(viewerPost?.id, e)} color="error" startIcon={<DeleteOutline />}>
-              삭제
-            </Button>
-            <Button onClick={closeViewer} variant="contained">닫기</Button>
-          </DialogActions>
-        </Dialog>
+        {/* 원고 보기 모달 */}
+        <PostViewerModal
+          open={viewerOpen}
+          onClose={closeViewer}
+          post={viewerPost}
+          onDelete={handleDelete}
+        />
 
         {/* 발행 URL 입력 다이얼로그 */}
         <Dialog open={publishDialogOpen} onClose={closePublishDialog} maxWidth="sm" fullWidth>

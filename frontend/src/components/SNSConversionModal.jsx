@@ -26,12 +26,63 @@ import {
   Facebook,
   Instagram,
   Twitter,
-  LinkedIn,
   ContentCopy,
   Share,
   Close
 } from '@mui/icons-material';
+import { SvgIcon } from '@mui/material';
 import { convertToSNS, getSNSUsage } from '../services/firebaseService';
+
+// X (Twitter) 아이콘 컴포넌트
+const XIcon = (props) => (
+  <SvgIcon {...props} viewBox="0 0 24 24">
+    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+  </SvgIcon>
+);
+
+// Threads 아이콘 컴포넌트  
+const ThreadsIcon = (props) => (
+  <SvgIcon {...props} viewBox="0 0 24 24">
+    <path d="M12.9 8.148c-.271-.083-.573-.129-.9-.129-1.326 0-2.4 1.074-2.4 2.4v3.162c0 1.326 1.074 2.4 2.4 2.4.327 0 .629-.046.9-.129a2.4 2.4 0 0 0-.9-4.633v-1.071c0-.663.537-1.2 1.2-1.2s1.2.537 1.2 1.2v3.162c0 2.649-2.151 4.8-4.8 4.8s-4.8-2.151-4.8-4.8v-3.162c0-2.649 2.151-4.8 4.8-4.8 1.326 0 2.523.538 3.394 1.409"/>
+    <path d="M12 2C6.486 2 2 6.486 2 12s4.486 10 10 10 10-4.486 10-10S17.514 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8z"/>
+  </SvgIcon>
+);
+
+// HTML을 평범한 텍스트로 변환하는 유틸리티 함수
+function convertHtmlToFormattedText(html = '') {
+  try {
+    if (!html) return '';
+    
+    // 임시 div 엘리먼트 생성
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html;
+    
+    // HTML 태그를 텍스트로 변환하면서 formatting 보존
+    let text = tempDiv.innerHTML;
+    
+    // 블록 요소들을 줄바꿈으로 변환
+    text = text.replace(/<\/?(h[1-6]|p|div|br|li)[^>]*>/gi, '\n');
+    text = text.replace(/<\/?(ul|ol)[^>]*>/gi, '\n\n');
+    
+    // 나머지 HTML 태그 제거
+    text = text.replace(/<[^>]*>/g, '');
+    
+    // HTML 엔티티 변환
+    text = text.replace(/&nbsp;/g, ' ');
+    text = text.replace(/&amp;/g, '&');
+    text = text.replace(/&lt;/g, '<');
+    text = text.replace(/&gt;/g, '>');
+    text = text.replace(/&quot;/g, '"');
+    
+    // 연속된 줄바꿈을 정리 (3개 이상을 2개로)
+    text = text.replace(/\n{3,}/g, '\n\n');
+    
+    // 앞뒤 공백 제거
+    return text.trim();
+  } catch {
+    return html || '';
+  }
+}
 
 const PLATFORMS = {
   facebook: {
@@ -39,58 +90,36 @@ const PLATFORMS = {
     icon: Facebook,
     color: '#1877f2',
     maxLength: 63206,
-    recommendedLength: 400
+    recommendedLength: 63206  // 최대 한도 활용
   },
   instagram: {
     name: 'Instagram', 
     icon: Instagram,
     color: '#E4405F',
     maxLength: 2200,
-    recommendedLength: 150
+    recommendedLength: 2200  // 최대 한도 활용
   },
-  twitter: {
-    name: 'Twitter',
-    icon: Twitter,
-    color: '#1DA1F2',
+  x: {
+    name: 'X',
+    icon: XIcon,
+    color: '#000000',
     maxLength: 280,
-    recommendedLength: 280
+    recommendedLength: 280  // 최대 한도 활용
   },
-  linkedin: {
-    name: 'LinkedIn',
-    icon: LinkedIn,
-    color: '#0A66C2',
-    maxLength: 3000,
-    recommendedLength: 300
+  threads: {
+    name: 'Threads',
+    icon: ThreadsIcon,
+    color: '#000000',
+    maxLength: 500,
+    recommendedLength: 500  // 최대 한도 활용
   }
 };
 
-const TONES = {
-  friendly: {
-    name: '친근한',
-    description: '대화하는 듯한 친근한 톤'
-  },
-  professional: {
-    name: '전문적인',
-    description: '신뢰할 수 있는 전문적인 톤'
-  },
-  energetic: {
-    name: '활기찬',
-    description: '열정적이고 에너지 넘치는 톤'
-  },
-  informative: {
-    name: '정보전달',
-    description: '정보 전달에 집중한 중립적인 톤'
-  }
-};
 
 function SNSConversionModal({ open, onClose, post }) {
-  const [selectedPlatform, setSelectedPlatform] = useState('instagram');
-  const [selectedTone, setSelectedTone] = useState('friendly');
-  const [convertedContent, setConvertedContent] = useState('');
-  const [hashtags, setHashtags] = useState([]);
+  const [results, setResults] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [tabValue, setTabValue] = useState(0);
   const [usage, setUsage] = useState(null);
   const [copySuccess, setCopySuccess] = useState('');
 
@@ -118,15 +147,26 @@ function SNSConversionModal({ open, onClose, post }) {
 
     setLoading(true);
     setError('');
-    setConvertedContent('');
-    setHashtags([]);
+    setResults({});
 
     try {
-      const result = await convertToSNS(post.id, selectedPlatform, selectedTone);
+      const result = await convertToSNS(post.id);
       
-      setConvertedContent(result.convertedContent);
-      setHashtags(result.hashtags || []);
-      setTabValue(1); // 결과 탭으로 이동
+      console.log('🔍 SNS 변환 결과:', result);
+      console.log('🔍 result.results:', result.results);
+      console.log('🔍 결과 키들:', Object.keys(result.results || {}));
+      
+      // 각 플랫폼 결과 상세 확인
+      Object.entries(result.results || {}).forEach(([platform, data]) => {
+        console.log(`📱 ${platform}:`, {
+          content: data?.content || 'EMPTY',
+          contentLength: data?.content?.length || 0,
+          hashtags: data?.hashtags || [],
+          hashtagCount: data?.hashtags?.length || 0
+        });
+      });
+      
+      setResults(result.results);
       
       // 사용량 정보 갱신
       await fetchUsage();
@@ -150,17 +190,14 @@ function SNSConversionModal({ open, onClose, post }) {
   };
 
   const handleClose = () => {
-    setConvertedContent('');
-    setHashtags([]);
+    setResults({});
     setError('');
-    setTabValue(0);
     setCopySuccess('');
     onClose();
   };
 
-  const canConvert = usage?.isActive && usage?.usageLeft > 0;
-  const platformConfig = PLATFORMS[selectedPlatform];
-  const PlatformIcon = platformConfig.icon;
+  const canConvert = usage?.isActive;
+  const hasResults = Object.keys(results).length > 0;
 
   return (
     <Dialog 
@@ -183,176 +220,133 @@ function SNSConversionModal({ open, onClose, post }) {
       </DialogTitle>
 
       <DialogContent>
-        {/* 사용량 정보 */}
+        {/* 접근 권한 정보 */}
         {usage && (
           <Alert 
-            severity={canConvert ? "info" : "warning"} 
+            severity={canConvert ? "success" : "warning"} 
             sx={{ mb: 2 }}
           >
-            <Typography variant="body2">
-              <strong>이번 달 사용량:</strong> {usage.thisMonthUsage}/{usage.monthlyLimit}회 
-              ({usage.usageLeft}회 남음)
-            </Typography>
-            {!usage.isActive && (
-              <Typography variant="body2" color="error" sx={{ mt: 1 }}>
-                SNS 애드온을 구매해주세요. (월 22,000원)
+            {canConvert ? (
+              <Typography variant="body2">
+                <strong>SNS 변환 사용 가능</strong>
+                {usage.accessMethod === 'paid' && ' (애드온 구매)'}
+                {usage.accessMethod === 'gamification' && ' (조건 달성)'}
+                {usage.accessMethod === 'admin' && ' (관리자)'}
+              </Typography>
+            ) : (
+              <Typography variant="body2" color="error">
+                SNS 변환을 사용하려면 애드온을 구매하거나 게이미피케이션 조건을 달성해주세요.
               </Typography>
             )}
           </Alert>
         )}
 
-        {/* 탭 네비게이션 */}
-        <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)} sx={{ mb: 2 }}>
-          <Tab label="변환 설정" />
-          <Tab label="변환 결과" disabled={!convertedContent} />
-        </Tabs>
+        {/* 원본 원고 미리보기 */}
+        <Typography variant="h6" sx={{ mb: 1 }}>원본 원고</Typography>
+        <Paper sx={{ p: 2, mb: 3, maxHeight: '150px', overflow: 'auto', bgcolor: 'grey.50' }}>
+          <Typography variant="body2" color="text.secondary">
+            {post?.title && <><strong>제목: {post.title}</strong><br /><br /></>}
+          </Typography>
+          <Typography 
+            variant="body2" 
+            sx={{ 
+              mt: 1, 
+              whiteSpace: 'pre-wrap',
+              lineHeight: 1.6
+            }}
+          >
+            {convertHtmlToFormattedText(post?.content)?.substring(0, 300)}
+            {convertHtmlToFormattedText(post?.content)?.length > 300 && '...'}
+          </Typography>
+        </Paper>
 
-        {/* 설정 탭 */}
-        {tabValue === 0 && (
-          <Box>
-            {/* 원본 원고 미리보기 */}
-            <Typography variant="h6" sx={{ mb: 1 }}>원본 원고</Typography>
-            <Paper sx={{ p: 2, mb: 3, maxHeight: '150px', overflow: 'auto', bgcolor: 'grey.50' }}>
-              <Typography variant="body2" color="text.secondary">
-                {post?.title && <strong>{post.title}</strong>}
-              </Typography>
-              <Typography variant="body2" sx={{ mt: 1 }}>
-                {post?.content?.substring(0, 300)}
-                {post?.content?.length > 300 && '...'}
-              </Typography>
-            </Paper>
-
-            {/* 플랫폼 선택 */}
-            <FormControl fullWidth sx={{ mb: 2 }}>
-              <InputLabel>플랫폼</InputLabel>
-              <Select
-                value={selectedPlatform}
-                label="플랫폼"
-                onChange={(e) => setSelectedPlatform(e.target.value)}
-              >
-                {Object.entries(PLATFORMS).map(([key, platform]) => {
-                  const Icon = platform.icon;
-                  return (
-                    <MenuItem key={key} value={key}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Icon sx={{ color: platform.color, fontSize: 20 }} />
-                        <span>{platform.name}</span>
-                        <Typography variant="caption" color="text.secondary">
-                          (권장: {platform.recommendedLength}자)
-                        </Typography>
-                      </Box>
-                    </MenuItem>
-                  );
-                })}
-              </Select>
-            </FormControl>
-
-            {/* 톤 선택 */}
-            <FormControl fullWidth sx={{ mb: 2 }}>
-              <InputLabel>톤</InputLabel>
-              <Select
-                value={selectedTone}
-                label="톤"
-                onChange={(e) => setSelectedTone(e.target.value)}
-              >
-                {Object.entries(TONES).map(([key, tone]) => (
-                  <MenuItem key={key} value={key}>
-                    <Box>
-                      <Typography variant="body2">{tone.name}</Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {tone.description}
-                      </Typography>
-                    </Box>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            {error && (
-              <Alert severity="error" sx={{ mb: 2 }}>
-                {error}
-              </Alert>
-            )}
-          </Box>
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
         )}
 
-        {/* 결과 탭 */}
-        {tabValue === 1 && convertedContent && (
+        {/* SNS 변환 결과 */}
+        {hasResults && (
           <Box>
-            {/* 플랫폼 정보 */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-              <PlatformIcon sx={{ color: platformConfig.color, fontSize: 24 }} />
-              <Typography variant="h6">{platformConfig.name} 변환 결과</Typography>
-            </Box>
-
-            {/* 변환된 내용 */}
-            <Paper sx={{ p: 2, mb: 2, position: 'relative' }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-                <Typography variant="subtitle2" color="primary">변환된 게시물</Typography>
-                <Tooltip title="복사하기">
-                  <IconButton 
-                    size="small" 
-                    onClick={() => handleCopy(convertedContent)}
-                  >
-                    <ContentCopy fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              </Box>
-              
-              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
-                {convertedContent}
-              </Typography>
-              
-              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                {convertedContent.length}자 / {platformConfig.recommendedLength}자 권장
-              </Typography>
-            </Paper>
-
-            {/* 해시태그 */}
-            {hashtags.length > 0 && (
-              <Paper sx={{ p: 2, mb: 2, position: 'relative' }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-                  <Typography variant="subtitle2" color="primary">해시태그</Typography>
-                  <Tooltip title="해시태그 복사하기">
-                    <IconButton 
-                      size="small" 
-                      onClick={() => handleCopy(hashtags.join(' '))}
-                    >
-                      <ContentCopy fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                </Box>
+            {/* 2x2 그리드로 플랫폼별 결과 표시 */}
+            <Box sx={{ 
+              display: 'grid', 
+              gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+              gap: 2,
+              mb: 2
+            }}>
+              {Object.entries(results).map(([platform, result]) => {
+                const platformConfig = PLATFORMS[platform];
+                const PlatformIcon = platformConfig.icon;
                 
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                  {hashtags.map((hashtag, index) => (
-                    <Chip 
-                      key={index} 
-                      label={hashtag} 
-                      size="small" 
-                      color="primary" 
-                      variant="outlined" 
-                    />
-                  ))}
-                </Box>
-              </Paper>
-            )}
+                // 디버깅을 위한 로그
+                console.log(`🔍 ${platform} result:`, result);
+                
+                const { content = '', hashtags = [] } = result || {};
+                
+                // hashtags가 배열인지 확인하고 아니면 빈 배열로 설정
+                const validHashtags = Array.isArray(hashtags) ? hashtags : [];
+                
+                console.log(`✅ ${platform} parsed:`, { content: content?.substring(0, 50), hashtags: validHashtags });
+                
+                return (
+                  <Paper key={platform} sx={{ p: 2, border: '1px solid', borderColor: 'divider' }}>
+                    {/* 플랫폼 헤더 */}
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <PlatformIcon sx={{ color: platformConfig.color, fontSize: 20 }} />
+                        <Typography variant="subtitle1" fontWeight="bold">
+                          {platformConfig.name}
+                        </Typography>
+                      </Box>
+                      <Tooltip title="전체 복사하기">
+                        <IconButton 
+                          size="small" 
+                          onClick={() => handleCopy(content + (hashtags?.length > 0 ? '\n\n' + hashtags.join(' ') : ''))}
+                        >
+                          <ContentCopy fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
 
-            {/* 전체 복사 */}
-            <Paper sx={{ p: 2, bgcolor: 'action.hover' }}>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>전체 내용 (게시물 + 해시태그)</Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                {convertedContent}
-                {hashtags.length > 0 && '\n\n' + hashtags.join(' ')}
-              </Typography>
-              <Button 
-                variant="contained" 
-                startIcon={<ContentCopy />}
-                onClick={() => handleCopy(convertedContent + (hashtags.length > 0 ? '\n\n' + hashtags.join(' ') : ''))}
-                size="small"
-              >
-                전체 복사하기
-              </Button>
-            </Paper>
+                    {/* 변환된 내용 */}
+                    <Typography 
+                      variant="body2" 
+                      sx={{ 
+                        whiteSpace: 'pre-wrap', 
+                        lineHeight: 1.5, 
+                        mb: 1,
+                        minHeight: '60px'
+                      }}
+                    >
+                      {content}
+                    </Typography>
+
+                    {/* 글자수 표시 */}
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                      {content.length}자 / {platformConfig.recommendedLength}자 한도
+                    </Typography>
+
+                    {/* 해시태그 */}
+                    {validHashtags && validHashtags.length > 0 && (
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1 }}>
+                        {validHashtags.map((hashtag, index) => (
+                          <Chip 
+                            key={index} 
+                            label={hashtag} 
+                            size="small" 
+                            color="primary" 
+                            variant="outlined"
+                            sx={{ fontSize: '0.7rem', height: 20 }}
+                          />
+                        ))}
+                      </Box>
+                    )}
+                  </Paper>
+                );
+              })}
+            </Box>
 
             {copySuccess && (
               <Alert severity="success" sx={{ mt: 2 }}>
@@ -365,14 +359,14 @@ function SNSConversionModal({ open, onClose, post }) {
 
       <DialogActions sx={{ p: 2 }}>
         <Button onClick={handleClose}>닫기</Button>
-        {tabValue === 0 && (
+        {!hasResults && (
           <Button
             variant="contained"
             onClick={handleConvert}
             disabled={loading || !canConvert}
-            startIcon={loading ? <CircularProgress size={20} /> : <PlatformIcon />}
+            startIcon={loading ? <CircularProgress size={20} /> : <Share />}
           >
-            {loading ? '변환 중...' : `${platformConfig.name}으로 변환`}
+            {loading ? '모든 플랫폼 변환 중...' : '모든 SNS 플랫폼으로 변환'}
           </Button>
         )}
       </DialogActions>

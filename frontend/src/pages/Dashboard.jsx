@@ -21,10 +21,6 @@ import {
   LinearProgress,
   Card,
   CardContent,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Snackbar
 } from '@mui/material';
 import {
@@ -39,14 +35,14 @@ import {
   Warning,
   CreditCard,
   Schedule,
-  ContentCopy,
-  DeleteOutline
+  ContentCopy
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout';
 import NoticeBanner from '../components/dashboard/NoticeBanner';
 import ElectionDDay from '../components/dashboard/ElectionDDay';
 import PublishingProgress from '../components/dashboard/PublishingProgress';
+import PostViewerModal from '../components/PostViewerModal';
 import { useAuth } from '../hooks/useAuth';
 import { getUserFullTitle, getUserDisplayTitle, getUserRegionInfo, getUserStatusIcon } from '../utils/userUtils';
 import { functions } from '../services/firebase';
@@ -65,10 +61,11 @@ const Dashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   
+  const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
+  
   // 모달 관리
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerPost, setViewerPost] = useState(null);
-  const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
 
   // 사용자 정보
   const userTitle = getUserFullTitle(user);
@@ -234,10 +231,12 @@ const Dashboard = () => {
     }
   };
 
-  // 모달 관련 함수들
-  const openViewer = (post) => {
-    setViewerPost(post);
-    setViewerOpen(true);
+  const handlePostClick = (postId) => {
+    const post = recentPosts.find(p => p.id === postId);
+    if (post) {
+      setViewerPost(post);
+      setViewerOpen(true);
+    }
   };
 
   const closeViewer = () => {
@@ -245,10 +244,40 @@ const Dashboard = () => {
     setViewerPost(null);
   };
 
-  const handlePostClick = (postId) => {
-    const post = recentPosts.find(p => p.id === postId);
-    if (post) {
-      openViewer(post);
+  const handleDelete = async (postId, e) => {
+    if (e) e.stopPropagation();
+    if (!postId) return;
+    const ok = window.confirm('정말 이 원고를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.');
+    if (!ok) return;
+    try {
+      // HTTP 요청으로 변경 (CORS 문제 해결)
+      const token = await user.getIdToken();
+      const response = await fetch('https://asia-northeast3-ai-secretary-6e9c8.cloudfunctions.net/deletePost', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ postId })
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.message || '삭제에 실패했습니다.');
+      }
+      
+      // 대시보드의 최근 포스트 목록에서 제거
+      setRecentPosts((prev) => prev.filter((p) => p.id !== postId));
+      
+      setSnack({ open: true, message: '삭제되었습니다.', severity: 'info' });
+      if (viewerPost?.id === postId) {
+        setViewerOpen(false);
+        setViewerPost(null);
+      }
+    } catch (err) {
+      console.error(err);
+      setSnack({ open: true, message: err.message || '삭제에 실패했습니다.', severity: 'error' });
     }
   };
 
@@ -264,28 +293,6 @@ const Dashboard = () => {
     }
   };
 
-  const handleDelete = async (postId, e) => {
-    if (e) e.stopPropagation();
-    if (!postId) return;
-    const ok = window.confirm('정말 이 원고를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.');
-    if (!ok) return;
-    try {
-      const callDeletePost = httpsCallable(functions, 'deletePost');
-      await callDeletePost({ postId });
-      
-      // 대시보드의 최근 포스트 목록에서 제거
-      setRecentPosts((prev) => prev.filter((p) => p.id !== postId));
-      
-      setSnack({ open: true, message: '삭제되었습니다.', severity: 'info' });
-      if (viewerPost?.id === postId) {
-        setViewerOpen(false);
-        setViewerPost(null);
-      }
-    } catch (err) {
-      console.error(err);
-      setSnack({ open: true, message: '삭제에 실패했습니다.', severity: 'error' });
-    }
-  };
 
   // 사용량 퍼센트 계산
   const usagePercentage = isAdmin ? 100 : 
@@ -903,41 +910,12 @@ const Dashboard = () => {
       </Container>
 
       {/* 원고 보기 모달 */}
-      <Dialog open={viewerOpen} onClose={closeViewer} fullWidth maxWidth="md">
-        <DialogTitle sx={{ pr: 2 }}>
-          {viewerPost?.title || '제목 없음'}
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-            생성일 {formatDate(viewerPost?.createdAt)} · 수정일 {formatDate(viewerPost?.updatedAt)}
-          </Typography>
-        </DialogTitle>
-        <DialogContent dividers>
-          <Box
-            sx={{
-              '& p': { my: 1 },
-              '& h1, & h2, & h3': { mt: 2, mb: 1 },
-              fontSize: '0.95rem',
-              lineHeight: 1.7,
-              maxHeight: '70vh',
-              overflow: 'auto',
-              bgcolor: 'grey.50',
-              p: 2,
-              borderRadius: 1,
-              border: '1px solid',
-              borderColor: 'grey.200',
-            }}
-            dangerouslySetInnerHTML={{ __html: viewerPost?.content || '<p>내용이 없습니다.</p>' }}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={(e) => handleCopy(viewerPost?.content || '', e)} startIcon={<ContentCopy />}>
-            복사
-          </Button>
-          <Button onClick={(e) => handleDelete(viewerPost?.id, e)} color="error" startIcon={<DeleteOutline />}>
-            삭제
-          </Button>
-          <Button onClick={closeViewer} variant="contained">닫기</Button>
-        </DialogActions>
-      </Dialog>
+      <PostViewerModal
+        open={viewerOpen}
+        onClose={closeViewer}
+        post={viewerPost}
+        onDelete={handleDelete}
+      />
 
       {/* 스낵바 */}
       <Snackbar

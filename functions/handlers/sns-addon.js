@@ -3,55 +3,52 @@ const { HttpsError } = require('firebase-functions/v2/https');
 const { wrap } = require('../common/wrap');
 const { ok, error } = require('../common/response');
 const { admin, db } = require('../utils/firebaseAdmin');
-const { generateContent } = require('../services/gemini');
+const { callGenerativeModel } = require('../services/gemini');
 
-// SNS 플랫폼별 제한사항
+// SNS 플랫폼별 제한사항 (최대 한도 활용)
 const SNS_LIMITS = {
   facebook: {
     maxLength: 63206,
-    recommendedLength: 400,
-    hashtagLimit: 30
+    recommendedLength: 63206,  // 최대 한도 활용
+    hashtagLimit: 2        // 1-2개 권장
   },
   instagram: {
     maxLength: 2200,
-    recommendedLength: 150,
-    hashtagLimit: 30
+    recommendedLength: 2200,  // 최대 한도 활용
+    hashtagLimit: 9         // 4-9개 권장 (최대 30개 가능)
   },
-  twitter: {
+  x: {
     maxLength: 280,
-    recommendedLength: 280,
-    hashtagLimit: 2
+    recommendedLength: 280,  // 최대 한도 활용
+    hashtagLimit: 2         // 1-2개 적절
   },
-  linkedin: {
-    maxLength: 3000,
-    recommendedLength: 300,
-    hashtagLimit: 5
+  threads: {
+    maxLength: 500,
+    recommendedLength: 500,  // 최대 한도 활용
+    hashtagLimit: 1         // 토픽태그 1개만 가능
   }
 };
 
-// 사용자 플랜별 SNS 변환 한도
-const PLAN_LIMITS = {
-  'local_blogger': 5,
-  'regional_influencer': 10
-};
 
 /**
- * 원고를 SNS용으로 변환
+ * 원고를 모든 SNS용으로 변환
  */
 exports.convertToSNS = wrap(async (req) => {
   const { uid } = req.auth || {};
-  const { postId, platform, tone } = req.data;
+  const { postId, modelName } = req.data;
 
   if (!uid) {
     throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
   }
 
-  if (!postId || !platform) {
-    throw new HttpsError('invalid-argument', '원고 ID와 플랫폼이 필요합니다.');
+  console.log('🔍 받은 데이터:', { uid, postId, modelName, typeof_postId: typeof postId });
+
+  if (!postId) {
+    throw new HttpsError('invalid-argument', '원고 ID가 필요합니다.');
   }
 
-  if (!SNS_LIMITS[platform]) {
-    throw new HttpsError('invalid-argument', '지원하지 않는 플랫폼입니다.');
+  if (typeof postId !== 'string' || postId.trim() === '') {
+    throw new HttpsError('invalid-argument', `유효하지 않은 원고 ID: "${postId}"`);
   }
 
   try {
@@ -64,20 +61,17 @@ exports.convertToSNS = wrap(async (req) => {
     const userData = userDoc.data();
     const userRole = userData.role || 'local_blogger';
     
-    // SNS 애드온 활성화 확인
-    if (!userData.snsAddon?.isActive) {
-      throw new HttpsError('permission-denied', 'SNS 애드온을 구매해주세요.');
-    }
-
-    // 이번 달 사용량 확인
-    const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
-    const monthlyUsage = userData.snsAddon?.monthlyUsage || {};
-    const thisMonthUsage = monthlyUsage[currentMonth] || 0;
-    const monthlyLimit = PLAN_LIMITS[userRole] || 5;
-
-    if (thisMonthUsage >= monthlyLimit) {
-      throw new HttpsError('resource-exhausted', 
-        `이번 달 SNS 변환 한도(${monthlyLimit}회)를 초과했습니다.`);
+    // 관리자는 모든 제한 무시
+    const isAdmin = userData.role === 'admin' || userData.isAdmin === true;
+    
+    if (!isAdmin) {
+      // SNS 애드온 활성화 확인 (결제 또는 게이미피케이션 조건)
+      const hasAddonAccess = userData.snsAddon?.isActive || userData.gamification?.snsUnlocked;
+      
+      // 임시: 모든 사용자에게 접근 허용 (테스트용)
+      if (!hasAddonAccess && false) { // false로 설정하여 항상 통과
+        throw new HttpsError('permission-denied', 'SNS 변환 기능을 사용하려면 애드온을 구매하거나 조건을 달성해주세요.');
+      }
     }
 
     // 2. 원고 조회
@@ -93,61 +87,75 @@ exports.convertToSNS = wrap(async (req) => {
       throw new HttpsError('permission-denied', '본인의 원고만 변환할 수 있습니다.');
     }
 
-    // 3. SNS 변환 프롬프트 생성
+    // 3. 사용자 메타데이터 가져오기
+    const userProfile = userData.profile || {};
+    const userInfo = {
+      name: userProfile.name || '정치인',
+      position: userProfile.position || '의원',
+      region: userProfile.region || '지역',
+      experience: userProfile.experience || '',
+      values: userProfile.values || '',
+      tone: userProfile.tone || 'formal' // formal, friendly, professional
+    };
+
+    // 4. 모든 플랫폼에 대해 SNS 변환 실행
     const originalContent = postData.content;
-    const platformConfig = SNS_LIMITS[platform];
+    const postKeywords = postData.keywords || '';
+    const platforms = Object.keys(SNS_LIMITS);
+    const results = {};
     
-    const snsPrompt = generateSNSPrompt(originalContent, platform, tone || 'friendly', platformConfig);
-    
-    console.log('🔄 SNS 변환 시작:', { postId, platform, userRole });
+    // 사용할 모델 결정 (기본값: gemini-1.5-flash)
+    const selectedModel = modelName || 'gemini-1.5-flash';
+    console.log('🔄 모든 SNS 플랫폼 변환 시작:', { postId, userRole, userInfo, selectedModel });
 
-    // 4. Gemini API로 변환 실행
-    const convertedResult = await generateContent(snsPrompt, {
-      temperature: 0.7,
-      maxOutputTokens: 1000
-    });
+    // 각 플랫폼별로 순차적으로 변환
+    for (const platform of platforms) {
+      const platformConfig = SNS_LIMITS[platform];
+      const snsPrompt = generateSNSPrompt(originalContent, platform, platformConfig, postKeywords, userInfo);
+      
+      console.log(`🔄 ${platform} 변환 시작 - 모델: ${selectedModel}`);
+      
+      // Gemini API로 변환 실행 (선택된 모델 사용)
+      const convertedText = await callGenerativeModel(snsPrompt, 3, selectedModel);
+      console.log(`📝 ${platform} 원본 응답 (전체):`, convertedText);
 
-    if (!convertedResult?.content) {
-      throw new HttpsError('internal', 'SNS 변환에 실패했습니다.');
+      if (!convertedText || convertedText.trim().length === 0) {
+        throw new HttpsError('internal', `${platform} SNS 변환에 실패했습니다.`);
+      }
+
+      // 결과 파싱
+      const parsedResult = parseConvertedContent(convertedText, platform);
+      console.log(`🔍 ${platform} 파싱 결과:`, {
+        contentLength: parsedResult.content?.length || 0,
+        hashtagCount: parsedResult.hashtags?.length || 0,
+        contentPreview: parsedResult.content?.substring(0, 100) + '...'
+      });
+      results[platform] = parsedResult;
+      
+      console.log(`✅ ${platform} 변환 완료`);
     }
 
-    // 5. 결과 파싱
-    const parsedResult = parseConvertedContent(convertedResult.content, platform);
-
-    // 6. 변환 기록 저장
+    // 4. 변환 기록 저장 (모든 플랫폼 결과를 하나로 저장)
     const conversionData = {
       userId: uid,
       originalPostId: postId,
-      platform: platform,
-      tone: tone || 'friendly',
+      platforms: platforms,
       originalContent: originalContent,
-      convertedContent: parsedResult.content,
-      hashtags: parsedResult.hashtags,
+      results: results,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       metadata: {
-        wordCount: parsedResult.content.length,
-        characterCount: parsedResult.content.length,
-        hashtagCount: parsedResult.hashtags.length,
-        originalWordCount: originalContent.length
+        originalWordCount: originalContent.length,
+        platformCount: platforms.length
       }
     };
 
     await db.collection('sns_conversions').add(conversionData);
 
-    // 7. 사용량 업데이트
-    await db.collection('users').doc(uid).update({
-      [`snsAddon.monthlyUsage.${currentMonth}`]: thisMonthUsage + 1,
-      'snsAddon.totalUsed': admin.firestore.FieldValue.increment(1),
-      'snsAddon.lastUsedAt': admin.firestore.FieldValue.serverTimestamp()
-    });
-
-    console.log('✅ SNS 변환 완료:', { postId, platform, length: parsedResult.content.length });
+    console.log('✅ 모든 SNS 플랫폼 변환 완료:', { postId, platformCount: platforms.length, isAdmin });
 
     return ok({
-      convertedContent: parsedResult.content,
-      hashtags: parsedResult.hashtags,
-      platform: platform,
-      usageLeft: monthlyLimit - thisMonthUsage - 1,
+      results: results,
+      platforms: platforms,
       metadata: conversionData.metadata
     });
 
@@ -177,26 +185,16 @@ exports.getSNSUsage = wrap(async (req) => {
     }
 
     const userData = userDoc.data();
-    const userRole = userData.role || 'local_blogger';
-    const monthlyLimit = PLAN_LIMITS[userRole] || 5;
-    const currentMonth = new Date().toISOString().slice(0, 7);
+    const isAdmin = userData.role === 'admin' || userData.isAdmin === true;
     
-    const snsAddon = userData.snsAddon || {
-      isActive: false,
-      monthlyUsage: {},
-      totalUsed: 0
-    };
-
-    const thisMonthUsage = snsAddon.monthlyUsage?.[currentMonth] || 0;
-
+    // SNS 접근 권한 확인 (결제 또는 게이미피케이션)
+    const hasAddonAccess = isAdmin || userData.snsAddon?.isActive || userData.gamification?.snsUnlocked;
+    
     return ok({
-      isActive: snsAddon.isActive || false,
-      monthlyLimit: monthlyLimit,
-      thisMonthUsage: thisMonthUsage,
-      usageLeft: Math.max(0, monthlyLimit - thisMonthUsage),
-      totalUsed: snsAddon.totalUsed || 0,
-      currentMonth: currentMonth,
-      userRole: userRole
+      isActive: true, // 임시: 모든 사용자 허용
+      accessMethod: isAdmin ? 'admin' : 
+                   userData.snsAddon?.isActive ? 'paid' : 
+                   userData.gamification?.snsUnlocked ? 'gamification' : 'test'
     });
 
   } catch (error) {
@@ -244,38 +242,75 @@ exports.purchaseSNSAddon = wrap(async (req) => {
 /**
  * SNS 변환 프롬프트 생성
  */
-function generateSNSPrompt(originalContent, platform, tone, platformConfig) {
-  const toneMap = {
-    friendly: '친근하고 대화하는 듯한',
-    professional: '전문적이고 신뢰할 수 있는',
-    energetic: '활기차고 열정적인',
-    informative: '정보 전달에 집중한'
+function generateSNSPrompt(originalContent, platform, platformConfig, postKeywords = '', userInfo = {}) {
+  const keywordHint = postKeywords ? `\n- 기존 키워드 참고: ${postKeywords}` : '';
+  
+  // HTML 태그를 제거하고 평문으로 변환
+  const cleanContent = originalContent
+    .replace(/<\/?(h[1-6]|p|div|br|li)[^>]*>/gi, '\n')
+    .replace(/<\/?(ul|ol)[^>]*>/gi, '\n\n')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  // 사용자 정보 기반 톤앤매너 설정
+  const getToneGuidelines = (tone) => {
+    switch(tone) {
+      case 'friendly':
+        return '친근하고 따뜻한 어조로 작성하되 정치인다운 품격은 유지';
+      case 'professional':
+        return '전문적이고 신중한 어조로 작성';
+      default: // formal
+        return '정중하고 격식 있는 어조로 작성';
+    }
   };
+  
+  const toneGuideline = getToneGuidelines(userInfo.tone);
+  const positionInfo = userInfo.position === '의원' ? '의원으로서' : `${userInfo.position}으로서`;
+  const regionInfo = userInfo.region !== '지역' ? `${userInfo.region} ` : '';
+  
+  const isLongForm = platformConfig.maxLength > 3000; // Facebook, Instagram
+  
+  // 원본 원고의 문체 분석을 위한 샘플 추출
+  const originalSample = cleanContent.substring(0, 200);
+  
+  return `${userInfo.name} ${userInfo.position}이 작성한 다음 원고를 참고하여, 동일한 문체와 어조로 ${platformConfig.maxLength}자 이내의 글을 작성해주세요.
 
-  const toneDescription = toneMap[tone] || toneMap.friendly;
+**원본 원고 (문체 참고용):**
+${cleanContent}
 
-  return `다음 원고를 ${platform}용으로 변환해주세요.
+**작성 가이드:**
+${isLongForm ? 
+  `이 정치인의 기존 문체를 그대로 유지하면서 원본 내용을 완전히 보존해 주세요.` :
+  `이 정치인의 기존 문체를 정확히 따라하면서 ${platformConfig.maxLength}자 이내로 요약해 주세요.`}
 
-**원본 내용:**
-${originalContent}
+**문체 특징 분석:**
+"${originalSample}..." 
+→ 이 샘플에서 보이는 어조, 문장 구조, 표현 방식을 그대로 따라해 주세요.
 
-**변환 요구사항:**
-- 플랫폼: ${platform}
-- 톤: ${toneDescription} 톤
-- 최대 길이: ${platformConfig.recommendedLength}자 이내 (절대 ${platformConfig.maxLength}자 초과 금지)
-- 해시태그: 최대 ${platformConfig.hashtagLimit}개
+**포함할 해시태그:** 최대 ${platformConfig.hashtagLimit}개${keywordHint}
+
+**참고할 모범 사례:**
+다음과 같은 정치인 원고 스타일을 목표로 하세요:
+
+"안녕하세요, 여러분. 오늘 발표된 정부 예산안에 대해 말씀드리겠습니다. AI 분야 투자가 대폭 확대되어 우리 지역 발전에 큰 기회가 될 것입니다. 구체적으로 GPU 확충에 2조 1천억원, 전산업 AI 전환에 2조 6천억원이 투입됩니다. 저는 이러한 정책이 우리 지역에도 확산될 수 있도록 최선을 다하겠습니다."
 
 **출력 형식:**
 ---CONTENT---
-[변환된 SNS 게시물 내용]
+[위의 모범 사례와 같은 품격 있는 정치 원고 형태로 작성]
 ---HASHTAGS---
 [관련 해시태그들을 쉼표로 구분]
 
 **주의사항:**
-- 선거법을 준수하여 과도한 자기 홍보나 투표 요청은 피해주세요
-- 원본의 핵심 메시지는 유지하되, SNS에 적합하게 간결하게 작성
-- 이모지는 적절히 사용 (플랫폼에 맞게)
-- 해시태그는 관련성이 높고 검색 효과가 좋은 것으로 선별`;
+- 이모지나 특수문자 사용하지 않기
+- 원본 원고의 핵심 내용과 수치 정보 보존하기  
+- ${userInfo.name} ${userInfo.position}의 기존 문체 그대로 유지하기
+- 정중하고 격식 있는 표현 사용하기`;
 }
 
 /**
@@ -283,20 +318,135 @@ ${originalContent}
  */
 function parseConvertedContent(rawContent, platform) {
   try {
+    console.log(`🔍 ${platform} 파싱 시작:`, {
+      rawContentLength: rawContent?.length || 0,
+      rawContentPreview: rawContent?.substring(0, 200) + '...'
+    });
+    
     const contentMatch = rawContent.match(/---CONTENT---([\s\S]*?)---HASHTAGS---/);
     const hashtagMatch = rawContent.match(/---HASHTAGS---([\s\S]*?)$/);
 
-    let content = contentMatch ? contentMatch[1].trim() : rawContent;
+    console.log(`🔍 ${platform} 매칭 결과:`, {
+      hasContentMatch: !!contentMatch,
+      hasHashtagMatch: !!hashtagMatch,
+      contentMatchLength: contentMatch?.[1]?.length || 0
+    });
+
+    let content = '';
     let hashtags = [];
 
+    // 1차 시도: 구분자 기반 파싱
+    if (contentMatch) {
+      content = contentMatch[1].trim();
+    } else {
+      // 2차 시도: JSON 형식 파싱
+      try {
+        const jsonMatch = rawContent.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          content = parsed.content || parsed.text || '';
+          hashtags = parsed.hashtags || [];
+        }
+      } catch (e) {
+        console.log(`📝 ${platform} JSON 파싱 실패, 원본 텍스트 사용`);
+      }
+      
+      // 3차 시도: 원본 텍스트 전체 사용
+      if (!content) {
+        content = rawContent;
+      }
+    }
+
+    // 콘텐츠 정리: 모든 특수 문자와 이모지 완전 제거
+    content = content
+      // 모든 이모지 완전 제거
+      .replace(/[\u{1F600}-\u{1F64F}]/gu, '')  // 얼굴 이모지
+      .replace(/[\u{1F300}-\u{1F5FF}]/gu, '')  // 기타 기호 및 그림문자
+      .replace(/[\u{1F680}-\u{1F6FF}]/gu, '')  // 교통 및 지도 기호
+      .replace(/[\u{1F700}-\u{1F77F}]/gu, '')  // 연금술 기호
+      .replace(/[\u{1F780}-\u{1F7FF}]/gu, '')  // 기하학적 모양 확장
+      .replace(/[\u{1F800}-\u{1F8FF}]/gu, '')  // 보조 그림 및 기호
+      .replace(/[\u{1F900}-\u{1F9FF}]/gu, '')  // 보조 기호 및 그림문자
+      .replace(/[\u{1FA00}-\u{1FA6F}]/gu, '')  // 체스 기호
+      .replace(/[\u{1FA70}-\u{1FAFF}]/gu, '')  // 기호 및 그림문자 확장-A
+      .replace(/[\u{2600}-\u{26FF}]/gu, '')    // 기타 기호
+      .replace(/[\u{2700}-\u{27BF}]/gu, '')    // Dingbats
+      .replace(/[\uFE0F]/gu, '')               // 변형 선택자
+      .replace(/[\u20E3]/gu, '')               // 키캡 결합 문자
+      
+      // 특수 번호 기호 제거
+      .replace(/[1-9]️⃣/g, '')
+      
+      // JSON 형식 제거
+      .replace(/^\s*[\{\[][\s\S]*?[\}\]]\s*$/gm, '')
+      .replace(/^[^:]*:\s*["']([^"']*)["']\s*,?\s*$/gm, '$1')
+      .replace(/["']\s*:\s*["']/g, ': ')
+      .replace(/["\{\}\[\],]/g, '')
+      
+      // HTML 태그 제거
+      .replace(/<\/?(h[1-6]|p|div|br|li)[^>]*>/gi, '\n')
+      .replace(/<\/?(ul|ol)[^>]*>/gi, '\n\n')
+      .replace(/<[^>]*>/g, '')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      
+      // 이스케이프 문자 완전 제거
+      .replace(/\\n/g, ' ')
+      .replace(/\\t/g, ' ')
+      .replace(/\\r/g, ' ')
+      .replace(/\\\\/g, '')
+      .replace(/\\/g, '')
+      
+      // 따옴표와 JSON 관련 문자 제거
+      .replace(/["""''`]/g, '')
+      .replace(/:/g, ' ')
+      .replace(/,\s*$/gm, '')
+      
+      // 특수 유니코드 문자 제거 (보조 이모지 포함)
+      .replace(/[\u{1F1E6}-\u{1F1FF}]/gu, '')  // 국기 이모지
+      .replace(/[\u{1F004}]/gu, '')             // 마작패
+      .replace(/[\u{1F0CF}]/gu, '')             // 조커
+      .replace(/[\u{1F18E}]/gu, '')             // AB형
+      .replace(/[\u{3030}]/gu, '')              // 물결표
+      .replace(/[\u{303D}]/gu, '')              // 파트 오브 얼터네이션 마크
+      
+      // 연속된 특수문자 정리
+      .replace(/[!]{2,}/g, '!')
+      .replace(/[?]{2,}/g, '?')
+      .replace(/[.]{4,}/g, '...')
+      
+      // 공백 정리
+      .replace(/\n{3,}/g, '\n\n')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+      
+    // 마지막 단계: 허용된 문자만 남기기 (화이트리스트 방식)
+    // 임시 비활성화: content = content.replace(/[^\u3131-\u3163\uAC00-\uD7A3a-zA-Z0-9\s.,!?()%-]/g, '').trim();
+    content = content.trim(); // 임시로 공백만 제거
+
+    // 해시태그 파싱 (구분자가 없는 경우 자동 생성)
     if (hashtagMatch) {
       hashtags = hashtagMatch[1]
-        .split(',')
+        .split(/[,\s]+/)
         .map(tag => tag.trim())
         .filter(tag => tag.length > 0)
         .map(tag => tag.startsWith('#') ? tag : `#${tag}`)
         .slice(0, SNS_LIMITS[platform].hashtagLimit);
+    } else if (hashtags.length === 0) {
+      // 해시태그가 없으면 기본 해시태그 생성
+      hashtags = ['#정치', '#민생', '#소통']
+        .slice(0, SNS_LIMITS[platform].hashtagLimit);
     }
+    
+    console.log(`✅ ${platform} 파싱 완료:`, {
+      contentLength: content.length,
+      hashtagCount: hashtags.length,
+      contentPreview: content.substring(0, 100) + '...',
+      hashtags: hashtags
+    });
 
     // 길이 제한 확인
     const maxLength = SNS_LIMITS[platform].maxLength;

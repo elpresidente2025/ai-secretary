@@ -343,12 +343,14 @@ export const clearSystemCache = async () => {
 /**
  * 원고를 SNS용으로 변환
  * @param {string} postId - 원고 ID
- * @param {string} platform - SNS 플랫폼 ('facebook', 'instagram', 'twitter', 'linkedin')
- * @param {string} tone - 톤 ('friendly', 'professional', 'energetic', 'informative')
+ * @param {string} platform - SNS 플랫폼 ('facebook', 'instagram', 'x')
  * @returns {Promise<object>} 변환 결과
  */
-export const convertToSNS = async (postId, platform, tone = 'friendly') => {
-  return await callFunctionWithRetry('convertToSNS', { postId, platform, tone });
+export const convertToSNS = async (postId) => {
+  // 관리자 테스트 모드에서 모델 선택
+  const modelName = localStorage.getItem('gemini_model') || 'gemini-1.5-flash';
+  
+  return await callFunctionWithRetry('convertToSNS', { postId, modelName });
 };
 
 /**

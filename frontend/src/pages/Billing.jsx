@@ -282,6 +282,162 @@ const Billing = () => {
               </Grid>
             </Paper>
 
+            {/* 애드온 서비스 섹션 */}
+            <Paper sx={{ p: 3, mb: 3 }}>
+              <Typography variant="h6" sx={{ mb: 3 }}>
+                애드온 서비스
+              </Typography>
+              <Card sx={{ 
+                border: '1px solid #e0e0e0'
+              }}>
+                <CardContent sx={{ p: 3 }}>
+                  <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+                    기본 요금제와 함께 사용할 수 있는 부가 서비스입니다.
+                  </Typography>
+                  
+                  {/* 3개 버튼을 3열로 배치 */}
+                  <Grid container spacing={2}>
+                    {/* SNS 원고 추가 생성 */}
+                    <Grid item xs={4}>
+                      <Button
+                        variant="contained"
+                        fullWidth
+                        size="large"
+                        sx={{ 
+                          bgcolor: '#e89f2f',
+                          color: 'white',
+                          py: 3,
+                          flexDirection: 'column',
+                          gap: 1,
+                          '&:hover': { 
+                            bgcolor: '#d18a26'
+                          }
+                        }}
+                      >
+                        <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                          SNS 원고 추가 생성
+                        </Typography>
+                        <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                          22,000원/월
+                        </Typography>
+                      </Button>
+                    </Grid>
+
+                    {/* 워드프레스 연동 (준비중) */}
+                    <Grid item xs={4}>
+                      <Button
+                        variant="outlined"
+                        fullWidth
+                        size="large"
+                        onClick={() => alert('워드프레스 연동 서비스는 준비 중입니다. 곧 출시 예정입니다!')}
+                        sx={{ 
+                          py: 3,
+                          flexDirection: 'column',
+                          gap: 1,
+                          borderColor: '#6c757d',
+                          color: '#6c757d',
+                          opacity: 0.8,
+                          '&:hover': {
+                            opacity: 1,
+                            borderColor: '#495057'
+                          }
+                        }}
+                      >
+                        <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                          워드프레스 연동
+                        </Typography>
+                        <Typography variant="body2">
+                          준비중입니다
+                        </Typography>
+                      </Button>
+                    </Grid>
+
+                    {/* 영상 자료 생성 (준비중) */}
+                    <Grid item xs={4}>
+                      <Button
+                        variant="outlined"
+                        fullWidth
+                        size="large"
+                        onClick={() => alert('영상 자료 생성 서비스는 준비 중입니다. 곧 출시 예정입니다!')}
+                        sx={{ 
+                          py: 3,
+                          flexDirection: 'column',
+                          gap: 1,
+                          borderColor: '#6c757d',
+                          color: '#6c757d',
+                          opacity: 0.8,
+                          '&:hover': {
+                            opacity: 1,
+                            borderColor: '#495057'
+                          }
+                        }}
+                      >
+                        <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                          영상 자료 생성
+                        </Typography>
+                        <Typography variant="body2">
+                          준비중입니다
+                        </Typography>
+                      </Button>
+                    </Grid>
+                  </Grid>
+
+                  {/* SNS 원고 추가 생성 상세 설명 */}
+                  <Box sx={{ mt: 4, p: 3, bgcolor: 'grey.50', borderRadius: 2 }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 2, color: '#e89f2f' }}>
+                      💡 SNS 원고 추가 생성 서비스
+                    </Typography>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} md={6}>
+                        <List dense>
+                          <ListItem sx={{ py: 0.5, px: 0 }}>
+                            <ListItemIcon sx={{ minWidth: 20 }}>
+                              <CheckCircle sx={{ fontSize: 16, color: '#e89f2f' }} />
+                            </ListItemIcon>
+                            <ListItemText 
+                              primary="SNS 변환 기능 활성화" 
+                              primaryTypographyProps={{ variant: 'body2' }}
+                            />
+                          </ListItem>
+                          <ListItem sx={{ py: 0.5, px: 0 }}>
+                            <ListItemIcon sx={{ minWidth: 20 }}>
+                              <CheckCircle sx={{ fontSize: 16, color: '#e89f2f' }} />
+                            </ListItemIcon>
+                            <ListItemText 
+                              primary="월 30회 SNS 원고 변환" 
+                              primaryTypographyProps={{ variant: 'body2' }}
+                            />
+                          </ListItem>
+                        </List>
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <List dense>
+                          <ListItem sx={{ py: 0.5, px: 0 }}>
+                            <ListItemIcon sx={{ minWidth: 20 }}>
+                              <CheckCircle sx={{ fontSize: 16, color: '#e89f2f' }} />
+                            </ListItemIcon>
+                            <ListItemText 
+                              primary="Instagram, Facebook, X, Threads 지원" 
+                              primaryTypographyProps={{ variant: 'body2' }}
+                            />
+                          </ListItem>
+                          <ListItem sx={{ py: 0.5, px: 0 }}>
+                            <ListItemIcon sx={{ minWidth: 20 }}>
+                              <CheckCircle sx={{ fontSize: 16, color: '#e89f2f' }} />
+                            </ListItemIcon>
+                            <ListItemText 
+                              primary="자동 해시태그 생성" 
+                              primaryTypographyProps={{ variant: 'body2' }}
+                            />
+                          </ListItem>
+                        </List>
+                      </Grid>
+                    </Grid>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Paper>
+
             {/* 결제 내역 */}
             <Grid container spacing={3}>
               <Grid item xs={12} md={6}>

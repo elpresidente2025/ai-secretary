@@ -21,6 +21,11 @@ const SEO_RULES = {
     title: {
       count: 1,
       position: 'natural',
+      length: {
+        min: 30,
+        max: 40,
+        description: '제목 권장 길이 30-40자'
+      },
       description: '제목에 핵심 키워드 1회, 자연스럽게 배치'
     },
     body: {
@@ -61,7 +66,8 @@ const SEO_RULES = {
       '핵심 키워드 앞쪽 배치',
       '구체적이고 명확한 표현',
       '감정적 어필 요소 포함',
-      '지역명/날짜 등 구체 정보 활용'
+      '지역명/날짜 등 구체 정보 활용',
+      '30-40자 길이 준수'
     ],
     contentStrategy: [
       '첫 문단에 주제 명확히 제시',
@@ -171,13 +177,15 @@ const CONTENT_RULES = {
     },
     selfReference: {
       incumbent: '"의원으로서"',
-      candidate: '"예비후보로서"',
+      candidate: '"후보로서"',
+      preliminary: '"예비후보로서"',
       public: '"한 사람의 시민으로서"'
     },
     statusConsistency: {
       incumbent: '현역 의원은 경험과 성과 기반 발언',
-      candidate: '예비후보는 비전과 계획 중심 발언',
-      prohibition: '예비후보가 현역 의원처럼 발언 금지'
+      candidate: '후보는 정책과 공약 중심 발언',
+      preliminary: '예비후보는 비전과 계획 중심 발언',
+      prohibition: '후보/예비후보가 현역 의원처럼 발언 금지'
     }
   }
 };
@@ -287,7 +295,7 @@ const EDITORIAL_WORKFLOW = {
     seo: [
       '✅ 1500-2000자 분량 준수',
       '✅ 키워드 자연스러운 배치',
-      '✅ 제목 매력도 및 검색 최적화',
+      '✅ 제목 매력도 및 검색 최적화 (30-40자)',
       '✅ 구조화된 소제목 활용'
     ],
     format: [

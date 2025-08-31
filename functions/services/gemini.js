@@ -14,26 +14,74 @@ const { HttpsError } = require('firebase-functions/v2/https');
 const API_KEY = process.env.GEMINI_API_KEY;
 
 /**
+ * API 오류를 사용자 친화적인 메시지로 변환
+ */
+function getUserFriendlyErrorMessage(error) {
+  const errorMessage = error.message || '';
+  const errorString = String(error);
+  
+  // 429 Too Many Requests - 할당량 초과
+  if (errorMessage.includes('429') || errorMessage.includes('Too Many Requests') || 
+      errorMessage.includes('quota') || errorMessage.includes('exceeded')) {
+    return '⚠️ AI 모델의 일일 사용량을 초과했습니다.\n\n• 내일 00시(한국시간) 이후 다시 시도해주세요.\n• 또는 관리자에게 문의하여 유료 플랜 업그레이드를 요청하세요.\n\n현재 무료 플랜: 하루 50회 제한';
+  }
+  
+  // 401 Unauthorized - API 키 문제
+  if (errorMessage.includes('401') || errorMessage.includes('Unauthorized') || 
+      errorMessage.includes('API key')) {
+    return '🔑 API 인증에 실패했습니다. 관리자에게 문의해주세요.';
+  }
+  
+  // 403 Forbidden - 권한 문제
+  if (errorMessage.includes('403') || errorMessage.includes('Forbidden')) {
+    return '🚫 API 접근 권한이 없습니다. 관리자에게 문의해주세요.';
+  }
+  
+  // 500 Internal Server Error - 서버 오류
+  if (errorMessage.includes('500') || errorMessage.includes('Internal Server Error')) {
+    return '🔧 AI 서비스에 일시적인 문제가 발생했습니다. 잠시 후 다시 시도해주세요.';
+  }
+  
+  // 네트워크 오류
+  if (errorMessage.includes('ECONNRESET') || errorMessage.includes('ETIMEDOUT') || 
+      errorMessage.includes('network') || errorMessage.includes('timeout')) {
+    return '🌐 네트워크 연결에 문제가 발생했습니다. 잠시 후 다시 시도해주세요.';
+  }
+  
+  // 빈 응답
+  if (errorMessage.includes('빈 응답')) {
+    return '📝 AI가 응답을 생성하지 못했습니다. 다른 주제로 다시 시도해주세요.';
+  }
+  
+  // 기본 오류 메시지
+  return `❌ AI 원고 생성 중 오류가 발생했습니다.\n\n오류 내용: ${errorMessage}\n\n관리자에게 문의하거나 잠시 후 다시 시도해주세요.`;
+}
+
+/**
  * @function callGenerativeModel
  * @description 주어진 프롬프트로 Gemini 모델을 호출하고, 텍스트 응답을 반환합니다.
  * @param {string} prompt - AI 모델에게 전달할 프롬프트
  * @param {number} retries - 실패 시 재시도 횟수
+ * @param {string} modelName - 사용할 모델명 (기본값: gemini-1.5-flash)
  * @returns {Promise<string>} - AI가 생성한 텍스트
  */
-async function callGenerativeModel(prompt, retries = 3) {
+async function callGenerativeModel(prompt, retries = 3, modelName = 'gemini-1.5-flash') {
   if (!API_KEY) {
     logError('callGenerativeModel', 'Gemini API 키가 설정되지 않았습니다.');
     throw new HttpsError('internal', 'AI 서비스 설정에 오류가 발생했습니다.');
   }
 
   const genAI = new GoogleGenerativeAI(API_KEY);
+  
+  // 모델별 설정
+  const isGemini2 = modelName.includes('gemini-2.0');
   const model = genAI.getGenerativeModel({
-    model: 'gemini-1.5-flash', // gemini-1.5-pro 대신 더 안정적인 flash 사용
+    model: modelName,
     generationConfig: {
       temperature: 0.7,
       topK: 40,
       topP: 0.95,
-      maxOutputTokens: 8192, // 토큰 수 증가 - 긴 원고 생성을 위해
+      maxOutputTokens: isGemini2 ? 16384 : 8192, // Gemini 2.0은 더 많은 토큰 지원
       responseMimeType: 'application/json', // JSON 출력을 명시적으로 요구
     },
     safetySettings: [
@@ -46,7 +94,7 @@ async function callGenerativeModel(prompt, retries = 3) {
 
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      console.log(`🤖 Gemini API 호출 시도 (${attempt}/${retries})`);
+      console.log(`🤖 Gemini API 호출 시도 (${attempt}/${retries}) - 모델: ${modelName}${isGemini2 ? ' [실험적]' : ''}`);
       const result = await model.generateContent(prompt);
       const response = await result.response;
       const text = response.text();
@@ -55,7 +103,7 @@ async function callGenerativeModel(prompt, retries = 3) {
         throw new Error('Gemini API가 빈 응답을 반환했습니다.');
       }
 
-      console.log(`✅ Gemini API 응답 성공 (${text.length}자)`);
+      console.log(`✅ Gemini API 응답 성공 (${text.length}자) - 모델: ${modelName}`);
       return text;
 
     } catch (error) {
@@ -77,7 +125,8 @@ async function callGenerativeModel(prompt, retries = 3) {
       });
       if (attempt === retries) {
         // 마지막 시도에서도 실패하면 에러를 던짐
-        throw new HttpsError('unavailable', `AI 모델 호출에 실패했습니다: ${error.message || error.code || '알 수 없는 오류'}`);
+        const userFriendlyMessage = getUserFriendlyErrorMessage(error);
+        throw new HttpsError('unavailable', userFriendlyMessage);
       }
       // 재시도 전 잠시 대기 (Exponential backoff)
       await new Promise(resolve => setTimeout(resolve, 1000 * attempt));

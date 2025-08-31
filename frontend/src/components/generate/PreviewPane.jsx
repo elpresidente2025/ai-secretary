@@ -1,86 +1,15 @@
 // frontend/src/components/generate/PreviewPane.jsx
-import React, { useState } from 'react';
+import React from 'react';
 import { 
   Box, 
   Typography, 
-  IconButton, 
-  Tooltip, 
-  Paper,
-  Snackbar,
-  Alert 
+  Paper
 } from '@mui/material';
-import { ContentCopy } from '@mui/icons-material';
 
 export default function PreviewPane({ draft }) {
-  const [snackbar, setSnackbar] = useState({
-    open: false,
-    message: '',
-    severity: 'success'
-  });
-
   if (!draft) {
     return null;
   }
-
-  // HTML을 텍스트로 변환하면서 줄바꿈과 공백을 보존하는 함수
-  const convertHtmlToFormattedText = (html) => {
-    if (!html) return '';
-    
-    // 임시 div 엘리먼트 생성
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = html;
-    
-    // HTML 태그를 텍스트로 변환하면서 formatting 보존
-    let text = tempDiv.innerHTML;
-    
-    // 블록 요소들을 줄바꿈으로 변환
-    text = text.replace(/<\/?(h[1-6]|p|div|br|li)[^>]*>/gi, '\n');
-    text = text.replace(/<\/?(ul|ol)[^>]*>/gi, '\n\n');
-    
-    // 나머지 HTML 태그 제거
-    text = text.replace(/<[^>]*>/g, '');
-    
-    // HTML 엔티티 변환
-    text = text.replace(/&nbsp;/g, ' ');
-    text = text.replace(/&amp;/g, '&');
-    text = text.replace(/&lt;/g, '<');
-    text = text.replace(/&gt;/g, '>');
-    text = text.replace(/&quot;/g, '"');
-    
-    // 연속된 줄바꿈을 정리 (3개 이상을 2개로)
-    text = text.replace(/\n{3,}/g, '\n\n');
-    
-    // 앞뒤 공백 제거
-    return text.trim();
-  };
-
-  const handleCopy = async () => {
-    try {
-      // 제목과 내용을 조합하여 복사할 텍스트 생성
-      const title = draft.title || '제목 없음';
-      const content = convertHtmlToFormattedText(draft.htmlContent || draft.content || '');
-      
-      const textToCopy = `제목: ${title}\n\n${content}`;
-      
-      await navigator.clipboard.writeText(textToCopy);
-      setSnackbar({
-        open: true,
-        message: '제목과 내용이 클립보드에 복사되었습니다!',
-        severity: 'success'
-      });
-    } catch (err) {
-      console.error('복사 실패:', err);
-      setSnackbar({
-        open: true,
-        message: '복사에 실패했습니다.',
-        severity: 'error'
-      });
-    }
-  };
-
-  const handleCloseSnackbar = () => {
-    setSnackbar(prev => ({ ...prev, open: false }));
-  };
 
   return (
     <>
@@ -130,21 +59,6 @@ export default function PreviewPane({ draft }) {
           <Typography variant="h6" sx={{ fontWeight: 600 }}>
             {draft.title || '제목 없음'}
           </Typography>
-          <Box>
-            <Tooltip title="제목과 내용 복사 (줄바꿈 보존)">
-              <IconButton 
-                size="small" 
-                onClick={handleCopy}
-                sx={{ 
-                  '&:hover': { 
-                    backgroundColor: 'action.hover' 
-                  } 
-                }}
-              >
-                <ContentCopy fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          </Box>
         </Box>
         
         <Box 
@@ -188,22 +102,6 @@ export default function PreviewPane({ draft }) {
           </Box>
         )}
       </Paper>
-
-      {/* 복사 알림 스낵바 */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={3000}
-        onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert 
-          onClose={handleCloseSnackbar} 
-          severity={snackbar.severity}
-          sx={{ width: '100%' }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
     </>
   );
 }

@@ -50,11 +50,13 @@ export const getUserDisplayTitle = (user) => {
     baseTitle = position; // 기타 직책은 원문 사용
   }
 
-  // 🔥 현역/예비 상태 반영
+  // 🔥 현역/후보/예비 상태 반영
   if (status === '예비') {
-    return `${baseTitle} 후보`;
+    return `${baseTitle} 예비후보님`;
+  } else if (status === '후보') {
+    return `${baseTitle} 후보님`;
   } else {
-    return baseTitle; // 현역/미지정은 기본 호칭
+    return `${baseTitle}님`; // 현역/미지정은 기본 호칭 + 님
   }
 };
 
@@ -74,7 +76,7 @@ export const getUserFullTitle = (user) => {
   const displayTitle = getUserDisplayTitle(user);
 
   if (displayTitle) {
-    return `${name} ${displayTitle}님`;
+    return `${name} ${displayTitle}`; // displayTitle에 이미 "님"이 포함되어 있음
   } else {
     return `${name}님`;
   }

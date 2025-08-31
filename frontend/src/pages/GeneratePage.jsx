@@ -232,7 +232,7 @@ const GeneratePage = () => {
         }>
           <DraftGrid
             items={drafts}
-            onSelect={drafts.length > 1 ? setSelectedDraft : null} // 여러 개일 때만 미리보기
+            onSelect={setSelectedDraft} // 항상 자세히 보기 모달 활성화
             onSave={handleSave}         // 초안 저장 시 호출될 함수
             onSNSConvert={handleSNSConvert} // SNS 변환 함수 추가
             maxAttempts={maxAttempts}

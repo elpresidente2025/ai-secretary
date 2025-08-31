@@ -5,21 +5,28 @@ import {
   Typography,
   Grid,
   Button,
-  Box
+  Box,
+  Switch,
+  FormControlLabel,
+  Alert
 } from '@mui/material';
 import {
   Settings,
   Download,
   People,
-  Api
+  Api,
+  Science
 } from '@mui/icons-material';
 import UserListModal from './UserListModal';
 import StatusUpdateModal from './StatusUpdateModal';
-import { getAdminStats } from '../../services/firebaseService';
+import { getAdminStats, callFunctionWithRetry } from '../../services/firebaseService';
 
 function QuickActions() {
   const [userListOpen, setUserListOpen] = useState(false);
   const [statusUpdateOpen, setStatusUpdateOpen] = useState(false);
+  const [testMode, setTestMode] = useState(() => {
+    return localStorage.getItem('admin_test_mode') === 'true';
+  });
 
   const exportAllData = async () => {
     try {
@@ -98,6 +105,19 @@ function QuickActions() {
     }
   };
 
+  const toggleTestMode = () => {
+    const newTestMode = !testMode;
+    setTestMode(newTestMode);
+    localStorage.setItem('admin_test_mode', newTestMode.toString());
+    localStorage.setItem('gemini_model', newTestMode ? 'gemini-2.0-flash-exp' : 'gemini-1.5-flash');
+    
+    if (newTestMode) {
+      alert('🧪 테스트 모드가 활성화되었습니다!\n\nGemini 2.0 Flash Experimental 모델을 사용합니다.\n\n⚠️ 실험적 기능이므로 예상치 못한 동작이 발생할 수 있습니다.');
+    } else {
+      alert('✅ 테스트 모드가 비활성화되었습니다.\n\n안정적인 Gemini 1.5 Flash 모델을 사용합니다.');
+    }
+  };
+
   return (
     <>
       <Paper sx={{ p: 3, mb: 3 }}>
@@ -168,7 +188,39 @@ function QuickActions() {
               CSV 다운로드
             </Button>
           </Grid>
+
+          <Grid item xs={12} sm={6} md={4}>
+            <Button
+              fullWidth
+              variant={testMode ? "contained" : "outlined"}
+              startIcon={<Science />}
+              onClick={toggleTestMode}
+              sx={{ 
+                py: 2,
+                borderColor: testMode ? '#FF6B35' : '#FF6B35',
+                color: testMode ? 'white' : '#FF6B35',
+                backgroundColor: testMode ? '#FF6B35' : 'transparent',
+                '&:hover': {
+                  borderColor: '#FF6B35',
+                  backgroundColor: testMode ? '#E55A2B' : 'rgba(255, 107, 53, 0.04)'
+                }
+              }}
+            >
+              {testMode ? 'Gemini 2.0 (테스트 모드)' : '테스트 모드'}
+            </Button>
+          </Grid>
         </Grid>
+
+        {/* 테스트 모드 상태 표시 */}
+        {testMode && (
+          <Alert severity="warning" sx={{ mt: 2 }}>
+            <Typography variant="body2">
+              🧪 <strong>테스트 모드 활성화</strong> - Gemini 2.0 Flash Experimental 모델 사용 중
+              <br />
+              ⚠️ 실험적 기능으로 예상치 못한 동작이 발생할 수 있습니다.
+            </Typography>
+          </Alert>
+        )}
 
         {/* 추가 관리 도구 */}
         <Box sx={{ mt: 3, pt: 2, borderTop: '1px solid #e0e0e0' }}>

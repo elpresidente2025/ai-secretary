@@ -112,11 +112,15 @@ export function useGenerateAPI() {
       console.log('🔥 generatePosts 호출 시작');
       const generatePosts = httpsCallable(functions, 'generatePosts');
       
+      // 관리자 테스트 모드에서 모델 선택
+      const modelName = localStorage.getItem('gemini_model') || 'gemini-1.5-flash';
+      
       const requestData = {
         ...formData,
         prompt: formData.topic || formData.prompt,
         generateSingle: true,
         useBonus: useBonus,
+        modelName: modelName,
         // 🆕 editorial.js 규칙 적용 요청 (백엔드에서 처리)
         applyEditorialRules: true
       };

@@ -158,6 +158,7 @@ export default function UserInfoForm({
             disabled={disabled}
           >
             <MenuItem value="현역">현역</MenuItem>
+            <MenuItem value="후보">후보</MenuItem>
             <MenuItem value="예비">예비</MenuItem>
           </Select>
         </FormControl>
