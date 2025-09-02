@@ -29,7 +29,7 @@ const TermsOfService = () => {
             뒤로가기
           </Button>
           <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1, color: '#152484' }}>
-            AI비서관 이용약관
+            전자두뇌비서관 이용약관
           </Typography>
           <Typography variant="body2" color="text.secondary">
             최종 개정일: 2025년 8월 25일
@@ -38,7 +38,7 @@ const TermsOfService = () => {
 
         <Paper sx={{ p: 4 }}>
           <Typography paragraph sx={{ mb: 3 }}>
-            본 이용약관은 AI비서관(이하 "회사")이 제공하는 정치인 전용 블로그 콘텐츠 생성 서비스(이하 "서비스")를 이용함에 있어 회사와 이용자 간의 권리, 의무 및 책임사항을 규정함을 목적으로 합니다.
+            본 이용약관은 사이버브레인(이하 "회사")이 제공하는 전자두뇌비서관 서비스(이하 "서비스")를 이용함에 있어 회사와 이용자 간의 권리, 의무 및 책임사항을 규정함을 목적으로 합니다.
           </Typography>
 
           <Divider sx={{ my: 3 }} />

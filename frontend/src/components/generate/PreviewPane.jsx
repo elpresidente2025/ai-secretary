@@ -11,6 +11,29 @@ export default function PreviewPane({ draft }) {
     return null;
   }
 
+  // HTML 태그를 제거하고 순수 텍스트만 추출하여 글자수 계산
+  const getTextContent = (html) => {
+    if (!html) return '';
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html;
+    return tempDiv.textContent || tempDiv.innerText || '';
+  };
+
+  // 공백 제외 글자수 계산
+  const countWithoutSpace = (str) => {
+    if (!str) return 0;
+    let count = 0;
+    for (let i = 0; i < str.length; i++) {
+      if (!/\s/.test(str.charAt(i))) {
+        count++;
+      }
+    }
+    return count;
+  };
+
+  const textContent = getTextContent(draft.htmlContent);
+  const characterCount = countWithoutSpace(textContent);
+
   return (
     <>
       <Paper 
@@ -58,6 +81,19 @@ export default function PreviewPane({ draft }) {
         }}>
           <Typography variant="h6" sx={{ fontWeight: 600 }}>
             {draft.title || '제목 없음'}
+          </Typography>
+          <Typography 
+            variant="body2" 
+            color="text.secondary"
+            sx={{
+              backgroundColor: 'grey.100',
+              px: 1.5,
+              py: 0.5,
+              borderRadius: 1,
+              fontWeight: 500
+            }}
+          >
+            {characterCount.toLocaleString()}자
           </Typography>
         </Box>
         

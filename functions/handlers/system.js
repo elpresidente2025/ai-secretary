@@ -11,7 +11,7 @@ const { testPrompt, getPolicySafe } = require('../templates/prompts');
 // 헬스체크
 exports.healthCheck = wrap(async () => {
   log('HEALTH', '상태 확인');
-  return ok({ message: 'AI비서관 서비스가 정상 작동 중입니다.', timestamp: new Date().toISOString() });
+  return ok({ message: '전자두뇌비서관 서비스가 정상 작동 중입니다.', timestamp: new Date().toISOString() });
 });
 
 // 🔥 getDashboardData 함수 완전 제거 - index.js에서만 처리

@@ -164,7 +164,7 @@ export default function PromptForm({
               <IconButton 
                 size="small" 
                 onClick={addInstructionField}
-                disabled={disabled || instructionsList.length >= 5}
+                disabled={disabled || instructionsList.length >= 10}
                 sx={{ 
                   width: 24,
                   height: 24,
@@ -243,9 +243,9 @@ export default function PromptForm({
             </Box>
           ))}
           
-          {instructionsList.length >= 5 && (
+          {instructionsList.length >= 10 && (
             <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-              최대 5개까지 참고자료를 입력할 수 있습니다.
+              최대 10개까지 참고자료를 입력할 수 있습니다.
             </Typography>
           )}
         </Grid>

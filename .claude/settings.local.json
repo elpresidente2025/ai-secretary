@@ -30,7 +30,11 @@
       "Bash(git push:*)",
       "WebFetch(domain:ai-secretary-6e9c8.web.app)",
       "Read(\\/**)",
-      "Bash(firebase emulators:start:*)"
+      "Bash(firebase emulators:start:*)",
+      "Bash(firebase emulators:list:*)",
+      "Bash(firebase help:*)",
+      "Bash(dir:*)",
+      "Read(\\/**)"
     ],
     "deny": [],
     "ask": [],

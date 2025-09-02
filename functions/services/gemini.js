@@ -83,6 +83,7 @@ async function callGenerativeModel(prompt, retries = 3, modelName = 'gemini-1.5-
       topP: 0.95,
       maxOutputTokens: isGemini2 ? 16384 : 8192, // Gemini 2.0은 더 많은 토큰 지원
       responseMimeType: 'application/json', // JSON 출력을 명시적으로 요구
+      stopSequences: ['```', '---', '<!--'], // 불완전한 출력 방지
     },
     safetySettings: [
       { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },

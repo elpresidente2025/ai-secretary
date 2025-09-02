@@ -58,6 +58,18 @@ function stripHtml(html = '') {
   }
 }
 
+// 공백 제외 글자수 계산 (Java 코드와 동일한 로직)
+function countWithoutSpace(str) {
+  if (!str) return 0;
+  let count = 0;
+  for (let i = 0; i < str.length; i++) {
+    if (!/\s/.test(str.charAt(i))) { // 공백 문자가 아닌 경우
+      count++;
+    }
+  }
+  return count;
+}
+
 export default function PostsListPage() {
   const { user, loading: authLoading } = useAuth();
   const location = useLocation();
@@ -153,7 +165,7 @@ export default function PostsListPage() {
     if (!ok) return;
     try {
       // HTTP 요청으로 변경 (CORS 문제 해결)
-      const token = await user.getIdToken();
+      const token = await user._firebaseUser.getIdToken();
       const response = await fetch('https://asia-northeast3-ai-secretary-6e9c8.cloudfunctions.net/deletePost', {
         method: 'POST',
         headers: {
@@ -289,7 +301,7 @@ export default function PostsListPage() {
             <Grid container spacing={2}>
               {posts.map((p) => {
                 const preview = stripHtml(p.content || '');
-                const wordCount = p.wordCount ?? preview.length;
+                const wordCount = countWithoutSpace(preview); // 공백 제외 글자수로 계산
                 const status = p.status || 'draft';
                 const statusColor =
                   status === 'published' ? 'success' : status === 'scheduled' ? 'warning' : 'default';
@@ -349,7 +361,7 @@ export default function PostsListPage() {
 
                           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <Typography variant="caption" color="text.secondary">
-                              글자수: {wordCount}
+                              글자수: {wordCount} (공백 제외)
                             </Typography>
                             <Typography variant="caption" color="text.secondary">
                               생성일 {formatDate(p.createdAt)}

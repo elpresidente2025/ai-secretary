@@ -1,6 +1,6 @@
 /**
  * frontend/src/constants/formConstants.js (최종본)
- * AI비서관의 카테고리 체계를 사용자 친화적인 '용도 기반'으로 재편성한 파일입니다.
+ * 전자두뇌비서관의 카테고리 체계를 사용자 친화적인 '용도 기반'으로 재편성한 파일입니다.
  * 사용자는 '글의 목적'을 먼저 선택하며, 각 목적에 맞는 내부 '작법'이 자동으로 매핑됩니다.
  */
 
@@ -33,6 +33,16 @@ export const CATEGORIES = [
     subCategories: [
       { value: 'policy_pledge_announcement', label: '정책/공약 발표', writingMethod: 'logical_writing', needsAudienceStance: false },
       { value: 'vision_philosophy_declaration', label: '비전과 철학 선언', writingMethod: 'direct_writing', needsAudienceStance: false },
+    ],
+  },
+  {
+    value: 'educational-content',
+    label: '정책/법률/조례 소개',
+    description: '복잡한 정책이나 법률, 조례를 주민들이 이해하기 쉽게 설명합니다.',
+    subCategories: [
+      { value: 'policy_explanation', label: '정책 해설 (국정/지방정부 정책)', writingMethod: 'analytical_writing', needsAudienceStance: false },
+      { value: 'law_ordinance_explanation', label: '법률/조례 안내 (새로운 법률, 개정 조례 등)', writingMethod: 'analytical_writing', needsAudienceStance: false },
+      { value: 'citizen_guide', label: '시민 생활 가이드 (제도 활용법, 신청 방법)', writingMethod: 'logical_writing', needsAudienceStance: false },
     ],
   },
   {

@@ -60,7 +60,7 @@ const ProfileRequiredRoute = ({ children }) => {
                 프로필 설정이 필요합니다
               </Typography>
               <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-                AI비서관 서비스를 이용하기 위해서는 자기소개 작성이 필요합니다.
+                전자두뇌비서관 서비스를 이용하기 위해서는 자기소개 작성이 필요합니다.
               </Typography>
             </Box>
 

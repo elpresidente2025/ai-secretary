@@ -1,4 +1,4 @@
-// deploy.js - AI비서관 Firebase 전용 배포 스크립트
+// deploy.js - 전자두뇌비서관 Firebase 전용 배포 스크립트
 const { execSync } = require('child_process');
 const path = require('path');
 
@@ -31,7 +31,7 @@ function maybeSetupFunctionsConfig() {
 async function deploy() {
   const mode = process.argv[2] || 'hosting-only';
   
-  console.log('🚀 AI비서관 Firebase 배포 시작...');
+  console.log('🚀 전자두뇌비서관 Firebase 배포 시작...');
   console.log(`📋 배포 모드: ${mode}`);
   
   try {
@@ -80,7 +80,7 @@ async function deploy() {
 // 사용법 출력
 if (process.argv.includes('--help') || process.argv.includes('-h')) {
   console.log(`
-🚀 AI비서관 Firebase 배포 스크립트
+🚀 전자두뇌비서관 Firebase 배포 스크립트
 
 사용법:
   node deploy.js [모드]

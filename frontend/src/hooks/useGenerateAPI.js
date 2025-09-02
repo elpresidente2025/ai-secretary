@@ -3,8 +3,10 @@
 import { useState, useCallback } from 'react';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../services/firebase';
+import { useAuth } from './useAuth';
 
 export function useGenerateAPI() {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [drafts, setDrafts] = useState([]);
@@ -110,7 +112,9 @@ export function useGenerateAPI() {
 
     try {
       console.log('🔥 generatePosts 호출 시작');
-      const generatePosts = httpsCallable(functions, 'generatePosts');
+      
+      // HTTP 요청을 위한 인증 토큰 획득
+      const token = await user._firebaseUser.getIdToken();
       
       // 관리자 테스트 모드에서 모델 선택
       const modelName = localStorage.getItem('gemini_model') || 'gemini-1.5-flash';
@@ -129,16 +133,34 @@ export function useGenerateAPI() {
       
       console.log('📝 요청 데이터:', requestData);
       
-      const result = await generatePosts(requestData);
+      // HTTP 요청으로 변경
+      const response = await fetch('https://asia-northeast3-ai-secretary-6e9c8.cloudfunctions.net/generatePosts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ data: requestData })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP 오류: ${response.status}`);
+      }
+      
+      const result = await response.json();
       console.log('✅ generatePosts 응답 수신:', result);
 
-      const responseData = result?.data;
+      // HTTP 응답 구조 확인 및 처리
+      const responseData = result?.data ? result.data : result;
       console.log('🔍 백엔드 응답 전체 구조:', responseData);
+      console.log('🔍 drafts 필드 존재 여부:', !!responseData?.drafts);
+      console.log('🔍 drafts 내용:', responseData?.drafts);
       
       const drafts = responseData?.drafts;
 
       if (!drafts) {
-        console.error('⚠️ 유효하지 않은 응답 구조:', result.data);
+        console.error('⚠️ 유효하지 않은 응답 구조:', result);
         console.error('⚠️ responseData:', responseData);
         throw new Error('AI 응답에서 유효한 원고 데이터를 찾을 수 없습니다.');
       }
@@ -171,7 +193,7 @@ export function useGenerateAPI() {
         // 🆕 추가 메타정보
         aiGeneratedVariations: 1, // 총 생성된 개수
         selectedVariationIndex: 0, // 선택된 인덱스
-        seoOptimized: selectedVariation.wordCount >= 1500 // SEO 최적화 여부
+        seoOptimized: selectedVariation.wordCount >= 1800 // SEO 최적화 여부
       };
 
       setDrafts(prev => [...prev, newDraft]);
@@ -199,14 +221,20 @@ export function useGenerateAPI() {
       console.error('❌ generatePosts 호출 실패:', err);
       
       let errorMessage = '원고 생성 중 오류가 발생했습니다.';
-      if (err.code === 'functions/resource-exhausted') {
+      
+      // HTTP 응답 오류 처리
+      if (err.message?.includes('401') || err.message?.includes('Unauthorized')) {
+        errorMessage = '로그인이 필요합니다. 다시 로그인해주세요.';
+      } else if (err.message?.includes('429')) {
         errorMessage = 'AI 사용량을 초과했습니다. 잠시 후 다시 시도해주세요.';
-      } else if (err.code === 'functions/unavailable') {
+      } else if (err.message?.includes('503') || err.message?.includes('502')) {
         errorMessage = 'AI 서비스가 일시적으로 사용할 수 없습니다. 잠시 후 다시 시도해주세요.';
-      } else if (err.code === 'functions/deadline-exceeded') {
+      } else if (err.message?.includes('408') || err.message?.includes('timeout')) {
         errorMessage = 'AI 응답 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.';
-      } else if (err.code === 'functions/invalid-argument') {
+      } else if (err.message?.includes('400')) {
         errorMessage = err.message || '입력된 정보를 확인해주세요.';
+      } else if (err.message) {
+        errorMessage = err.message;
       }
       
       setError(errorMessage);

@@ -9,11 +9,11 @@
 const SEO_RULES = {
   // 분량 규칙
   wordCount: {
-    min: 1500,
-    max: 2000,
-    target: 1750,
+    min: 1800,
+    max: 2300,
+    target: 2050,
     description: '네이버 SEO 최적화를 위한 권장 분량',
-    rationale: '1500자 미만은 콘텐츠 부족, 2000자 초과는 가독성 저하'
+    rationale: '1800자 미만은 콘텐츠 부족, 2300자 초과는 가독성 저하'
   },
   
   // 키워드 배치 전략
@@ -240,7 +240,8 @@ const FORMAT_RULES = {
     readability: {
       sentenceLength: '평균 25-40자',
       paragraphLength: '3-5문장',
-      complexWords: '전문용어 최소화'
+      complexWords: '전문용어 최소화',
+      grammarCheck: '문장 완결성 및 조사 누락 방지'
     },
     coherence: {
       logicalFlow: '논리적 연결성',
@@ -293,7 +294,7 @@ const EDITORIAL_WORKFLOW = {
       '✅ 독자와의 공감대 형성'
     ],
     seo: [
-      '✅ 1500-2000자 분량 준수',
+      '✅ 1800-2300자 분량 준수 (공백 제외)',
       '✅ 키워드 자연스러운 배치',
       '✅ 제목 매력도 및 검색 최적화 (30-40자)',
       '✅ 구조화된 소제목 활용'
@@ -302,7 +303,9 @@ const EDITORIAL_WORKFLOW = {
       '✅ JSON 형식 정확성',
       '✅ HTML 마크업 적절성',
       '✅ 가독성 확보',
-      '✅ 일관된 톤앤매너'
+      '✅ 일관된 톤앤매너',
+      '✅ 문장 완결성 검증',
+      '✅ 조사/어미 누락 확인'
     ],
     safety: [
       '✅ 법적 위험 요소 없음',

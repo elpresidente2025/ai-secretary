@@ -92,7 +92,7 @@ const HomePage = () => {
           <Box
             component="img"
             src="/logo.png"
-            alt="AI비서관 로고"
+            alt="전자두뇌비서관 로고"
             sx={{ 
               width: '80%', 
               mb: 3,
@@ -100,7 +100,7 @@ const HomePage = () => {
             }}
           />
           <Typography component="h1" variant="h5" sx={{ mb: 3 }}>
-            AI비서관 로그인
+            전자두뇌비서관 로그인
           </Typography>
         <Box component="form" onSubmit={handleSubmit} noValidate sx={{ mt: 1 }}>
           <TextField

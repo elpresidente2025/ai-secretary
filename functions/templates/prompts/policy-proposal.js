@@ -42,7 +42,7 @@ function buildLogicalWritingPrompt(options) {
   const vocabularyModule = Object.values(VOCABULARY_MODULES).find(m => m.id === vocabularyModuleId) || VOCABULARY_MODULES.RATIONAL_PERSUASION;
 
   const prompt = `
-# AI비서관 - 논리적 글쓰기 원고 생성 (정책/비전)
+# 전자두뇌비서관 - 논리적 글쓰기 원고 생성 (정책/비전)
 
 [기본 정보]
 - 작성자: ${authorBio}

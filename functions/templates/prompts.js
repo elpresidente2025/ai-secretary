@@ -1,6 +1,6 @@
 /**
  * functions/templates/prompts.js (최종본)
- * AI비서관의 메인 프롬프트 라우터(Router)입니다.
+ * 전자두뇌비서관의 메인 프롬프트 라우터(Router)입니다.
  * 사용자의 요청에 따라 적절한 작법 모듈을 호출하고,
  * '지능적 프레이밍'과 'editorial' 규칙을 적용하여 최종 프롬프트를 완성합니다.
  */
@@ -98,7 +98,14 @@ function injectEditorialRules(basePrompt, options) {
     const formatSection = `
 [📝 출력 형식 (editorial.js 적용)]
 - **출력 구조**: 제목(title), 본문(content)을 포함한 JSON 형식으로 출력
-- **HTML 가이드라인**: ${FORMAT_RULES.htmlGuidelines.structure.join(', ')}`;
+- **HTML 가이드라인**: ${FORMAT_RULES.htmlGuidelines.structure.join(', ')}
+
+[🔍 품질 검증 필수사항]
+- 문장 완결성: 모든 문장이 완전한 구조를 갖추고 있는지 확인
+- 조사/어미 검증: "주민여하여", "주민소리에" 같은 조사 누락 절대 금지
+- 구체성 확보: 괄호 안 예시가 아닌 실제 구체적 내용으로 작성
+- 논리적 연결: 도입-전개-결론의 자연스러운 흐름 구성
+- 문체 일관성: 존댓말 통일 및 어색한 표현 제거`;
 
     return basePrompt
         .replace(/(\[📊 SEO 최적화 규칙\])/g, seoSection)

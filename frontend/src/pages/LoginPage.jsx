@@ -48,7 +48,7 @@ function LoginPage() {
 
   // 페이지 제목 설정
   useEffect(() => {
-    document.title = 'AI비서관 - 로그인';
+    document.title = '전자두뇌비서관 - 로그인';
   }, []);
 
   const handleChange = (e) => {
@@ -174,7 +174,7 @@ function LoginPage() {
         <Box
           component="img"
           src="/logo.png"
-          alt="AI비서관 로고"
+          alt="전자두뇌비서관 로고"
           sx={{ 
             width: '80%', 
             mb: 3,
@@ -182,7 +182,7 @@ function LoginPage() {
           }}
         />
         <Typography component="h1" variant="h5">
-          AI비서관 로그인
+          전자두뇌비서관 로그인
         </Typography>
 
         <Paper elevation={2} sx={{ p: 4, mt: 3, width: '100%' }}>

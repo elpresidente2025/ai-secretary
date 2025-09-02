@@ -96,7 +96,7 @@ function AdminPage() {
               시스템 관리
             </Typography>
             <Typography variant="body1" color="text.secondary">
-              AI비서관 서비스의 전반적인 상태를 모니터링하고 관리합니다.
+              전자두뇌비서관 서비스의 전반적인 상태를 모니터링하고 관리합니다.
             </Typography>
           </Box>
           

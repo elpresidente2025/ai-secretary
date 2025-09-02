@@ -258,16 +258,20 @@ const checkBonusEligibility = wrap(async (request) => {
     const userData = userDoc.data();
     const usage = userData.usage || { postsGenerated: 0, monthlyLimit: 50, bonusGenerated: 0 };
     
+    // NaN 방지를 위한 안전한 숫자 변환
+    const bonusGenerated = parseInt(usage.bonusGenerated) || 0;
+    const bonusUsed = parseInt(usage.bonusUsed) || 0;
+    
     // 보너스 사용 가능 개수 계산
-    const availableBonus = Math.max(0, usage.bonusGenerated - (usage.bonusUsed || 0));
+    const availableBonus = Math.max(0, bonusGenerated - bonusUsed);
 
     return {
       success: true,
       data: {
         hasBonus: availableBonus > 0,
         availableBonus: availableBonus,
-        totalBonusGenerated: usage.bonusGenerated,
-        bonusUsed: usage.bonusUsed || 0
+        totalBonusGenerated: bonusGenerated,
+        bonusUsed: bonusUsed
       }
     };
 

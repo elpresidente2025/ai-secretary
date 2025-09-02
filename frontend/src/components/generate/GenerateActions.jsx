@@ -123,7 +123,7 @@ export default function GenerateActions({
       <Alert severity="warning" sx={{ mt: 2 }}>
         <Typography variant="body2" fontWeight="bold">⚠️ 주의사항</Typography>
         <Typography variant="body2">
-          AI비서관은 원고 초안을 제공하며, 반드시 사용자가 최종 검수 및 수정해야 합니다.
+          전자두뇌비서관은 원고 초안을 제공하며, 반드시 사용자가 최종 검수 및 수정해야 합니다.
         </Typography>
       </Alert>
     </Box>

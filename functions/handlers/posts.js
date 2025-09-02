@@ -8,6 +8,22 @@ const { admin, db } = require('../utils/firebaseAdmin');
 const { callGenerativeModel } = require('../services/gemini');
 
 /**
+ * 공백 제외 글자수 계산 (Java 코드와 동일한 로직)
+ * @param {string} str - 계산할 문자열
+ * @returns {number} 공백을 제외한 글자수
+ */
+function countWithoutSpace(str) {
+  if (!str) return 0;
+  let count = 0;
+  for (let i = 0; i < str.length; i++) {
+    if (!/\s/.test(str.charAt(i))) { // 공백 문자가 아닌 경우
+      count++;
+    }
+  }
+  return count;
+}
+
+/**
  * Bio 메타데이터를 기반으로 개인화된 원고 작성 힌트를 생성합니다
  * @param {Object} bioMetadata - 추출된 자기소개 메타데이터
  * @returns {string} 개인화 힌트 문자열
@@ -77,6 +93,148 @@ function generatePersonalizedHints(bioMetadata) {
   }
 
   return hints.join(' | ');
+}
+
+/**
+ * 사용자 개인화 정보를 기반으로 페르소나 힌트를 생성합니다
+ * @param {Object} userProfile - 사용자 프로필 정보
+ * @param {string} category - 글 카테고리
+ * @param {string} topic - 글 주제
+ * @returns {string} 페르소나 힌트 문자열
+ */
+function generatePersonaHints(userProfile, category, topic) {
+  if (!userProfile) return '';
+  
+  const hints = [];
+  const topicLower = topic ? topic.toLowerCase() : '';
+  
+  // 카테고리별 관련도 높은 정보 우선 선택
+  const relevantInfo = getRelevantPersonalInfo(userProfile, category, topicLower);
+  
+  // 선택된 정보만 자연스럽게 구성
+  if (relevantInfo.age) {
+    hints.push(relevantInfo.age);
+  }
+  
+  if (relevantInfo.family) {
+    hints.push(relevantInfo.family);
+  }
+  
+  if (relevantInfo.background) {
+    hints.push(relevantInfo.background);
+  }
+  
+  if (relevantInfo.experience) {
+    hints.push(relevantInfo.experience);
+  }
+  
+  if (relevantInfo.committees && relevantInfo.committees.length > 0) {
+    hints.push(`${relevantInfo.committees.join(', ')} 활동 경험을 바탕으로`);
+  }
+  
+  if (relevantInfo.connection) {
+    hints.push(relevantInfo.connection);
+  }
+  
+  const persona = hints.filter(h => h).join(' ');
+  return persona ? `[작성 관점: ${persona}]` : '';
+}
+
+/**
+ * 글 카테고리와 주제에 따라 관련성 높은 개인화 정보만 선별합니다
+ */
+function getRelevantPersonalInfo(userProfile, category, topicLower) {
+  const result = {};
+  
+  // 연령대 (일상 소통, 가족/육아 관련 주제에서 관련성 높음)
+  if (category === 'daily-communication' || 
+      topicLower.includes('육아') || topicLower.includes('가족') || topicLower.includes('청년')) {
+    if (userProfile.ageDecade) {
+      result.age = userProfile.ageDetail ? 
+        `${userProfile.ageDecade} ${userProfile.ageDetail}` : userProfile.ageDecade;
+    }
+  }
+  
+  // 가족 상황 (교육, 복지, 일상 소통에서 관련성 높음)
+  if (category === 'daily-communication' || 
+      topicLower.includes('교육') || topicLower.includes('육아') || topicLower.includes('복지')) {
+    if (userProfile.familyStatus) {
+      const familyMap = {
+        '자녀있음': '두 아이의 부모로서',
+        '한부모': '한부모 가정의 경험을 가진',
+        '기혼': '가정을 꾸리며',
+        '미혼': '젊은 세대로서'
+      };
+      result.family = familyMap[userProfile.familyStatus];
+    }
+  }
+  
+  // 배경 경력 (관련 정책 분야에서 관련성 높음)
+  if (userProfile.backgroundCareer) {
+    const careerRelevance = {
+      '교육자': ['교육', '학교', '학생', '교사'],
+      '사업가': ['경제', '소상공인', '자영업', '창업'],
+      '공무원': ['행정', '정책', '공공서비스'],
+      '의료인': ['의료', '건강', '코로나', '보건'],
+      '법조인': ['법', '제도', '정의', '권리']
+    };
+    
+    const relevantKeywords = careerRelevance[userProfile.backgroundCareer] || [];
+    const isRelevant = relevantKeywords.some(keyword => topicLower.includes(keyword));
+    
+    if (isRelevant) {
+      result.background = `${userProfile.backgroundCareer} 출신으로서`;
+    }
+  }
+  
+  // 정치 경험 (의정활동 보고, 정책 제안에서 관련성 높음)
+  if (category === 'activity-report' || category === 'policy-proposal') {
+    if (userProfile.politicalExperience) {
+      const expMap = {
+        '초선': '초선 의원으로서 신선한 관점에서',
+        '재선': '의정 경험을 바탕으로',
+        '3선 이상': '풍부한 의정 경험으로',
+        '정치 신인': '새로운 시각에서'
+      };
+      result.experience = expMap[userProfile.politicalExperience];
+    }
+  }
+  
+  // 소속 위원회 (관련 분야에서만 언급)
+  if (userProfile.committees && userProfile.committees.length > 0) {
+    const validCommittees = userProfile.committees.filter(c => c && c !== '');
+    const relevantCommittees = validCommittees.filter(committee => {
+      const committeeKeywords = {
+        '교육위원회': ['교육', '학교', '학생', '대학'],
+        '보건복지위원회': ['복지', '의료', '건강', '돌봄'],
+        '국토교통위원회': ['교통', '주택', '도로', '건설'],
+        '환경노동위원회': ['환경', '노동', '일자리'],
+        '여성가족위원회': ['여성', '가족', '육아', '출산']
+      };
+      
+      const keywords = committeeKeywords[committee] || [];
+      return keywords.some(keyword => topicLower.includes(keyword));
+    });
+    
+    if (relevantCommittees.length > 0) {
+      result.committees = relevantCommittees;
+    }
+  }
+  
+  // 지역 연고 (지역 현안에서 관련성 높음)
+  if (category === 'local-issues' || topicLower.includes('지역') || topicLower.includes('우리 동네')) {
+    if (userProfile.localConnection) {
+      const connectionMap = {
+        '토박이': '지역 토박이로서',
+        '오래 거주': '오랫동안 이 지역에 살면서',
+        '이주민': '타지에서 와서 이 지역을 제2의 고향으로 삼은',
+        '귀향': '고향으로 돌아와서'
+      };
+      result.connection = connectionMap[userProfile.localConnection];
+    }
+  }
+  
+  return result;
 }
 const { buildDailyCommunicationPrompt } = require('../templates/prompts/daily-communication');
 
@@ -268,8 +426,27 @@ exports.checkUsageLimit = wrap(async (req) => {
 
 // 진짜 AI 원고 생성 함수 (백업에서 복구) - HTTP 버전
 exports.generatePosts = httpWrap(async (req) => {
-  // HTTP 요청에서는 인증을 간단하게 처리 (테스트용)
-  const uid = 'test-user';
+  console.log('🔥 generatePosts HTTP 시작');
+  
+  // Authorization 헤더에서 토큰 추출
+  const authHeader = req.rawRequest.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    throw new HttpsError('unauthenticated', '인증이 필요합니다.');
+  }
+  
+  const idToken = authHeader.split('Bearer ')[1];
+  let decodedToken;
+  
+  try {
+    decodedToken = await admin.auth().verifyIdToken(idToken);
+  } catch (authError) {
+    console.error('❌ 토큰 검증 실패:', authError.message);
+    throw new HttpsError('unauthenticated', '유효하지 않은 인증 토큰입니다.');
+  }
+  
+  const uid = decodedToken.uid;
+  console.log('✅ 사용자 인증 성공:', uid);
+  
   const useBonus = req.data?.useBonus || false;
   
   console.log('🔍 전체 요청 구조:', JSON.stringify({
@@ -293,6 +470,7 @@ exports.generatePosts = httpWrap(async (req) => {
   const topic = data.prompt || data.topic || '';
   const category = data.category || '';
   const modelName = data.modelName || 'gemini-1.5-flash'; // 기본값은 1.5-flash
+  const targetWordCount = data.wordCount || 1700; // 사용자 요청 글자수 (기본값 1700)
   
   console.log('🔍 검증 중:', { 
     topic: topic ? topic.substring(0, 50) : topic, 
@@ -371,16 +549,17 @@ exports.generatePosts = httpWrap(async (req) => {
           'usage.lastUsedAt': admin.firestore.FieldValue.serverTimestamp()
         });
       }
+      
+      // 개인화 정보 기반 페르소나 힌트 생성 및 추가
+      const personaHints = generatePersonaHints(userProfile, category, topic);
+      if (personaHints) {
+        personalizedHints = personalizedHints ? `${personalizedHints} | ${personaHints}` : personaHints;
+        console.log('✅ 페르소나 힌트 추가:', personaHints);
+      }
 
     } catch (profileError) {
-      console.warn('⚠️ 프로필/Bio 조회 실패, 기본값 사용:', profileError.message);
-      userProfile = {
-        name: '정치인',
-        position: '의원',
-        regionMetro: '지역',
-        regionLocal: '지역구',
-        status: '현역'
-      };
+      console.warn('⚠️ 프로필/Bio 조회 실패:', profileError.message);
+      throw new HttpsError('unauthenticated', '사용자 프로필을 조회할 수 없습니다. 다시 로그인해주세요.');
     }
 
     // 사용자 상태에 따른 톤 설정 및 호칭 결정
@@ -394,8 +573,8 @@ exports.generatePosts = httpWrap(async (req) => {
         title: `${userProfile.position || ''}후보`.replace('의원후보', '후보')
       },
       '예비': {
-        guideline: '예비후보로서 현상 진단과 의견 중심의 내용을 작성하세요. 절대 "현역 의원으로서", "의원으로서", "의정활동", "성과", "실적" 등의 표현을 사용하지 마세요. 구체적인 비전이나 계획도 언급하지 마세요. 오직 현 상황에 대한 개인적 견해와 진단만 표현하세요.',
-        title: `예비${userProfile.position || ''}후보`.replace('의원후보', '후보')
+        guideline: '예비 상태에서는 어떤 호칭도 사용하지 않고 개인 이름으로만 지칭하세요. 현상 진단과 개인적 의견만 표현하세요. 절대 "예비후보", "후보", "의원", "현역 의원으로서", "의정활동", "성과", "실적", "추진한", "기여한" 등의 표현을 사용하지 마세요. 구체적인 비전이나 계획도 언급하지 마세요. 오직 현 상황에 대한 개인적 견해와 진단만 표현하세요.',
+        title: '' // 예비 상태에서는 호칭 없음
       }
     };
 
@@ -403,8 +582,35 @@ exports.generatePosts = httpWrap(async (req) => {
     const config = statusConfig[currentStatus] || statusConfig['현역'];
 
     // 프롬프트 생성
-    const fullName = userProfile.name || '정치인';
-    const fullRegion = [userProfile.regionMetro, userProfile.regionLocal, userProfile.electoralDistrict].filter(Boolean).join(' ');
+    const fullName = userProfile.name || '사용자';
+    // 자연스러운 한국어 호칭 생성 (모두 붙여쓰기)
+    const generateNaturalRegionTitle = (regionLocal, regionMetro) => {
+      // 기본 지역이 없으면 빈 문자열
+      if (!regionLocal && !regionMetro) return '';
+      
+      // 우선순위: regionLocal > regionMetro
+      const primaryRegion = regionLocal || regionMetro;
+      
+      // 구/군 단위: XX구민, XX군민
+      if (primaryRegion.includes('구') || primaryRegion.includes('군')) {
+        return primaryRegion + '민';
+      }
+      
+      // 시 단위: XX시민
+      if (primaryRegion.includes('시')) {
+        return primaryRegion + '민';
+      }
+      
+      // 도 단위: XX도민
+      if (primaryRegion.includes('도')) {
+        return primaryRegion + '민';
+      }
+      
+      // 기타의 경우 시민으로 처리
+      return primaryRegion + '시민';
+    };
+    
+    const fullRegion = generateNaturalRegionTitle(userProfile.regionLocal, userProfile.regionMetro);
     
     const prompt = `YOU ARE A POLITICAL CONTENT WRITER. FOLLOW ALL INSTRUCTIONS PRECISELY OR YOU FAIL.
 
@@ -448,12 +654,20 @@ ${(() => {
 
 ${personalizedHints ? `개인화 가이드라인: ${personalizedHints}` : ''}
 
+**🚨 정치적 입장 필수 지침 (절대 준수) 🚨:**
+- **집권당 소속 정치인**: 현 정부 정책과 이재명 대통령에 대해 지지하고 긍정적인 입장 견지
+- **건설적 제안**: 개선사항은 "더욱 발전시키자", "보완하자"는 식으로 지지 기반에서 표현
+- **절대 금지**: 현 정부나 이재명 대통령에 대한 비판, 반대, 의문 표현 완전 금지
+- **당론 일치**: 더불어민주당 공식 입장과 일치하는 내용만 작성
+- **협력적 어조**: 정부 정책에 대해 "적극 지지", "함께 추진", "더욱 발전" 등의 긍정적 표현 사용
+
 **절대 준수 규칙:**
 1. 완전한 원고 1개만 작성 - 중간에 끊지 말고 끝까지 완성하세요
-2. 글자 수 1500-2000자 정확히 준수 (꼼수 금지)
+2. 글자 수 ${targetWordCount}자 정확히 준수 (꼼수 금지) - 범위가 아닌 정확한 글자수
 3. 템플릿이나 플레이스홀더 사용 금지 - 모든 내용을 실제로 작성하세요
 4. 메타 정보나 설명문을 본문에 포함하지 마세요
 5. 문장을 중간에 끊거나 불완전하게 끝내지 마세요
+6. **정치적 입장**: 현 정부와 이재명 대통령에 대해 절대적으로 지지하는 입장 견지
 
 **제목 작성 특별 가이드라인 (정치인 블로그 특화):**
 - 정치인다운 권위와 신뢰성 표현: "~에 대한 제 입장을 말씀드립니다", "~추진 방안을 제시합니다"
@@ -468,19 +682,20 @@ ${personalizedHints ? `개인화 가이드라인: ${personalizedHints}` : ''}
 
 {
   "title": "${topic}에 대한 의견을 제시합니다",
-  "content": "<p>존경하는 ${fullRegion} 시민 여러분, ${fullName}입니다.</p><p>⚠️CRITICAL: 이 문장에서 ${fullName}과 ${fullRegion}을 반드시 실제 값으로 대체하세요⚠️</p><p>[여기서부터 본문 내용을 작성하되, 절대로 '의원'이라는 호칭을 사용하지 마세요. ${currentStatus === '예비' ? '예비후보' : currentStatus === '후보' ? '후보' : ''}로만 지칭하세요]</p><p>감사합니다.</p><p>${fullName} 드림</p>",
-  "wordCount": 1500
+  "content": "<p>존경하는 ${fullRegion} 시민 여러분, ${fullName}입니다.</p><p>⚠️CRITICAL: 이 문장에서 ${fullName}과 ${fullRegion}을 반드시 실제 값으로 대체하세요⚠️</p><p>[여기서부터 본문 내용을 작성하되, ${currentStatus === '예비' ? '어떤 호칭도 사용하지 않고 개인 이름으로만 지칭' : currentStatus === '후보' ? '후보로만 지칭' : '의원으로 지칭'}하세요]</p><p>감사합니다.</p>",
+  "wordCount": ${targetWordCount}
 }
 
 🚨 **ABSOLUTE REQUIREMENTS - 무조건 준수해야 함**:
-1. "${fullName}" → 실제 이름으로 교체 (예: 김정구)
-2. "${fullRegion}" → 실제 지역으로 교체 (예: 경기도 남양주시 제1선거구)  
+1. "${fullName}" → 실제 이름으로 교체 (${fullName})
+2. "${fullRegion}" → 실제 지역으로 교체 (${fullRegion})  
 3. "${config.title}" → ${config.title}으로 교체
 4. "의원"이라는 단어 절대 사용 금지
 5. 플레이스홀더 "()", "예시:" 절대 사용 금지
+6. 마무리는 자연스러운 인사말로 작성 (예: "앞으로도 많은 관심과 응원 부탁드립니다. 감사합니다.")
 
 요구사항:
-- **필수: 1500-2000자 분량 (정확히 준수)**
+- **필수: ${targetWordCount}자 분량 (공백 제외, 정확히 준수) - 오차 ±50자 이내**
 - HTML 형식으로 작성 (<p>, <strong> 등 사용)
 - 진중하고 신뢰감 있는 톤
 - 지역 주민과의 소통을 중시하는 내용
@@ -497,6 +712,8 @@ ${(() => {
 })()}
 
 **🚨 절대 금지사항 (위반 시 원고 사용 불가) 🚨**
+- **정치적 입장 위반 금지**: 현 정부, 이재명 대통령, 더불어민주당에 대한 비판, 반대, 의문 표현 절대 금지
+- **당론 위배 금지**: 당 공식 입장과 다른 견해나 반대 의견 표현 절대 금지  
 - **사용자 정보 누락 금지**: 작성자 이름 "${fullName}"을 글에서 반드시 사용해야 함. "저는"만 쓰고 이름 빼먹기 금지
 - **호칭 오류 금지**: "${config.title}" 외의 다른 호칭 사용 절대 금지. "의원"이라고 쓰면 안 됨
 - **지역 정보 누락/오류 절대 금지**: "${fullRegion}" 외의 다른 지역 언급 절대 금지. 지역명이 빠지거나 "에서", "의" 같은 불완전한 표현 금지
@@ -504,8 +721,13 @@ ${(() => {
 - **메타 정보 금지**: "※ 본 원고는..." 같은 설명문 포함 금지  
 - **불완전한 문장 금지**: 모든 문장을 완전하게 끝내야 함. 중간에 끊어지는 문장 절대 금지
 - **의미없는 반복 금지**: 분량 채우기 위한 반복 내용 금지
-- **완성도 필수**: 1500-2000자 완전한 원고 작성. 미완성 상태로 제출 금지
-${currentStatus === '예비' ? `- **예비후보 특별 금지사항**: "현역 의원으로서", "의원으로서", "의정활동", "성과", "실적", "추진한", "기여한" 등 현역 의원임을 암시하는 모든 표현 절대 사용 금지` : ''}`;
+- **완성도 필수**: ${targetWordCount}자 완전한 원고 작성. 미완성 상태로 제출 금지. 모든 문장을 완전하게 끝낼 것
+- **편지 형식 금지**: "○○ 드림", "○○ 올림" 같은 편지 형식 마무리 절대 금지. 일반 원고/글 형식으로 작성
+- **1인칭 사용**: 첫 소개 후에는 "저는", "제가", "저를" 등 자연스러운 1인칭 표현 사용. 계속 이름을 반복하지 말 것
+- **자연스러운 지역 표현**: "남양주시민 경제" (X) → "남양주 경제" (O), "남양주시민 관광" (X) → "남양주 관광" (O)
+- **중복 표현 금지**: "남양주시민을 포함한 많은 국민들" 같은 중복되고 어색한 표현 사용 금지
+- **문장 완결성**: 모든 문장을 "다", "니다", "습니다" 등으로 완전히 끝낼 것. 중간에 끊어지는 문장 절대 금지
+${currentStatus === '예비' ? `- **예비 상태 특별 금지사항**: "예비후보", "후보", "의원", "현역 의원으로서", "의원으로서", "의정활동", "성과", "실적", "추진한", "기여한" 등 모든 공직/정치적 호칭과 활동 표현 절대 사용 금지. 첫 소개 후에는 1인칭으로 지칭할 것` : ''}`;
 
     console.log(`🤖 AI 호출 시작 (1개 원고 생성) - 모델: ${modelName}...`);
     
@@ -586,19 +808,78 @@ ${currentStatus === '예비' ? `- **예비후보 특별 금지사항**: "현역 
       fixedContent = fixedContent.replace(/국회 의원/g, config.title);
       fixedContent = fixedContent.replace(/\s의원\s/g, ` ${config.title} `);
       
-      // 예비후보 특별 수정
+      // 예비 상태 특별 수정 - 모든 호칭과 공직 활동 표현 제거
       if (currentStatus === '예비') {
+        // 모든 호칭 제거 (첫 소개 이후)
+        fixedContent = fixedContent.replace(/예비후보/g, '저');
+        fixedContent = fixedContent.replace(/후보/g, '저');
+        fixedContent = fixedContent.replace(/의원으로서/g, '저는');
+        fixedContent = fixedContent.replace(/예비.*후보.*로서/g, '저는');
+        
+        // 공직/정치 활동 표현 제거
         fixedContent = fixedContent.replace(/의정활동을 통해/g, '시민 여러분과의 소통을 통해');
-        fixedContent = fixedContent.replace(/현역 의원으로서/g, `${config.title}으로서`);
+        fixedContent = fixedContent.replace(/현역 의원으로서/g, '저는');
         fixedContent = fixedContent.replace(/성과를/g, '경험을');
         fixedContent = fixedContent.replace(/실적을/g, '활동을');
-        fixedContent = fixedContent.replace(/추진해왔습니다/g, '제안하고자 합니다');
-        fixedContent = fixedContent.replace(/기여해왔습니다/g, '기여하고자 합니다');
+        fixedContent = fixedContent.replace(/추진해왔습니다/g, '생각합니다');
+        fixedContent = fixedContent.replace(/기여해왔습니다/g, '관심을 가지고 있습니다');
+        
+        // 3인칭 → 1인칭 변경 (첫 소개 이후)
+        // "강정구는" → "저는" (단, 첫 소개 문장은 제외)
+        const sentences = fixedContent.split('</p>');
+        for (let i = 1; i < sentences.length; i++) { // 첫 번째 문단(소개) 이후부터 적용
+          sentences[i] = sentences[i].replace(new RegExp(`${fullName}는`, 'g'), '저는');
+          sentences[i] = sentences[i].replace(new RegExp(`${fullName}가`, 'g'), '제가');
+          sentences[i] = sentences[i].replace(new RegExp(`${fullName}을`, 'g'), '저를');
+          sentences[i] = sentences[i].replace(new RegExp(`${fullName}의`, 'g'), '저의');
+        }
+        fixedContent = sentences.join('</p>');
+        
+        // 편지 형식 마무리 완전 제거
+        fixedContent = fixedContent.replace(new RegExp(`${fullName} 드림`, 'g'), '');
+        fixedContent = fixedContent.replace(/드림<\/p>/g, '</p>');
+        fixedContent = fixedContent.replace(/<p>드림<\/p>/g, '');
+        fixedContent = fixedContent.replace(/\n\n드림$/g, '');
+        fixedContent = fixedContent.replace(/드림$/g, '');
+        fixedContent = fixedContent.replace(/올림<\/p>/g, '</p>');
+        fixedContent = fixedContent.replace(/<p>올림<\/p>/g, '');
+        
+        // 어색한 지역 표현 수정
+        const regionName = userProfile.regionLocal || userProfile.regionMetro || '남양주시';
+        const baseRegion = regionName.replace('시민', '').replace('민', '');
+        fixedContent = fixedContent.replace(new RegExp(`${baseRegion}시민 경제`, 'g'), `${baseRegion} 경제`);
+        fixedContent = fixedContent.replace(new RegExp(`${baseRegion}시민 관광`, 'g'), `${baseRegion} 관광`);
+        fixedContent = fixedContent.replace(new RegExp(`${baseRegion}시민 발전`, 'g'), `${baseRegion} 발전`);
+        
+        // 중복/어색한 표현 정리
+        fixedContent = fixedContent.replace(/남양주시민을 포함한 많은 국민들/g, '많은 시민들');
+        fixedContent = fixedContent.replace(/남양주시민 여러분을 포함한/g, '시민 여러분을 포함한');
+        
+        // 불완전한 문장 감지 및 제거 (어미가 없는 문장)
+        fixedContent = fixedContent.replace(/([가-힣]+)\s*<\/p>/g, (match, word) => {
+          if (!word.match(/[다니까요며네요습것음임음]$/)) {
+            // 불완전한 문장으로 보이면 이전 완전한 문장에서 종료
+            return '</p>';
+          }
+          return match;
+        });
+        
+        // 빈 문단 제거
+        fixedContent = fixedContent.replace(/<p><\/p>/g, '');
+        fixedContent = fixedContent.replace(/<p>\s*<\/p>/g, '');
+        
+        // 어색한 조사 수정
+        fixedContent = fixedContent.replace(/남양주을 통해/g, '남양주를 통해');
+        fixedContent = fixedContent.replace(/남양주을/g, '남양주를');
       }
       
-      // 2. 누락된 이름 삽입 (단독 "저는" 또는 "저 " 패턴)
-      fixedContent = fixedContent.replace(/(<p>)저는/g, `$1저 ${fullName}는`);
-      fixedContent = fixedContent.replace(/(<p>)저 /g, `$1저 ${fullName} `);
+      // 2. 누락된 이름 삽입 (중복되지 않도록 신중하게)
+      // "저는"을 "저 이름은"으로 변경 (이미 이름이 없는 경우만)
+      if (!fixedContent.includes(`저 ${fullName}`)) {
+        fixedContent = fixedContent.replace(/(<p>)저는/g, `$1저 ${fullName}는`);
+      }
+      // "저 "뒤에 이름이 없는 경우만 이름 삽입
+      fixedContent = fixedContent.replace(/(<p>)저 ([^가-힣])/g, `$1저 ${fullName} $2`);
       
       // 3. 누락된 지역 정보 수정
       if (fullRegion) {
@@ -622,13 +903,15 @@ ${currentStatus === '예비' ? `- **예비후보 특별 금지사항**: "현역 
           `<p>존경하는 ${fullRegion} 시민 여러분, ${fullName}입니다.</p>`);
       }
       
-      // 5. 마지막 서명 수정
-      fixedContent = fixedContent.replace(/의원 올림/g, `${fullName} 드림`);
-      fixedContent = fixedContent.replace(/의원 드림/g, `${fullName} 드림`);
-      
-      // 서명이 없으면 추가
-      if (!fixedContent.includes(`${fullName} 드림`) && !fixedContent.includes(`${fullName} 올림`)) {
-        fixedContent = fixedContent.replace(/<\/p>$/, `</p><p>${fullName} 드림</p>`);
+      // 5. 마지막 서명 수정 (예비 상태가 아닐 때만)
+      if (currentStatus !== '예비') {
+        fixedContent = fixedContent.replace(/의원 올림/g, `${fullName} 드림`);
+        fixedContent = fixedContent.replace(/의원 드림/g, `${fullName} 드림`);
+        
+        // 서명이 없으면 추가
+        if (!fixedContent.includes(`${fullName} 드림`) && !fixedContent.includes(`${fullName} 올림`)) {
+          fixedContent = fixedContent.replace(/<\/p>$/, `</p><p>${fullName} 드림</p>`);
+        }
       }
       
       // 6. 기타 패턴 수정
@@ -639,6 +922,31 @@ ${currentStatus === '예비' ? `- **예비후보 특별 금지사항**: "현역 
       fixedContent = fixedContent.replace(/투명원하겠습니다/g, '투명성을 높이겠습니다');
       fixedContent = fixedContent.replace(/시민들의 목소리재명/g, '시민들의 목소리를 듣고 이재명');
       fixedContent = fixedContent.replace(/온라인 소통 미래를/g, '온라인 소통 채널을 통해 미래를');
+      
+      // 어색한 텍스트 조각 수정
+      fixedContent = fixedContent.replace(/남양주시민 해 끊임없이/g, '남양주시민 여러분을 위해 끊임없이');
+      fixedContent = fixedContent.replace(/정여러분께서/g, '시민 여러분께서');
+      fixedContent = fixedContent.replace(/([가-힣]+) ([가-힣]+)을 통해/g, (match, word1, word2) => {
+        if (word2.includes('주을') || word2.includes('을을')) {
+          return `${word1} ${word2.replace('을', '를')} 통해`;
+        }
+        return match;
+      });
+      
+      // 🔧 최종 중복 이름 패턴 제거 (모든 처리 완료 후)
+      console.log('🔧 최종 중복 이름 제거 시작');
+      fixedContent = fixedContent.replace(new RegExp(`저 ${fullName} ${fullName}는`, 'g'), `저 ${fullName}는`);
+      fixedContent = fixedContent.replace(new RegExp(`저 ${fullName} ${fullName}가`, 'g'), `저 ${fullName}가`);
+      fixedContent = fixedContent.replace(new RegExp(`저 ${fullName} ${fullName}을`, 'g'), `저 ${fullName}를`);
+      fixedContent = fixedContent.replace(new RegExp(`저 ${fullName} ${fullName}`, 'g'), `저 ${fullName}`);
+      fixedContent = fixedContent.replace(new RegExp(`${fullName} ${fullName}는`, 'g'), `${fullName}는`);
+      fixedContent = fixedContent.replace(new RegExp(`${fullName} ${fullName}가`, 'g'), `${fullName}가`);
+      fixedContent = fixedContent.replace(new RegExp(`${fullName} ${fullName}을`, 'g'), `${fullName}를`);
+      fixedContent = fixedContent.replace(new RegExp(`${fullName} ${fullName}`, 'g'), fullName);
+      
+      // 3연속 이상 중복도 처리
+      fixedContent = fixedContent.replace(new RegExp(`${fullName} ${fullName} ${fullName}`, 'g'), fullName);
+      fixedContent = fixedContent.replace(new RegExp(`저 ${fullName} ${fullName} ${fullName}`, 'g'), `저 ${fullName}`);
       
       parsedResponse.content = fixedContent;
       console.log('✅ 후처리 완료 - 필수 정보 삽입됨');

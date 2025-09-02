@@ -107,6 +107,7 @@ exports.reactivateUser = adminUsersHandler.reactivateUser;
 exports.deleteUser = adminUsersHandler.deleteUser;
 
 // SNS 애드온 관련 함수들
+exports.testSNS = snsAddonHandler.testSNS;
 exports.convertToSNS = snsAddonHandler.convertToSNS;
 exports.getSNSUsage = snsAddonHandler.getSNSUsage;
 exports.purchaseSNSAddon = snsAddonHandler.purchaseSNSAddon;

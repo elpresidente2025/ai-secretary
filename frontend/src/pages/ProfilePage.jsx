@@ -62,6 +62,16 @@ export default function ProfilePage() {
     regionLocal: '',
     electoralDistrict: '',
     bio: '',
+    // 개인화 정보 (선택사항)
+    ageDecade: '',
+    ageDetail: '',
+    familyStatus: '',
+    backgroundCareer: '',
+    localConnection: '',
+    politicalExperience: '',
+    committees: [''],
+    customCommittees: [],
+    constituencyType: '',
   });
 
   // 회원탈퇴 처리
@@ -132,6 +142,14 @@ export default function ProfilePage() {
       content: '',
       tags: [],
       weight: 1.0
+    },
+    {
+      id: 'entry_additional_default',
+      type: 'policy',
+      title: '',
+      content: '',
+      tags: [],
+      weight: 1.0
     }
   ]);
 
@@ -169,6 +187,16 @@ export default function ProfilePage() {
           regionLocal: profileData.regionLocal || '',
           electoralDistrict: profileData.electoralDistrict || '',
           bio: profileData.bio || '',
+          // 개인화 정보 (선택사항)
+          ageDecade: profileData.ageDecade || '',
+          ageDetail: profileData.ageDetail || '',
+          familyStatus: profileData.familyStatus || '',
+          backgroundCareer: profileData.backgroundCareer || '',
+          localConnection: profileData.localConnection || '',
+          politicalExperience: profileData.politicalExperience || '',
+          committees: profileData.committees || [''],
+          customCommittees: profileData.customCommittees || [],
+          constituencyType: profileData.constituencyType || '',
         });
 
         // Bio 엔트리 초기화 (기존 bio를 첫 번째 엔트리로)
@@ -179,6 +207,34 @@ export default function ProfilePage() {
               type: 'self_introduction',
               title: '자기소개',
               content: profileData.bio.trim(),
+              tags: [],
+              weight: 1.0
+            },
+            {
+              id: 'entry_additional_default',
+              type: 'policy',
+              title: '',
+              content: '',
+              tags: [],
+              weight: 1.0
+            }
+          ]);
+        } else {
+          // bio가 없는 경우에도 기본 엔트리들 유지
+          setBioEntries([
+            {
+              id: 'entry_initial',
+              type: 'self_introduction',
+              title: '자기소개',
+              content: '',
+              tags: [],
+              weight: 1.0
+            },
+            {
+              id: 'entry_additional_default',
+              type: 'policy',
+              title: '',
+              content: '',
               tags: [],
               weight: 1.0
             }
@@ -429,6 +485,259 @@ export default function ProfilePage() {
                 disabled={saving}
                 showTitle={true}
               />
+
+              {/* 개인화 정보 섹션 (선택사항) */}
+              <Grid item xs={12}>
+                <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', mb: 2, mt: 3 }}>
+                  <AutoAwesome sx={{ mr: 1, color: '#55207D' }} />
+                  개인화 정보 (선택사항)
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                  더 개인화되고 진정성 있는 원고 생성을 위한 선택 정보입니다. 입력하지 않아도 서비스 이용에 문제없습니다.
+                </Typography>
+              </Grid>
+
+              {/* 연령대 - 연대 */}
+              <Grid item xs={12} sm={6} md={2}>
+                <FormControl fullWidth>
+                  <InputLabel>연령대</InputLabel>
+                  <Select
+                    name="ageDecade"
+                    value={profile.ageDecade || ''}
+                    label="연령대"
+                    onChange={(e) => handleUserInfoChange('ageDecade', e.target.value)}
+                    disabled={saving}
+                  >
+                    <MenuItem value="">선택 안함</MenuItem>
+                    <MenuItem value="20대">20대</MenuItem>
+                    <MenuItem value="30대">30대</MenuItem>
+                    <MenuItem value="40대">40대</MenuItem>
+                    <MenuItem value="50대">50대</MenuItem>
+                    <MenuItem value="60대">60대</MenuItem>
+                    <MenuItem value="70대 이상">70대 이상</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              {/* 연령대 - 세부 */}
+              <Grid item xs={12} sm={6} md={2}>
+                <FormControl fullWidth>
+                  <InputLabel>세부 연령</InputLabel>
+                  <Select
+                    name="ageDetail"
+                    value={profile.ageDetail || ''}
+                    label="세부 연령"
+                    onChange={(e) => handleUserInfoChange('ageDetail', e.target.value)}
+                    disabled={saving || !profile.ageDecade}
+                  >
+                    <MenuItem value="">선택 안함</MenuItem>
+                    <MenuItem value="초반">초반</MenuItem>
+                    <MenuItem value="중반">중반</MenuItem>
+                    <MenuItem value="후반">후반</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              {/* 가족 상황 */}
+              <Grid item xs={12} sm={6} md={4}>
+                <FormControl fullWidth>
+                  <InputLabel>가족 상황</InputLabel>
+                  <Select
+                    name="familyStatus"
+                    value={profile.familyStatus}
+                    label="가족 상황"
+                    onChange={(e) => handleUserInfoChange('familyStatus', e.target.value)}
+                    disabled={saving}
+                  >
+                    <MenuItem value="">선택 안함</MenuItem>
+                    <MenuItem value="미혼">미혼</MenuItem>
+                    <MenuItem value="기혼">기혼</MenuItem>
+                    <MenuItem value="자녀있음">자녀있음</MenuItem>
+                    <MenuItem value="한부모">한부모</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              {/* 배경 경력 */}
+              <Grid item xs={12} sm={6} md={4}>
+                <FormControl fullWidth>
+                  <InputLabel>주요 배경</InputLabel>
+                  <Select
+                    name="backgroundCareer"
+                    value={profile.backgroundCareer}
+                    label="주요 배경"
+                    onChange={(e) => handleUserInfoChange('backgroundCareer', e.target.value)}
+                    disabled={saving}
+                  >
+                    <MenuItem value="">선택 안함</MenuItem>
+                    <MenuItem value="교육자">교육자</MenuItem>
+                    <MenuItem value="사업가">사업가</MenuItem>
+                    <MenuItem value="공무원">공무원</MenuItem>
+                    <MenuItem value="시민운동가">시민운동가</MenuItem>
+                    <MenuItem value="법조인">법조인</MenuItem>
+                    <MenuItem value="의료인">의료인</MenuItem>
+                    <MenuItem value="기타">기타</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              {/* 지역 연고성 */}
+              <Grid item xs={12} sm={6} md={4}>
+                <FormControl fullWidth>
+                  <InputLabel>지역 연고</InputLabel>
+                  <Select
+                    name="localConnection"
+                    value={profile.localConnection}
+                    label="지역 연고"
+                    onChange={(e) => handleUserInfoChange('localConnection', e.target.value)}
+                    disabled={saving}
+                  >
+                    <MenuItem value="">선택 안함</MenuItem>
+                    <MenuItem value="토박이">토박이</MenuItem>
+                    <MenuItem value="오래 거주">오래 거주 (10년 이상)</MenuItem>
+                    <MenuItem value="이주민">이주민</MenuItem>
+                    <MenuItem value="귀향">귀향</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              {/* 정치 경험 */}
+              <Grid item xs={12} sm={6} md={4}>
+                <FormControl fullWidth>
+                  <InputLabel>정치 경험</InputLabel>
+                  <Select
+                    name="politicalExperience"
+                    value={profile.politicalExperience}
+                    label="정치 경험"
+                    onChange={(e) => handleUserInfoChange('politicalExperience', e.target.value)}
+                    disabled={saving}
+                  >
+                    <MenuItem value="">선택 안함</MenuItem>
+                    <MenuItem value="초선">초선</MenuItem>
+                    <MenuItem value="재선">재선</MenuItem>
+                    <MenuItem value="3선 이상">3선 이상</MenuItem>
+                    <MenuItem value="정치 신인">정치 신인</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              {/* 소속 위원회 */}
+              <Grid item xs={12}>
+                <Box sx={{ mb: 3 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                    <Typography variant="h6" sx={{ color: '#55207D', fontWeight: 600 }}>
+                      🏛️ 소속 위원회
+                    </Typography>
+                    <Tooltip title="위원회 추가">
+                      <IconButton 
+                        size="small" 
+                        onClick={() => {
+                          const newCommittees = [...profile.committees, ''];
+                          handleUserInfoChange('committees', newCommittees);
+                        }}
+                        disabled={saving || profile.committees.length >= 5}
+                        sx={{ 
+                          width: 24,
+                          height: 24,
+                          backgroundColor: '#006261',
+                          color: 'white',
+                          border: '1px solid',
+                          borderColor: '#006261',
+                          '&:hover': { 
+                            backgroundColor: '#003A87',
+                            borderColor: '#003A87'
+                          },
+                          '&:disabled': {
+                            backgroundColor: 'grey.50',
+                            borderColor: 'grey.200',
+                            color: 'grey.400'
+                          }
+                        }}
+                      >
+                        <Add sx={{ fontSize: 14 }} />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                  
+                  <Stack spacing={2}>
+                    {profile.committees.map((committee, index) => (
+                      <Paper key={index} elevation={1} sx={{ p: 2, borderRadius: 2 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+                          <Box sx={{ flex: 1 }}>
+                            <FormControl fullWidth>
+                              <InputLabel>위원회 선택</InputLabel>
+                              <Select
+                                value={committee}
+                                label="위원회 선택"
+                                onChange={(e) => {
+                                  const newCommittees = [...profile.committees];
+                                  newCommittees[index] = e.target.value;
+                                  handleUserInfoChange('committees', newCommittees);
+                                }}
+                                disabled={saving}
+                              >
+                                <MenuItem value="">선택 안함</MenuItem>
+                                <MenuItem value="교육위원회">교육위원회</MenuItem>
+                                <MenuItem value="보건복지위원회">보건복지위원회</MenuItem>
+                                <MenuItem value="국토교통위원회">국토교통위원회</MenuItem>
+                                <MenuItem value="기획재정위원회">기획재정위원회</MenuItem>
+                                <MenuItem value="행정안전위원회">행정안전위원회</MenuItem>
+                                <MenuItem value="문화체육관광위원회">문화체육관광위원회</MenuItem>
+                                <MenuItem value="농림축산식품해양수산위원회">농림축산식품해양수산위원회</MenuItem>
+                                <MenuItem value="산업통상자원중소벤처기업위원회">산업통상자원중소벤처기업위원회</MenuItem>
+                                <MenuItem value="환경노동위원회">환경노동위원회</MenuItem>
+                                <MenuItem value="정무위원회">정무위원회</MenuItem>
+                                <MenuItem value="법제사법위원회">법제사법위원회</MenuItem>
+                                <MenuItem value="국방위원회">국방위원회</MenuItem>
+                                <MenuItem value="외교통일위원회">외교통일위원회</MenuItem>
+                                <MenuItem value="정보위원회">정보위원회</MenuItem>
+                                <MenuItem value="여성가족위원회">여성가족위원회</MenuItem>
+                                <MenuItem value="과학기술정보방송통신위원회">과학기술정보방송통신위원회</MenuItem>
+                                <MenuItem value="도시계획위원회">도시계획위원회</MenuItem>
+                                <MenuItem value="경제위원회">경제위원회</MenuItem>
+                                <MenuItem value="복지위원회">복지위원회</MenuItem>
+                                <MenuItem value="기타">기타 (직접 입력)</MenuItem>
+                              </Select>
+                            </FormControl>
+
+                            {/* 기타 선택 시 직접 입력 */}
+                            {committee === '기타' && (
+                              <TextField
+                                fullWidth
+                                label="위원회명 직접 입력"
+                                value={profile.customCommittees?.[index] || ''}
+                                onChange={(e) => {
+                                  const newCustomCommittees = [...(profile.customCommittees || [])];
+                                  newCustomCommittees[index] = e.target.value;
+                                  handleUserInfoChange('customCommittees', newCustomCommittees);
+                                }}
+                                disabled={saving}
+                                placeholder="예: 특별위원회, 소위원회명 등"
+                                sx={{ mt: 1 }}
+                              />
+                            )}
+                          </Box>
+
+                          <IconButton
+                            size="small"
+                            onClick={() => {
+                              const newCommittees = profile.committees.filter((_, i) => i !== index);
+                              handleUserInfoChange('committees', newCommittees.length ? newCommittees : ['']);
+                            }}
+                            disabled={saving}
+                            sx={{ 
+                              color: 'error.main',
+                              '&:hover': { bgcolor: 'error.50' }
+                            }}
+                          >
+                            <Remove />
+                          </IconButton>
+                        </Box>
+                      </Paper>
+                    ))}
+                  </Stack>
+                </Box>
+              </Grid>
 
               {/* 자기소개 및 추가 정보 섹션 */}
               <Grid item xs={12}>

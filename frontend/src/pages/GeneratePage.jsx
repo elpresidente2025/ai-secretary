@@ -18,6 +18,7 @@ import {
   Button
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+import ShareIcon from '@mui/icons-material/Share';
 import DashboardLayout from '../components/DashboardLayout';
 import PromptForm from '../components/generate/PromptForm';
 import GenerateActions from '../components/generate/GenerateActions';
@@ -27,6 +28,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useGenerateForm } from '../hooks/useGenerateForm';
 import { useGenerateAPI } from '../hooks/useGenerateAPI';
 import { useBonus } from '../hooks/useBonus';
+import { getSNSUsage } from '../services/firebaseService';
 // 폼에서 사용할 카테고리/세부 카테고리 목록 데이터를 가져옵니다.
 import { CATEGORIES } from '../constants/formConstants';
 
@@ -60,6 +62,22 @@ const GeneratePage = () => {
   // --- 🎁 보너스 기능 관련 ---
   const { bonusStats, fetchBonusStats } = useBonus();
 
+  // SNS 사용 조건 확인
+  const fetchSNSUsage = async () => {
+    try {
+      const result = await getSNSUsage();
+      setSnsUsage(result);
+    } catch (error) {
+      console.error('SNS 사용량 조회 실패:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (user?.uid) {
+      fetchSNSUsage();
+    }
+  }, [user?.uid]);
+
   // --- 📢 사용자 피드백(알림창) 상태 관리 ---
   const [snackbar, setSnackbar] = React.useState({
     open: false,      // 스낵바가 열려있는지 여부
@@ -73,6 +91,7 @@ const GeneratePage = () => {
   // --- 📱 SNS 변환 상태 관리 ---
   const [snsModalOpen, setSnsModalOpen] = React.useState(false);
   const [snsPost, setSnsPost] = React.useState(null);
+  const [snsUsage, setSnsUsage] = React.useState(null);
 
   // 🔥 성능 최적화: Firebase 연결을 미리 준비하여 API 호출 속도를 개선합니다.
   useEffect(() => {
@@ -141,15 +160,47 @@ const GeneratePage = () => {
     setSnsPost(null);   // SNS 포스트 상태 초기화
   };
 
-  /** 원고 선택 시 실행되는 함수 - 선택된 원고만 남기고 나머지 제거 */
+  /** 초안 선택 시 실행되는 함수 - 선택만 하고 다른 초안은 유지 */
   const handleSelectDraft = (draft) => {
-    setDrafts([draft]); // 선택된 원고만 배열에 남김
-    setSelectedDraft(null); // 미리보기 다이얼로그는 닫음
+    // 선택된 초안을 별도로 저장하되, 다른 초안들은 그대로 유지
+    setSelectedDraft(draft);
     setSnackbar({ 
       open: true, 
-      message: '원고가 선택되었습니다. 이제 SNS 변환을 할 수 있습니다.', 
-      severity: 'success' 
+      message: '원고를 선택했습니다. 저장하시겠습니까?', 
+      severity: 'info' 
     });
+  };
+
+  /** 선택된 원고를 최종 저장하는 함수 */
+  const handleConfirmSelection = async (draft) => {
+    try {
+      // 실제 저장 로직
+      const result = await save(draft);
+      
+      if (result.success) {
+        // 저장 성공 시에만 선택된 원고만 남기기
+        setDrafts([draft]);
+        setSelectedDraft(null);
+        setSnackbar({ 
+          open: true, 
+          message: '원고가 저장되었습니다. 이제 SNS 변환을 할 수 있습니다.', 
+          severity: 'success' 
+        });
+      } else {
+        setSnackbar({ 
+          open: true, 
+          message: result.error || '저장에 실패했습니다.', 
+          severity: 'error' 
+        });
+      }
+    } catch (error) {
+      console.error('원고 저장 오류:', error);
+      setSnackbar({ 
+        open: true, 
+        message: '저장 처리 중 오류가 발생했습니다.', 
+        severity: 'error' 
+      });
+    }
   };
 
   /** SNS 변환 버튼 클릭 시 실행되는 함수 */
@@ -234,10 +285,8 @@ const GeneratePage = () => {
             items={drafts}
             onSelect={setSelectedDraft} // 항상 자세히 보기 모달 활성화
             onSave={handleSave}         // 초안 저장 시 호출될 함수
-            onSNSConvert={handleSNSConvert} // SNS 변환 함수 추가
             maxAttempts={maxAttempts}
             isMobile={isMobile}
-            showSNSButton={drafts.length === 1} // 원고가 1개일 때만 SNS 버튼 표시
           />
         </Suspense>
 
@@ -276,17 +325,32 @@ const GeneratePage = () => {
               </Suspense>
             )}
           </DialogContent>
-          <DialogActions sx={{ p: 2, gap: 1 }}>
-            <Button onClick={() => setSelectedDraft(null)}>
-              취소
-            </Button>
-            <Button 
-              variant="contained" 
-              onClick={() => handleSelectDraft(selectedDraft)}
-              color="primary"
-            >
-              이 원고 선택
-            </Button>
+          <DialogActions sx={{ p: 2, gap: 1, justifyContent: 'space-between' }}>
+            <Box>
+              {/* SNS 변환 조건 충족 시 SNS 버튼 표시 */}
+              {snsUsage?.isActive && selectedDraft && (
+                <Button
+                  variant="outlined"
+                  startIcon={<ShareIcon />}
+                  onClick={() => handleSNSConvert(selectedDraft)}
+                  sx={{ mr: 1 }}
+                >
+                  SNS 변환
+                </Button>
+              )}
+            </Box>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button onClick={() => setSelectedDraft(null)}>
+                취소
+              </Button>
+              <Button 
+                variant="contained" 
+                onClick={() => handleConfirmSelection(selectedDraft)}
+                color="primary"
+              >
+                이 원고 저장
+              </Button>
+            </Box>
           </DialogActions>
         </Dialog>
       </Container>

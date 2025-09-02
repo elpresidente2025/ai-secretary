@@ -46,7 +46,7 @@ function RegisterPage() {
 
   // 페이지 제목 설정
   useEffect(() => {
-    document.title = 'AI비서관 - 회원가입';
+    document.title = '전자두뇌비서관 - 회원가입';
   }, []);
 
   // 일반 입력 필드 변경 처리
@@ -167,8 +167,8 @@ function RegisterPage() {
         >
           <Box
             component="img"
-            src="/logo.png"
-            alt="AI비서관 로고"
+            src="/logo-portrait.png"
+            alt="전자두뇌비서관 로고"
             sx={{
               height: 80,
               width: 'auto',
@@ -198,8 +198,8 @@ function RegisterPage() {
       >
         <Box
           component="img"
-          src="/logo.png"
-          alt="AI비서관 로고"
+          src="/logo-portrait.png"
+          alt="전자두뇌비서관 로고"
           sx={{
             height: 80,
             width: 'auto',
@@ -207,7 +207,7 @@ function RegisterPage() {
           }}
         />
         <Typography component="h1" variant="h5">
-          AI비서관 회원가입
+          전자두뇌비서관 회원가입
         </Typography>
 
         <Paper elevation={2} sx={{ p: 4, mt: 3, width: '100%' }}>

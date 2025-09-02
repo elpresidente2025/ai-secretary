@@ -45,7 +45,7 @@ function buildLocalIssuesPrompt(options) {
   const vocabularyModule = Object.values(VOCABULARY_MODULES).find(m => m.id === vocabularyModuleId) || VOCABULARY_MODULES.DATA_DRIVEN_OBJECTIVE;
 
   const prompt = `
-# AI비서관 - 분석적 글쓰기 원고 생성 (지역 현안)
+# 전자두뇌비서관 - 분석적 글쓰기 원고 생성 (지역 현안)
 
 [기본 정보]
 - 작성자: ${authorBio}

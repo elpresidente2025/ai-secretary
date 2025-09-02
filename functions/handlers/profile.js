@@ -77,6 +77,10 @@ exports.updateProfile = wrap(async (req) => {
   const allowed = [
     'name', 'position', 'regionMetro', 'regionLocal',
     'electoralDistrict', 'status', 'bio', // bio는 별도 처리
+    // 개인화 정보 필드들
+    'ageDecade', 'ageDetail', 'familyStatus', 'backgroundCareer',
+    'localConnection', 'politicalExperience', 'committees', 'customCommittees',
+    'constituencyType'
   ];
   const sanitized = {};
   for (const k of allowed) if (profileData[k] !== undefined) sanitized[k] = profileData[k];

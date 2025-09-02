@@ -42,7 +42,7 @@ function buildActivityReportPrompt(options) {
   const vocabularyModule = Object.values(VOCABULARY_MODULES).find(m => m.id === vocabularyModuleId) || VOCABULARY_MODULES.FORMAL_AND_REPORTING;
 
   const prompt = `
-# AI비서관 - 의정활동 보고 원고 생성
+# 전자두뇌비서관 - 의정활동 보고 원고 생성
 
 [기본 정보]
 - 작성자: ${authorBio}

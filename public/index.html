@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   
-  <!-- AI비서관 파비콘 적용 -->
+  <!-- 전자두뇌비서관 파비콘 적용 -->
   <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
@@ -18,15 +18,15 @@
   <!-- SEO 최적화 -->
   <meta name="description" content="더불어민주당 정치인을 위한 AI 블로그 원고 자동 생성 서비스. 첨단 AI 기술로 정치 콘텐츠를 효율적으로 생성하세요.">
   <meta name="keywords" content="AI,인공지능,더불어민주당,정치인,블로그,원고생성,자동화,정치콘텐츠">
-  <meta name="author" content="AI비서관">
+  <meta name="author" content="전자두뇌비서관">
   
   <!-- 소셜 미디어 최적화 -->
-  <meta property="og:title" content="AI비서관 - AI가 만드는 더불어민주당 정치 블로그">
+  <meta property="og:title" content="전자두뇌비서관 - AI가 만드는 더불어민주당 정치 블로그">
   <meta property="og:description" content="더불어민주당 정치인을 위한 AI 블로그 원고 자동 생성 서비스">
   <meta property="og:image" content="/android-chrome-512x512.png">
   <meta property="og:type" content="website">
   
-  <title>AI비서관 - 더불어민주당 정치인 전용 AI 블로그 원고 생성 서비스</title>
+  <title>전자두뇌비서관 - 더불어민주당 정치인 전용 AI 블로그 원고 생성 서비스</title>
 
   <!-- Firebase SDK -->
   <script defer src="/__/firebase/12.0.0/firebase-app-compat.js"></script>
@@ -36,7 +36,7 @@
   <script defer src="/__/firebase/init.js?useEmulator=true"></script>
 
   <style>
-    /* AI비서관 전용 스타일 */
+    /* 전자두뇌비서관 전용 스타일 */
     :root {
       --ai-primary: #1e3a8a;      /* 더불어민주당 블루 */
       --ai-secondary: #3b82f6;    /* 포인트 블루 */
@@ -324,7 +324,7 @@
     <div class="container">
       <div class="header-content">
         <div class="logo">
-          AI비서관
+          전자두뇌비서관
         </div>
         <nav class="nav-buttons">
           <a href="#features" class="btn btn-outline">서비스 소개</a>
@@ -355,7 +355,7 @@
     <!-- 특징 섹션 -->
     <section id="features" class="features">
       <div class="container">
-        <h2>AI비서관의 특별한 기능</h2>
+        <h2>전자두뇌비서관의 특별한 기능</h2>
         <div class="features-grid">
           <div class="feature-card">
             <div class="feature-icon">🤖</div>
@@ -453,14 +453,14 @@
   <!-- 푸터 -->
   <footer class="footer">
     <div class="container">
-      <p>&copy; 2025 AI비서관. 더불어민주당 정치인을 위한 AI 블로그 서비스.</p>
+      <p>&copy; 2025 전자두뇌비서관. 더불어민주당 정치인을 위한 AI 블로그 서비스.</p>
       <p>문의: contact@ai-secretary.kr | 개인정보처리방침 | 이용약관</p>
     </div>
   </footer>
 
   <!-- 로딩 인디케이터 -->
   <div id="loading" class="loading">
-    🤖 AI비서관 시스템 로딩 중...
+    🤖 전자두뇌비서관 시스템 로딩 중...
   </div>
 
   <script>
@@ -470,7 +470,7 @@
       // Firebase 초기화 확인
       try {
         loadingEl.classList.add('show');
-        loadingEl.textContent = '🤖 AI비서관 시스템 초기화 중...';
+        loadingEl.textContent = '🤖 전자두뇌비서관 시스템 초기화 중...';
         
         // Firebase 앱 확인
         if (typeof firebase !== 'undefined') {
@@ -482,7 +482,7 @@
           ].filter(feature => typeof app[feature] === 'function');
           
           setTimeout(() => {
-            loadingEl.textContent = `✅ AI비서관 준비 완료! (${features.join(', ')})`;
+            loadingEl.textContent = `✅ 전자두뇌비서관 준비 완료! (${features.join(', ')})`;
             
             setTimeout(() => {
               loadingEl.classList.remove('show');
@@ -490,7 +490,7 @@
           }, 1000);
         } else {
           setTimeout(() => {
-            loadingEl.textContent = '✅ AI비서관 웹사이트 준비 완료!';
+            loadingEl.textContent = '✅ 전자두뇌비서관 웹사이트 준비 완료!';
             setTimeout(() => {
               loadingEl.classList.remove('show');
             }, 2000);

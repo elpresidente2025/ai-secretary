@@ -119,20 +119,17 @@ const DashboardLayout = ({ children }) => {
       {/* 상단 헤더: sticky 고정 */}
       <AppBar position="sticky" elevation={0} sx={{ bgcolor: '#152484', top: 0, zIndex: (t) => t.zIndex.appBar }}>
         <Toolbar>
-          {/* 로고 + 타이틀 (왼쪽 정렬) */}
+          {/* 로고 (왼쪽 정렬) */}
           <Box
-            sx={{ display: 'flex', alignItems: 'center', flexGrow: 1, cursor: 'pointer', gap: 1 }}
+            sx={{ display: 'flex', alignItems: 'center', flexGrow: 1, cursor: 'pointer' }}
             onClick={handleLogoClick}
           >
             <Box
               component="img"
-              src="/logo.png"      // public/logo.png
-              alt="AI비서관 로고"
-              sx={{ height: 32, width: 32, objectFit: 'contain', borderRadius: 1 }}
+              src="/logo-landscape.png"
+              alt="전자두뇌비서관 로고"
+              sx={{ height: 32, objectFit: 'contain' }}
             />
-            <Typography variant="h6" sx={{ fontWeight: 600, color: 'white', textDecoration: 'none' }}>
-              AI비서관
-            </Typography>
           </Box>
 
           {/* 데스크톱: 중앙 메뉴 + 우측 로그아웃 */}
@@ -218,8 +215,10 @@ const DashboardLayout = ({ children }) => {
           textAlign: 'center'
         }}
       >
-        <Typography variant="caption" color="text.secondary">
-          © AI비서관
+        <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.6 }}>
+          사이버브레인 | 사업자등록번호: 870-55-00786 | 통신판매업신고번호: (비움)<br />
+          대표: 차서영 | 인천광역시 계양구 용종로 124, 학마을한진아파트 139동 1504호<br />
+          Copyright 2025. CyberBrain. All Rights Reserved.
         </Typography>
       </Box>
     </Box>

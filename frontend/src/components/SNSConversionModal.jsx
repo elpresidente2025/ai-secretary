@@ -23,29 +23,23 @@ import {
   Tooltip
 } from '@mui/material';
 import {
-  Facebook,
-  Instagram,
-  Twitter,
   ContentCopy,
   Share,
   Close
 } from '@mui/icons-material';
-import { SvgIcon } from '@mui/material';
-import { convertToSNS, getSNSUsage } from '../services/firebaseService';
+import { convertToSNS, getSNSUsage, testSNS } from '../services/firebaseService';
 
-// X (Twitter) 아이콘 컴포넌트
-const XIcon = (props) => (
-  <SvgIcon {...props} viewBox="0 0 24 24">
-    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-  </SvgIcon>
-);
-
-// Threads 아이콘 컴포넌트  
-const ThreadsIcon = (props) => (
-  <SvgIcon {...props} viewBox="0 0 24 24">
-    <path d="M12.9 8.148c-.271-.083-.573-.129-.9-.129-1.326 0-2.4 1.074-2.4 2.4v3.162c0 1.326 1.074 2.4 2.4 2.4.327 0 .629-.046.9-.129a2.4 2.4 0 0 0-.9-4.633v-1.071c0-.663.537-1.2 1.2-1.2s1.2.537 1.2 1.2v3.162c0 2.649-2.151 4.8-4.8 4.8s-4.8-2.151-4.8-4.8v-3.162c0-2.649 2.151-4.8 4.8-4.8 1.326 0 2.523.538 3.394 1.409"/>
-    <path d="M12 2C6.486 2 2 6.486 2 12s4.486 10 10 10 10-4.486 10-10S17.514 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8z"/>
-  </SvgIcon>
+// SNS 아이콘 컴포넌트 (이미지 사용)
+const SNSIcon = ({ src, alt, size = 20 }) => (
+  <img 
+    src={src} 
+    alt={alt}
+    style={{ 
+      width: size, 
+      height: size, 
+      objectFit: 'contain'
+    }}
+  />
 );
 
 // HTML을 평범한 텍스트로 변환하는 유틸리티 함수
@@ -84,34 +78,40 @@ function convertHtmlToFormattedText(html = '') {
   }
 }
 
+// 공백 제외 글자수 계산 (Java 코드와 동일한 로직)
+function countWithoutSpace(str) {
+  if (!str) return 0;
+  let count = 0;
+  for (let i = 0; i < str.length; i++) {
+    if (!/\s/.test(str.charAt(i))) { // 공백 문자가 아닌 경우
+      count++;
+    }
+  }
+  return count;
+}
+
 const PLATFORMS = {
-  facebook: {
-    name: 'Facebook',
-    icon: Facebook,
+  'facebook-instagram': {
+    name: 'Facebook + Instagram',
+    iconSrc: '/icons/icon-facebook.png', // Facebook 아이콘 (대표)
+    instagramIconSrc: '/icons/icon-instagram.png',
     color: '#1877f2',
-    maxLength: 63206,
-    recommendedLength: 63206  // 최대 한도 활용
-  },
-  instagram: {
-    name: 'Instagram', 
-    icon: Instagram,
-    color: '#E4405F',
-    maxLength: 2200,
-    recommendedLength: 2200  // 최대 한도 활용
+    maxLength: 1800,
+    recommendedLength: 1800
   },
   x: {
     name: 'X',
-    icon: XIcon,
+    iconSrc: '/icons/icon-X.png',
     color: '#000000',
-    maxLength: 280,
-    recommendedLength: 280  // 최대 한도 활용
+    maxLength: 230,
+    recommendedLength: 230
   },
   threads: {
     name: 'Threads',
-    icon: ThreadsIcon,
+    iconSrc: '/icons/icon-threads.png',
     color: '#000000',
-    maxLength: 500,
-    recommendedLength: 500  // 최대 한도 활용
+    maxLength: 400,
+    recommendedLength: 400
   }
 };
 
@@ -150,6 +150,23 @@ function SNSConversionModal({ open, onClose, post }) {
     setResults({});
 
     try {
+      console.log('🔍 post 객체 전체:', post);
+      console.log('🔍 post.id:', post.id, 'typeof:', typeof post.id);
+      
+      if (!post || !post.id) {
+        throw new Error(`post 또는 post.id가 없습니다: ${JSON.stringify(post)}`);
+      }
+      
+      // testSNS 함수 먼저 테스트
+      console.log('🧪 testSNS 함수 테스트 중...');
+      try {
+        const testResult = await testSNS();
+        console.log('✅ testSNS 성공:', testResult);
+      } catch (testError) {
+        console.error('❌ testSNS 실패:', testError);
+        throw new Error(`SNS 함수 테스트 실패: ${testError.message}`);
+      }
+      
       const result = await convertToSNS(post.id);
       
       console.log('🔍 SNS 변환 결과:', result);
@@ -269,33 +286,57 @@ function SNSConversionModal({ open, onClose, post }) {
         {/* SNS 변환 결과 */}
         {hasResults && (
           <Box>
-            {/* 2x2 그리드로 플랫폼별 결과 표시 */}
+            {/* 1x3 그리드로 플랫폼별 결과 표시 */}
             <Box sx={{ 
               display: 'grid', 
-              gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+              gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
               gap: 2,
               mb: 2
             }}>
               {Object.entries(results).map(([platform, result]) => {
                 const platformConfig = PLATFORMS[platform];
-                const PlatformIcon = platformConfig.icon;
                 
                 // 디버깅을 위한 로그
                 console.log(`🔍 ${platform} result:`, result);
                 
                 const { content = '', hashtags = [] } = result || {};
                 
-                // hashtags가 배열인지 확인하고 아니면 빈 배열로 설정
-                const validHashtags = Array.isArray(hashtags) ? hashtags : [];
+                // hashtags가 배열인지 확인하고 문자열이면 파싱
+                let validHashtags = [];
+                if (Array.isArray(hashtags)) {
+                  validHashtags = hashtags;
+                } else if (typeof hashtags === 'string' && hashtags.trim()) {
+                  // 문자열을 콤마로 분리하여 배열로 변환
+                  validHashtags = hashtags.split(',')
+                    .map(tag => tag.trim())
+                    .filter(tag => tag.length > 0)
+                    .map(tag => tag.startsWith('#') ? tag : `#${tag}`);
+                } else {
+                  validHashtags = [];
+                }
                 
                 console.log(`✅ ${platform} parsed:`, { content: content?.substring(0, 50), hashtags: validHashtags });
                 
                 return (
-                  <Paper key={platform} sx={{ p: 2, border: '1px solid', borderColor: 'divider' }}>
+                  <Paper key={platform} sx={{ 
+                    p: 2, 
+                    border: '1px solid', 
+                    borderColor: 'divider',
+                    height: '320px', // 고정 높이 설정
+                    display: 'flex',
+                    flexDirection: 'column'
+                  }}>
                     {/* 플랫폼 헤더 */}
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, flexShrink: 0 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <PlatformIcon sx={{ color: platformConfig.color, fontSize: 20 }} />
+                        {platform === 'facebook-instagram' ? (
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <SNSIcon src={platformConfig.iconSrc} alt="Facebook" size={18} />
+                            <SNSIcon src={platformConfig.instagramIconSrc} alt="Instagram" size={18} />
+                          </Box>
+                        ) : (
+                          <SNSIcon src={platformConfig.iconSrc} alt={platformConfig.name} size={20} />
+                        )}
                         <Typography variant="subtitle1" fontWeight="bold">
                           {platformConfig.name}
                         </Typography>
@@ -310,39 +351,81 @@ function SNSConversionModal({ open, onClose, post }) {
                       </Tooltip>
                     </Box>
 
-                    {/* 변환된 내용 */}
-                    <Typography 
-                      variant="body2" 
-                      sx={{ 
-                        whiteSpace: 'pre-wrap', 
-                        lineHeight: 1.5, 
-                        mb: 1,
-                        minHeight: '60px'
-                      }}
-                    >
-                      {content}
-                    </Typography>
-
-                    {/* 글자수 표시 */}
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                      {content.length}자 / {platformConfig.recommendedLength}자 한도
-                    </Typography>
-
-                    {/* 해시태그 */}
-                    {validHashtags && validHashtags.length > 0 && (
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1 }}>
-                        {validHashtags.map((hashtag, index) => (
-                          <Chip 
-                            key={index} 
-                            label={hashtag} 
-                            size="small" 
-                            color="primary" 
-                            variant="outlined"
-                            sx={{ fontSize: '0.7rem', height: 20 }}
-                          />
-                        ))}
+                    {/* 스크롤 가능한 변환된 내용 영역 */}
+                    <Box sx={{ 
+                      flexGrow: 1,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      overflow: 'hidden'
+                    }}>
+                      <Box
+                        sx={{
+                          flexGrow: 1,
+                          overflowY: 'auto',
+                          p: 1.5,
+                          border: '1px solid',
+                          borderColor: 'divider',
+                          borderRadius: 1,
+                          backgroundColor: 'grey.50',
+                          mb: 1,
+                          '&::-webkit-scrollbar': {
+                            width: '6px',
+                          },
+                          '&::-webkit-scrollbar-track': {
+                            backgroundColor: 'transparent',
+                          },
+                          '&::-webkit-scrollbar-thumb': {
+                            backgroundColor: 'grey.400',
+                            borderRadius: '3px',
+                          },
+                          '&::-webkit-scrollbar-thumb:hover': {
+                            backgroundColor: 'grey.600',
+                          }
+                        }}
+                      >
+                        <Typography 
+                          variant="body2" 
+                          sx={{ 
+                            whiteSpace: 'pre-wrap', 
+                            lineHeight: 1.6,
+                            fontSize: '0.875rem',
+                            color: 'text.primary'
+                          }}
+                        >
+                          {content}
+                        </Typography>
                       </Box>
-                    )}
+
+                      {/* 글자수 표시 (고정 위치) */}
+                      <Typography variant="caption" color="text.secondary" sx={{ 
+                        display: 'block', 
+                        mb: 1, 
+                        flexShrink: 0,
+                        textAlign: 'right'
+                      }}>
+                        {countWithoutSpace(content)}자 / {platformConfig.recommendedLength}자 한도 (공백 제외)
+                      </Typography>
+                    </Box>
+
+                    {/* 해시태그 (하단 고정) */}
+                    <Box sx={{ flexShrink: 0, minHeight: '32px', display: 'flex', alignItems: 'flex-start' }}>
+                      {validHashtags && validHashtags.length > 0 ? (
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5, width: '100%' }}>
+                          {validHashtags.map((hashtag, index) => (
+                            <Chip 
+                              key={index} 
+                              label={hashtag} 
+                              size="small" 
+                              color="primary" 
+                              variant="outlined"
+                              sx={{ fontSize: '0.7rem', height: 24 }}
+                            />
+                          ))}
+                        </Box>
+                      ) : (
+                        <Box sx={{ height: '24px' }} /> // 해시태그 없을 때 공간 확보
+                      )}
+                    </Box>
                   </Paper>
                 );
               })}
@@ -353,6 +436,28 @@ function SNSConversionModal({ open, onClose, post }) {
                 {copySuccess}
               </Alert>
             )}
+
+            {/* 아이콘 출처 표시 */}
+            <Box sx={{ mt: 3, textAlign: 'center', borderTop: '1px solid', borderColor: 'divider', pt: 2 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                SNS 아이콘 ⓒ{' '}
+                <a 
+                  href="https://www.flaticon.com/kr/free-icons/" 
+                  title="SNS 아이콘"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ 
+                    color: '#666', 
+                    textDecoration: 'none',
+                    '&:hover': {
+                      textDecoration: 'underline'
+                    }
+                  }}
+                >
+                  Freepik - Flaticon
+                </a>
+              </Typography>
+            </Box>
           </Box>
         )}
       </DialogContent>

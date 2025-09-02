@@ -109,6 +109,8 @@ const GuidelinesPage = () => {
 
   return (
     <DashboardLayout title="콘텐츠 작성 가이드라인">
+      {/* 상단 여백 */}
+      <Box sx={{ height: 20 }} />
       <Container maxWidth="xl">
         {/* 페이지 헤더 */}
         <Box sx={{ mb: 4 }}>
@@ -286,6 +288,9 @@ const GuidelinesPage = () => {
             </Typography>
           </Box>
         </Paper>
+        
+        {/* 푸터와의 여백 확보 */}
+        <Box sx={{ height: 20 }} />
       </Container>
     </DashboardLayout>
   );

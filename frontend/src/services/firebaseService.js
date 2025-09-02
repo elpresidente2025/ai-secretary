@@ -13,8 +13,16 @@ export const callFunctionWithRetry = async (functionName, data = {}, retries = 2
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       console.log(`🔥 Firebase Function 호출 (${attempt}/${retries}): ${functionName}`, data);
+      console.log('🔍 Functions 인스턴스:', functions);
+      console.log('🔍 Functions 설정:', {
+        projectId: functions.app.options.projectId,
+        region: functions._region,
+        customDomain: functions._customDomain,
+        url: functions._url
+      });
       
       const callable = httpsCallable(functions, functionName);
+      console.log('🔍 Callable 인스턴스:', callable);
       const result = await callable(data);
       
       console.log(`✅ ${functionName} 성공:`, result.data);
@@ -351,6 +359,13 @@ export const convertToSNS = async (postId) => {
   const modelName = localStorage.getItem('gemini_model') || 'gemini-1.5-flash';
   
   return await callFunctionWithRetry('convertToSNS', { postId, modelName });
+};
+
+/**
+ * SNS 테스트 함수
+ */
+export const testSNS = async () => {
+  return await callFunctionWithRetry('testSNS');
 };
 
 /**

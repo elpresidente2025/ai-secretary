@@ -33,7 +33,7 @@ const apiCall = async (endpoint, options = {}) => {
   }
 };
 
-// AI비서관 API 서비스
+// 전자두뇌비서관 API 서비스
 export const api = {
   // 원고 생성 (현재 문제 해결용 - generatePosts 호출)
   generatePost: async (data) => {
