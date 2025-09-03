@@ -276,18 +276,25 @@ export default function PostsListPage() {
   return (
     <DashboardLayout title="포스트 목록">
       <Container maxWidth="xl" sx={{ mt: 2, px: { xs: 1, sm: 2 } }}>
-        <Paper sx={{ p: { xs: 2, sm: 3 } }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, flexWrap: 'wrap', gap: 1 }}>
-            <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Assignment sx={{ color: 'primary.main' }} />
-              내 원고 목록
+        {/* 페이지 헤더 */}
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1, color: 'white', display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Assignment sx={{ color: 'white' }} />
+            내 원고 목록
+          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Typography variant="body1" color="text.secondary">
+              생성한 원고를 관리하고 복사할 수 있습니다
             </Typography>
-            <Chip label={`총 ${posts.length}개`} color="primary" variant="outlined" />
+            <Chip label={`총 ${posts.length}개`} sx={{ bgcolor: 'rgba(255,255,255,0.1)', color: 'white' }} variant="outlined" />
           </Box>
+        </Box>
+        
+        <Paper sx={{ p: { xs: 2, sm: 3 } }}>
 
-          <Alert severity="info" sx={{ mb: 2 }}>
-            이 화면은 <strong>읽기 전용</strong>입니다. 카드를 <b>터치/클릭</b>하면 원고가 열립니다. <b>복사</b> 후 메모장 등 외부 편집기에서 직접 수정하세요.
-          </Alert>
+          <Typography variant="body2" sx={{ mb: 2, color: 'grey.100', fontStyle: 'italic' }}>
+            이 화면은 읽기 전용입니다. 카드를 터치/클릭하면 원고가 열립니다. 복사 후 메모장 등 외부 편집기에서 직접 수정하세요.
+          </Typography>
 
           {loading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>

@@ -45,7 +45,7 @@
       margin: 0;
       padding: 0;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(135deg, #f8fafc 0%, #e0f2fe 100%);
+      background: #141414;
       color: #1f2937;
     }
     
@@ -65,8 +65,8 @@
     .loading-spinner {
       width: 40px;
       height: 40px;
-      border: 4px solid #e5e7eb;
-      border-top: 4px solid #1e3a8a;
+      border: 4px solid rgba(248, 192, 35, 0.3);
+      border-top: 4px solid #f8c023;
       border-radius: 50%;
       animation: spin 1s linear infinite;
       margin-bottom: 1rem;
@@ -78,7 +78,7 @@
     }
     
     .loading-text {
-      color: #1e3a8a;
+      color: #f8c023;
       font-weight: 600;
       font-size: 1rem;
     }
@@ -102,18 +102,6 @@
   <!-- React 앱 스크립트 -->
   <script type="module" src="/src/main.jsx"></script>
   
-  <!-- 로딩 완료 후 스피너 숨김 -->
-  <script>
-    // React 로드 완료 감지
-    window.addEventListener('DOMContentLoaded', () => {
-      // React가 마운트되면 로딩 스피너 숨김
-      setTimeout(() => {
-        const loadingContainer = document.getElementById('loading-container');
-        if (loadingContainer) {
-          loadingContainer.classList.add('hidden');
-        }
-      }, 1000);
-    });
-  </script>
+  <!-- React가 직접 로딩 스피너를 제거함 -->
 </body>
 </html>

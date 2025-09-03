@@ -136,6 +136,15 @@ function generatePersonaHints(userProfile, category, topic) {
     hints.push(relevantInfo.connection);
   }
   
+  // X 프리미엄 구독 정보 추가 (일상 소통, 시사 분석에서 활용)
+  if ((category === 'daily-communication' || category === 'current-affairs') && userProfile.twitterPremium) {
+    if (userProfile.twitterPremium === '구독') {
+      hints.push('X(트위터) 프리미엄 이용자의 관점에서 디지털 소통에 능숙한');
+    } else if (userProfile.twitterPremium === '미구독') {
+      hints.push('SNS 소통에서 일반 이용자들의 입장을 잘 아는');
+    }
+  }
+  
   const persona = hints.filter(h => h).join(' ');
   return persona ? `[작성 관점: ${persona}]` : '';
 }
@@ -682,7 +691,7 @@ ${personalizedHints ? `개인화 가이드라인: ${personalizedHints}` : ''}
 
 {
   "title": "${topic}에 대한 의견을 제시합니다",
-  "content": "<p>존경하는 ${fullRegion} 시민 여러분, ${fullName}입니다.</p><p>⚠️CRITICAL: 이 문장에서 ${fullName}과 ${fullRegion}을 반드시 실제 값으로 대체하세요⚠️</p><p>[여기서부터 본문 내용을 작성하되, ${currentStatus === '예비' ? '어떤 호칭도 사용하지 않고 개인 이름으로만 지칭' : currentStatus === '후보' ? '후보로만 지칭' : '의원으로 지칭'}하세요]</p><p>감사합니다.</p>",
+  "content": "<p>존경하는 ${fullRegion} 시민 여러분, ${fullName}입니다.</p><p>[서론 문단: 주제에 대한 간단한 소개와 문제 제기]</p><p>[본론 1문단: 첫 번째 핵심 논점이나 현황 분석]</p><p>[본론 2문단: 두 번째 핵심 논점이나 해결방안]</p><p>[본론 3문단: 세 번째 핵심 논점이나 향후 계획 - 필요시]</p><p>[결론 문단: 마무리 다짐과 시민들에 대한 감사 인사]</p>",
   "wordCount": ${targetWordCount}
 }
 
@@ -696,7 +705,13 @@ ${personalizedHints ? `개인화 가이드라인: ${personalizedHints}` : ''}
 
 요구사항:
 - **필수: ${targetWordCount}자 분량 (공백 제외, 정확히 준수) - 오차 ±50자 이내**
-- HTML 형식으로 작성 (<p>, <strong> 등 사용)
+- **문단 구성**: 적절한 문단 나누기로 가독성 향상
+  * 서론: 인사와 주제 소개 (1문단)
+  * 본론: 핵심 내용을 2-3개 문단으로 논리적 구성
+  * 각 문단은 하나의 주요 아이디어나 논점을 다룸
+  * 문단 간 자연스러운 연결과 흐름 유지
+  * 결론: 마무리 인사와 다짐 (1문단)
+- **HTML 형식**: <p> 태그로 문단 구분, <strong> 등 강조 태그 적절히 사용
 - 진중하고 신뢰감 있는 톤
 - 지역 주민과의 소통을 중시하는 내용
 - 구체적인 정책이나 활동 내용 포함
@@ -727,6 +742,7 @@ ${(() => {
 - **자연스러운 지역 표현**: "남양주시민 경제" (X) → "남양주 경제" (O), "남양주시민 관광" (X) → "남양주 관광" (O)
 - **중복 표현 금지**: "남양주시민을 포함한 많은 국민들" 같은 중복되고 어색한 표현 사용 금지
 - **문장 완결성**: 모든 문장을 "다", "니다", "습니다" 등으로 완전히 끝낼 것. 중간에 끊어지는 문장 절대 금지
+- **문단 구성 필수**: 하나의 긴 문단으로 작성 금지. 반드시 4-5개 문단으로 논리적 구성할 것
 ${currentStatus === '예비' ? `- **예비 상태 특별 금지사항**: "예비후보", "후보", "의원", "현역 의원으로서", "의원으로서", "의정활동", "성과", "실적", "추진한", "기여한" 등 모든 공직/정치적 호칭과 활동 표현 절대 사용 금지. 첫 소개 후에는 1인칭으로 지칭할 것` : ''}`;
 
     console.log(`🤖 AI 호출 시작 (1개 원고 생성) - 모델: ${modelName}...`);

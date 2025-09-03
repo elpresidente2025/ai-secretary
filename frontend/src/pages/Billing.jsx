@@ -160,7 +160,7 @@ const Billing = () => {
       <Container maxWidth="xl">
         {/* 페이지 헤더 */}
         <Box sx={{ mb: 4 }}>
-          <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
+          <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1, color: 'white' }}>
             인증 및 결제 관리
           </Typography>
           <Typography variant="body1" color="text.secondary">

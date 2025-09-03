@@ -304,7 +304,7 @@ const Dashboard = () => {
       <DashboardLayout>
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
           <CircularProgress />
-          <Typography variant="h6" sx={{ ml: 2 }}>로딩 중...</Typography>
+          <Typography variant="h6" sx={{ ml: 2, color: '#f8c023' }}>로딩 중...</Typography>
         </Box>
       </DashboardLayout>
     );
@@ -366,7 +366,7 @@ const Dashboard = () => {
           sx={{ 
             p: 3, 
             mb: 3, 
-            background: `linear-gradient(135deg, ${planColor}15, ${planColor}08)`
+            bgcolor: '#f5f5f5'
           }}
         >
           {/* 모바일 버전 - 수직 스택 */}
@@ -374,7 +374,7 @@ const Dashboard = () => {
             <Box>
               {/* 인사말 */}
               <Typography variant="h5" sx={{ fontWeight: 600, mb: 1 }}>
-                안녕하세요, {user?.name || '사용자'} {getUserDisplayTitle(user)}님 {userIcon}
+                안녕하세요, {user?.name || '사용자'} {getUserDisplayTitle(user)} {userIcon}
               </Typography>
               
               {/* 지역 정보 */}
@@ -471,19 +471,49 @@ const Dashboard = () => {
                 </Box>
               )}
               
+              {/* 당원 인증 상태 */}
+              <Box sx={{ mt: 2, p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                <Typography variant="subtitle2" sx={{ mb: 1, display: 'flex', alignItems: 'center' }}>
+                  <Schedule sx={{ mr: 1, color: '#55207d', fontSize: 18 }} />
+                  당원 인증 상태
+                </Typography>
+                <Alert severity="success" sx={{ mb: 1, py: 0.5 }}>
+                  <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                    2025년 1분기 인증 완료
+                  </Typography>
+                </Alert>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                  다음 인증 예정: 2025년 4월 1일
+                </Typography>
+                <Button 
+                  variant="outlined" 
+                  size="small" 
+                  onClick={handleViewBilling}
+                  sx={{ 
+                    color: '#55207d', 
+                    borderColor: '#55207d',
+                    fontSize: '0.75rem',
+                    py: 0.5
+                  }}
+                >
+                  인증 관리
+                </Button>
+              </Box>
+              
               {/* 사용 안내 */}
               <Alert severity="info" sx={{ mt: 2 }}>
                 참고: 한 번 누를 때 원고 1개 생성, 세션당 최대 3회 재생성
               </Alert>
             </Box>
           ) : (
-            /* PC 버전 - 수평 레이아웃 */
+            /* PC 버전 - 수평 레이아웃 (2:1:1 비율) */
             <Box>
-              <Grid container spacing={3} alignItems="center">
-                <Grid item xs={12} md={8}>
+              <Grid container spacing={3} alignItems="stretch">
+                {/* 인사말 영역 (2/4 = 50%) */}
+                <Grid item xs={12} md={6}>
                   {/* 인사말 */}
                   <Typography variant="h4" sx={{ fontWeight: 600, mb: 1 }}>
-                    안녕하세요, {user?.name || '사용자'} {getUserDisplayTitle(user)}님 {userIcon}
+                    안녕하세요, {user?.name || '사용자'} {getUserDisplayTitle(user)} {userIcon}
                   </Typography>
                   
                   {/* 지역 정보 */}
@@ -512,10 +542,86 @@ const Dashboard = () => {
                   <Typography variant="body2" color="text.secondary">
                     참고: 클릭 시 원고 1개만 생성, 세션당 재생성 3회 제한
                   </Typography>
+
+                  {/* PC용 사용량 현황 */}
+                  {!isAdmin && (
+                    <Box sx={{ mt: 2 }}>
+                      <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                        이번 달 사용량
+                      </Typography>
+                      <Box sx={{ mb: 1 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                          <Typography variant="body2" color="text.secondary">
+                            원고 생성
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {usage.postsGenerated}/{usage.monthlyLimit}회
+                          </Typography>
+                        </Box>
+                        <LinearProgress 
+                          variant="determinate" 
+                          value={usagePercentage} 
+                          sx={{ 
+                            height: 6, 
+                            borderRadius: 3,
+                            '& .MuiLinearProgress-bar': {
+                              bgcolor: planColor
+                            }
+                          }}
+                        />
+                      </Box>
+                      <Button 
+                        variant="text" 
+                        size="small" 
+                        onClick={handleViewBilling}
+                        sx={{ 
+                          color: planColor,
+                          fontSize: '0.75rem'
+                        }}
+                      >
+                        플랜 관리
+                      </Button>
+                    </Box>
+                  )}
                 </Grid>
                 
-                <Grid item xs={12} md={4}>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {/* 인증 상태 영역 (1/4 = 25%) */}
+                <Grid item xs={12} md={3}>
+                  <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                    <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1, height: 'fit-content' }}>
+                      <Typography variant="subtitle2" sx={{ mb: 1, display: 'flex', alignItems: 'center' }}>
+                        <Schedule sx={{ mr: 1, color: '#55207d', fontSize: 18 }} />
+                        당원 인증 상태
+                      </Typography>
+                      <Alert severity="success" sx={{ mb: 1, py: 0.5 }}>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                          2025년 1분기 인증 완료
+                        </Typography>
+                      </Alert>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                        다음 인증 예정: 2025년 4월 1일
+                      </Typography>
+                      <Button 
+                        variant="outlined" 
+                        size="small" 
+                        onClick={handleViewBilling}
+                        sx={{ 
+                          color: '#55207d', 
+                          borderColor: '#55207d',
+                          fontSize: '0.75rem',
+                          py: 0.5,
+                          width: '100%'
+                        }}
+                      >
+                        인증 관리
+                      </Button>
+                    </Box>
+                  </Box>
+                </Grid>
+
+                {/* 액션 버튼 영역 (1/4 = 25%) */}
+                <Grid item xs={12} md={3}>
+                  <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 2 }}>
                     <Button 
                       variant="contained" 
                       size="large" 
@@ -543,47 +649,6 @@ const Dashboard = () => {
                     >
                       프로필 수정
                     </Button>
-
-                    {/* PC용 사용량 현황 */}
-                    {!isAdmin && (
-                      <Box sx={{ mt: 1 }}>
-                        <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-                          이번 달 사용량
-                        </Typography>
-                        <Box sx={{ mb: 1 }}>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography variant="body2" color="text.secondary">
-                              원고 생성
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                              {usage.postsGenerated}/{usage.monthlyLimit}회
-                            </Typography>
-                          </Box>
-                          <LinearProgress 
-                            variant="determinate" 
-                            value={usagePercentage} 
-                            sx={{ 
-                              height: 6, 
-                              borderRadius: 3,
-                              '& .MuiLinearProgress-bar': {
-                                bgcolor: planColor
-                              }
-                            }}
-                          />
-                        </Box>
-                        <Button 
-                          variant="text" 
-                          size="small" 
-                          onClick={handleViewBilling}
-                          sx={{ 
-                            color: planColor,
-                            fontSize: '0.75rem'
-                          }}
-                        >
-                          플랜 관리
-                        </Button>
-                      </Box>
-                    )}
                   </Box>
                 </Grid>
               </Grid>
@@ -613,18 +678,26 @@ const Dashboard = () => {
               ) : (
                 <>
                   <List>
-                    {notices.slice(0, 3).map((notice, index) => (
+                    {notices.slice(0, 5).map((notice, index) => (
                       <React.Fragment key={notice.id || index}>
-                        <ListItem>
+                        <ListItem sx={{ alignItems: 'flex-start' }}>
                           <ListItemText
                             primary={
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                                  {notice.title || '제목 없음'}
+                              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                                    {notice.title || '제목 없음'}
+                                  </Typography>
+                                  {notice.priority === 'high' && (
+                                    <Chip label="중요" color="error" size="small" />
+                                  )}
+                                </Box>
+                                <Typography variant="caption" color="text.secondary">
+                                  {notice.createdAt ? new Date(notice.createdAt).toLocaleDateString('ko-KR', { 
+                                    month: 'short', 
+                                    day: 'numeric' 
+                                  }) : ''}
                                 </Typography>
-                                {notice.priority === 'high' && (
-                                  <Chip label="중요" color="error" size="small" />
-                                )}
                               </Box>
                             }
                             secondary={
@@ -645,15 +718,15 @@ const Dashboard = () => {
                             }
                           />
                         </ListItem>
-                        {index < Math.min(notices.length, 3) - 1 && <Divider />}
+                        {index < Math.min(notices.length, 5) - 1 && <Divider />}
                       </React.Fragment>
                     ))}
                   </List>
                   
-                  {notices.length > 3 && (
+                  {notices.length > 5 && (
                     <Box sx={{ p: 2, textAlign: 'center' }}>
                       <Button variant="text" size="small" sx={{ color: planColor }}>
-                        더 보기 ({notices.length - 3}개 더)
+                        더 보기 ({notices.length - 5}개 더)
                       </Button>
                     </Box>
                   )}
@@ -674,34 +747,6 @@ const Dashboard = () => {
               />
             </Box>
 
-            {/* 다음 인증 일정 카드 */}
-            <Paper elevation={1} sx={{ mb: 3 }}>
-              <Box sx={{ p: 3 }}>
-                <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
-                  <Schedule sx={{ mr: 1, color: '#55207d' }} />
-                  당원 인증 상태
-                </Typography>
-                <Alert severity="success" sx={{ mb: 2 }}>
-                  <Typography variant="body2">
-                    2025년 1분기 인증 완료
-                  </Typography>
-                </Alert>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  다음 인증 예정: 2025년 4월 1일
-                </Typography>
-                <Button 
-                  variant="outlined" 
-                  size="small" 
-                  onClick={handleViewBilling}
-                  sx={{ 
-                    color: '#55207d', 
-                    borderColor: '#55207d' 
-                  }}
-                >
-                  인증 관리
-                </Button>
-              </Box>
-            </Paper>
 
             {/* 최근 생성한 글 */}
             <Paper elevation={1} sx={{ mb: 3 }}>
@@ -803,70 +848,76 @@ const Dashboard = () => {
 
                 {/* 공지사항 카드 - 항상 표시 */}
                 <Paper elevation={1}>
-                  <Box sx={{ p: 3 }}>
-                    <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
+                  <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
+                    <Typography variant="h6" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center' }}>
                       <Notifications sx={{ mr: 1, color: '#55207D' }} />
                       공지사항
                     </Typography>
-                    
-                    {notices.length === 0 ? (
-                      <Box>
-                        <Typography variant="body2" color="text.secondary">
-                          현재 공지사항이 없습니다.
-                        </Typography>
-                      </Box>
-                    ) : (
-                      <>
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                          {notices.slice(0, 2).map((notice, index) => (
-                            <Box 
-                              key={notice.id || index}
-                              sx={{ 
-                                p: 2, 
-                                border: '1px solid', 
-                                borderColor: 'divider',
-                                borderRadius: 1,
-                                bgcolor: notice.priority === 'high' ? '#55207D20' : 'background.paper'
-                              }}
-                            >
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                                  {notice.title || '제목 없음'}
-                                </Typography>
-                                {notice.priority === 'high' && (
-                                  <Chip label="중요" color="error" size="small" />
-                                )}
-                              </Box>
-                              <Typography 
-                                variant="body2" 
-                                color="text.secondary"
-                                sx={{
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  display: '-webkit-box',
-                                  WebkitLineClamp: 2,
-                                  WebkitBoxOrient: 'vertical'
-                                }}
-                              >
-                                {notice.content || '내용 없음'}
-                              </Typography>
-                            </Box>
-                          ))}
-                        </Box>
-
-                        {notices.length > 2 && (
-                          <Button 
-                            variant="text" 
-                            size="small" 
-                            fullWidth 
-                            sx={{ mt: 2, color: planColor }}
-                          >
-                            더 보기 ({notices.length - 2}개 더)
-                          </Button>
-                        )}
-                      </>
-                    )}
                   </Box>
+                  
+                  {notices.length === 0 ? (
+                    <Box sx={{ p: 3 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        현재 공지사항이 없습니다.
+                      </Typography>
+                    </Box>
+                  ) : (
+                    <>
+                      <List>
+                        {notices.slice(0, 5).map((notice, index) => (
+                          <React.Fragment key={notice.id || index}>
+                            <ListItem sx={{ alignItems: 'flex-start' }}>
+                              <ListItemText
+                                primary={
+                                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                                        {notice.title || '제목 없음'}
+                                      </Typography>
+                                      {notice.priority === 'high' && (
+                                        <Chip label="중요" color="error" size="small" />
+                                      )}
+                                    </Box>
+                                    <Typography variant="caption" color="text.secondary">
+                                      {notice.createdAt ? new Date(notice.createdAt).toLocaleDateString('ko-KR', { 
+                                        month: 'short', 
+                                        day: 'numeric' 
+                                      }) : ''}
+                                    </Typography>
+                                  </Box>
+                                }
+                                secondary={
+                                  <Typography 
+                                    variant="body2" 
+                                    color="text.secondary"
+                                    sx={{
+                                      mt: 0.5,
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      display: '-webkit-box',
+                                      WebkitLineClamp: 2,
+                                      WebkitBoxOrient: 'vertical'
+                                    }}
+                                  >
+                                    {notice.content || '내용 없음'}
+                                  </Typography>
+                                }
+                              />
+                            </ListItem>
+                            {index < Math.min(notices.length, 5) - 1 && <Divider />}
+                          </React.Fragment>
+                        ))}
+                      </List>
+                      
+                      {notices.length > 5 && (
+                        <Box sx={{ p: 2, textAlign: 'center' }}>
+                          <Button variant="text" size="small" sx={{ color: planColor }}>
+                            더 보기 ({notices.length - 5}개 더)
+                          </Button>
+                        </Box>
+                      )}
+                    </>
+                  )}
                 </Paper>
 
                 {/* 선거 일정 */}
@@ -875,34 +926,6 @@ const Dashboard = () => {
                   status={user?.status || '현역'} 
                 />
 
-                {/* 당원 인증 상태 */}
-                <Paper elevation={1}>
-                  <Box sx={{ p: 3 }}>
-                    <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
-                      <Schedule sx={{ mr: 1, color: '#55207d' }} />
-                      당원 인증 상태
-                    </Typography>
-                    <Alert severity="success" sx={{ mb: 2 }}>
-                      <Typography variant="body2">
-                        2025년 1분기 인증 완료
-                      </Typography>
-                    </Alert>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                      다음 인증 예정: 2025년 4월 1일
-                    </Typography>
-                    <Button 
-                      variant="outlined" 
-                      size="small" 
-                      onClick={handleViewBilling}
-                      sx={{ 
-                        color: '#55207d', 
-                        borderColor: '#55207d' 
-                      }}
-                    >
-                      인증 관리
-                    </Button>
-                  </Box>
-                </Paper>
               </Box>
             </Grid>
           </Grid>

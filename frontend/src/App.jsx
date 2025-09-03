@@ -1,5 +1,5 @@
 // frontend/src/App.jsx
-import React, { Suspense, useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Box, CircularProgress } from '@mui/material';
 import { useAuth } from './hooks/useAuth';
@@ -12,11 +12,20 @@ function App() {
   const [statusLoading, setStatusLoading] = useState(true);
   const location = useLocation();
 
-  // 시스템 상태 확인
+  // 시스템 상태 확인 (타임아웃 추가)
   const checkSystemStatus = useCallback(async () => {
     setStatusLoading(true);
     try {
-      const status = await getSystemStatus();
+      // 3초 타임아웃 설정
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('타임아웃')), 3000)
+      );
+      
+      const status = await Promise.race([
+        getSystemStatus(),
+        timeoutPromise
+      ]);
+      
       console.log('🔍 시스템 상태 확인:', status.status);
       setSystemStatus(status);
     } catch (error) {
@@ -82,7 +91,13 @@ function App() {
   // 로딩 중 표시
   if (loading || statusLoading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh',
+        bgcolor: '#141414'
+      }}>
         <CircularProgress />
       </Box>
     );
@@ -103,18 +118,9 @@ function App() {
   }
 
   return (
-    <Box sx={{ minHeight: '100vh' }}>
-      {/* 페이지 로딩 시 로딩 스피너를 보여줍니다. */}
-      <Suspense
-        fallback={
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-            <CircularProgress />
-          </Box>
-        }
-      >
-        {/* 자식 라우트(페이지)들이 이 위치에 렌더링됩니다. */}
-        <Outlet />
-      </Suspense>
+    <Box sx={{ minHeight: '100vh', bgcolor: '#141414' }}>
+      {/* Suspense 제거 - lazy loading 없으므로 불필요 */}
+      <Outlet />
     </Box>
   );
 }

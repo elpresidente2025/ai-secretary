@@ -34,7 +34,16 @@
       "Bash(firebase emulators:list:*)",
       "Bash(firebase help:*)",
       "Bash(dir:*)",
-      "Read(\\/**)"
+      "Read(\\/**)",
+      "Bash(firebase auth:export:*)",
+      "WebFetch(domain:ai-secretary-6e9c8.firebaseapp.com)",
+      "WebFetch(domain:console.firebase.google.com)",
+      "Bash(firebase open auth:*)",
+      "Bash(cat:*)",
+      "Read(E:\\e\\ai-secretary\\frontend\\src\\pages/**)",
+      "WebFetch(domain:reactjs.org)",
+      "WebFetch(domain:legacy.reactjs.org)",
+      "Read(E:\\e\\ai-secretary\\frontend/**)"
     ],
     "deny": [],
     "ask": [],

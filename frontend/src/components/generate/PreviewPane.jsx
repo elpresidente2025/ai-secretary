@@ -40,7 +40,7 @@ export default function PreviewPane({ draft }) {
         elevation={0}
         sx={{ 
           p: { xs: 1, sm: 2 },
-          backgroundColor: 'background.paper',
+          backgroundColor: '#f5f5f5',
           '.article-content h1': {
             fontSize: '1.75rem',
             fontWeight: 700,
@@ -105,7 +105,7 @@ export default function PreviewPane({ draft }) {
             borderColor: 'divider',
             borderRadius: 1,
             p: 2,
-            backgroundColor: 'grey.50',
+            backgroundColor: '#f5f5f5',
             minHeight: 200,
             maxHeight: '60vh',
             overflow: 'auto',

@@ -230,7 +230,7 @@ function NoticeManager() {
             {loading ? (
               <TableRow>
                 <TableCell colSpan={7} align="center">
-                  <Typography color="text.secondary">로딩 중...</Typography>
+                  <Typography sx={{ color: '#f8c023' }}>로딩 중...</Typography>
                 </TableCell>
               </TableRow>
             ) : notices.length === 0 ? (

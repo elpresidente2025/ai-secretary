@@ -173,14 +173,6 @@ export default function UserInfoForm({
 
       {/* 선택 요약 정보 */}
       <Grid item xs={12}>
-        <Alert severity="info" sx={{ mb: 1 }}>
-          <Box>
-            <strong>선택 정보:</strong> {getSelectionSummary()}
-            <Typography variant="caption" display="block" sx={{ mt: 0.5, opacity: 0.8 }}>
-              선거구 중복 확인은 저장할 때 서버에서 안전하게 처리됩니다.
-            </Typography>
-          </Box>
-        </Alert>
       </Grid>
 
       {/* 직책 */}

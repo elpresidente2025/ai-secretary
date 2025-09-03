@@ -28,7 +28,7 @@ import {
   DialogContent,
   DialogActions
 } from '@mui/material';
-import { Add, Remove, AutoAwesome, DeleteForever, Warning } from '@mui/icons-material';
+import { Add, Remove, AutoAwesome, DeleteForever, Warning, Link, LinkOff, Google, Email } from '@mui/icons-material';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../services/firebase';
 import DashboardLayout from '../components/DashboardLayout';
@@ -37,7 +37,7 @@ import { useAuth } from '../hooks/useAuth';
 import { BIO_ENTRY_TYPES, BIO_TYPE_ORDER, BIO_CATEGORIES, VALIDATION_RULES } from '../constants/bio-types';
 
 export default function ProfilePage() {
-  const { user, logout } = useAuth();
+  const { user, logout, linkGoogleAccount, linkEmailAccount, unlinkAccount } = useAuth();
   
   // httpsCallable 메모이즈
   const callGetProfile = useMemo(() => httpsCallable(functions, 'getUserProfile'), []);
@@ -53,6 +53,11 @@ export default function ProfilePage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
+
+  // 계정 연결 상태
+  const [linking, setLinking] = useState(false);
+  const [linkEmailDialogOpen, setLinkEmailDialogOpen] = useState(false);
+  const [linkEmailForm, setLinkEmailForm] = useState({ email: '', password: '' });
 
   const [profile, setProfile] = useState({
     name: '',
@@ -132,6 +137,90 @@ export default function ProfilePage() {
     setDeleteDialogOpen(false);
     setDeleteConfirmText('');
   };
+
+  // 계정 연결 처리
+  const handleLinkGoogle = async () => {
+    setLinking(true);
+    try {
+      await linkGoogleAccount();
+      setSnack({
+        open: true,
+        message: 'Google 계정이 성공적으로 연결되었습니다.',
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('Google 계정 연결 실패:', error);
+      setSnack({
+        open: true,
+        message: error.message || 'Google 계정 연결에 실패했습니다.',
+        severity: 'error'
+      });
+    } finally {
+      setLinking(false);
+    }
+  };
+
+  const handleLinkEmail = async () => {
+    setLinking(true);
+    try {
+      await linkEmailAccount(linkEmailForm.email, linkEmailForm.password);
+      setSnack({
+        open: true,
+        message: '이메일 계정이 성공적으로 연결되었습니다.',
+        severity: 'success'
+      });
+      setLinkEmailDialogOpen(false);
+      setLinkEmailForm({ email: '', password: '' });
+    } catch (error) {
+      console.error('이메일 계정 연결 실패:', error);
+      setSnack({
+        open: true,
+        message: error.message || '이메일 계정 연결에 실패했습니다.',
+        severity: 'error'
+      });
+    } finally {
+      setLinking(false);
+    }
+  };
+
+  const handleUnlinkAccount = async (providerId, providerName) => {
+    if (!confirm(`${providerName} 계정 연결을 해제하시겠습니까?`)) {
+      return;
+    }
+
+    setLinking(true);
+    try {
+      await unlinkAccount(providerId);
+      setSnack({
+        open: true,
+        message: `${providerName} 계정 연결이 해제되었습니다.`,
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('계정 연결 해제 실패:', error);
+      setSnack({
+        open: true,
+        message: error.message || '계정 연결 해제에 실패했습니다.',
+        severity: 'error'
+      });
+    } finally {
+      setLinking(false);
+    }
+  };
+
+  // 연결된 계정 정보 확인
+  const getLinkedProviders = () => {
+    const providers = [];
+    if (user?._firebaseUser?.providerData) {
+      user._firebaseUser.providerData.forEach(provider => {
+        providers.push(provider.providerId);
+      });
+    }
+    return providers;
+  };
+
+  const isGoogleLinked = () => getLinkedProviders().includes('google.com');
+  const isEmailLinked = () => getLinkedProviders().includes('password');
 
   // Bio 엔트리 상태 관리
   const [bioEntries, setBioEntries] = useState([
@@ -460,14 +549,13 @@ export default function ProfilePage() {
   return (
     <DashboardLayout>
       <Container maxWidth="md" sx={{ py: 4 }}>
-        <Typography variant="h4" gutterBottom>
+        <Typography variant="h4" gutterBottom sx={{ color: 'white' }}>
           프로필 설정
         </Typography>
 
-        <Alert severity="info" sx={{ mb: 2 }}>
-          💡 프로필 정보를 입력하고 저장하세요. 
-          등록된 정보를 바탕으로 맞춤형 원고가 생성됩니다.
-        </Alert>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
+          프로필 정보를 바탕으로 맞춤형 원고가 생성됩니다.
+        </Typography>
 
         <Paper elevation={2} sx={{ p: 3 }}>
           <Box component="form" onSubmit={handleSubmit}>
@@ -617,6 +705,24 @@ export default function ProfilePage() {
                     <MenuItem value="재선">재선</MenuItem>
                     <MenuItem value="3선 이상">3선 이상</MenuItem>
                     <MenuItem value="정치 신인">정치 신인</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              {/* X 프리미엄 구독 여부 */}
+              <Grid item xs={12} sm={6} md={4}>
+                <FormControl fullWidth>
+                  <InputLabel>X 프리미엄 구독 여부</InputLabel>
+                  <Select
+                    name="twitterPremium"
+                    value={profile.twitterPremium || ''}
+                    label="X 프리미엄 구독 여부"
+                    onChange={(e) => handleUserInfoChange('twitterPremium', e.target.value)}
+                    disabled={saving}
+                  >
+                    <MenuItem value="">선택 안함 (미구독으로 간주)</MenuItem>
+                    <MenuItem value="미구독">미구독</MenuItem>
+                    <MenuItem value="구독">구독</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>

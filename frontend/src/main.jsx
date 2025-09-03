@@ -1,5 +1,5 @@
 // frontend/src/main.jsx
-import React, { lazy } from 'react';
+import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { AuthProvider } from './hooks/useAuth.jsx';
@@ -12,18 +12,18 @@ import AdminRoute from './components/AdminRoute.jsx';
 import ProfileRequiredRoute from './components/ProfileRequiredRoute.jsx';
 import './index.css';
 
-// 🚀 라우트 레벨 lazy loading
-const LoginPage = lazy(() => import('./pages/LoginPage.jsx'));
-const RegisterPage = lazy(() => import('./pages/RegisterPage.jsx'));
-const Dashboard = lazy(() => import('./pages/Dashboard.jsx'));
-const GeneratePage = lazy(() => import('./pages/GeneratePage.jsx'));
-const ProfilePage = lazy(() => import('./pages/ProfilePage.jsx'));
-const AdminPage = lazy(() => import('./pages/AdminPage.jsx'));
-const PostDetailPage = lazy(() => import('./pages/PostDetailPage.jsx'));
-const PostsListPage = lazy(() => import('./pages/PostsListPage.jsx'));
-const Billing = lazy(() => import('./pages/Billing.jsx'));
-const GuidelinesPage = lazy(() => import('./pages/GuidelinesPage.jsx'));
-const TermsOfService = lazy(() => import('./pages/TermsOfService.jsx'));
+// 🔧 임시: lazy loading 제거하고 직접 import
+import LoginPage from './pages/LoginPage.jsx';
+import RegisterPage from './pages/RegisterPage.jsx';
+import Dashboard from './pages/Dashboard.jsx';
+import GeneratePage from './pages/GeneratePage.jsx';
+import ProfilePage from './pages/ProfilePage.jsx';
+import AdminPage from './pages/AdminPage.jsx';
+import PostDetailPage from './pages/PostDetailPage.jsx';
+import PostsListPage from './pages/PostsListPage.jsx';
+import Billing from './pages/Billing.jsx';
+import GuidelinesPage from './pages/GuidelinesPage.jsx';
+import TermsOfService from './pages/TermsOfService.jsx';
 
 // 🎯 프리로드 함수들 (사용자 의도 감지 시 사용)
 export const preloadGenerate = () => import('./pages/GeneratePage.jsx');
@@ -76,7 +76,9 @@ const router = createBrowserRouter([
   },
 ]);
 
-ReactDOM.createRoot(document.getElementById('root')).render(
+// React 앱 렌더링
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(
   <React.StrictMode>
     <ThemeProvider theme={theme}>
       <AuthProvider>
@@ -85,3 +87,12 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     </ThemeProvider>
   </React.StrictMode>
 );
+
+// React 마운트 완료 후 로딩 스피너 숨기기
+setTimeout(() => {
+  const loadingContainer = document.getElementById('loading-container');
+  if (loadingContainer) {
+    console.log('🎯 React 마운트 완료 - 로딩 스피너 제거');
+    loadingContainer.classList.add('hidden');
+  }
+}, 100);

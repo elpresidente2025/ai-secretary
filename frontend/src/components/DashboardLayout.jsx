@@ -88,7 +88,7 @@ const DashboardLayout = ({ children }) => {
           </Box>
         </Box>
         {regionInfo && (
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{ color: 'rgba(0, 0, 0, 0.7)' }}>
             {regionInfo}
           </Typography>
         )}
@@ -117,8 +117,28 @@ const DashboardLayout = ({ children }) => {
     // 전체를 100vh 플렉스 컬럼으로: 헤더 + 본문 + 푸터
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       {/* 상단 헤더: sticky 고정 */}
-      <AppBar position="sticky" elevation={0} sx={{ bgcolor: '#152484', top: 0, zIndex: (t) => t.zIndex.appBar }}>
-        <Toolbar>
+      <AppBar 
+        position="sticky" 
+        elevation={0} 
+        sx={{ 
+          bgcolor: '#152484', 
+          top: 0, 
+          zIndex: (t) => t.zIndex.appBar,
+          position: 'relative',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.02) 2px, rgba(255,255,255,0.02) 4px)',
+            pointerEvents: 'none',
+            zIndex: 1
+          }
+        }}
+      >
+        <Toolbar sx={{ position: 'relative', zIndex: 2 }}>
           {/* 로고 (왼쪽 정렬) */}
           <Box
             sx={{ display: 'flex', alignItems: 'center', flexGrow: 1, cursor: 'pointer' }}
@@ -180,7 +200,19 @@ const DashboardLayout = ({ children }) => {
         </Toolbar>
       </AppBar>
 
-      <Drawer anchor="right" open={drawerOpen} onClose={handleDrawerToggle} ModalProps={{ keepMounted: true }}>
+      <Drawer 
+        anchor="right" 
+        open={drawerOpen} 
+        onClose={handleDrawerToggle} 
+        ModalProps={{ keepMounted: true }}
+        PaperProps={{
+          sx: {
+            bgcolor: 'rgba(255, 255, 255, 0.65)',
+            backdropFilter: 'blur(10px)',
+            color: 'black'
+          }
+        }}
+      >
         {drawer}
       </Drawer>
 
@@ -191,7 +223,7 @@ const DashboardLayout = ({ children }) => {
           flex: 1,
           minHeight: 0,
           overflow: 'auto',
-          bgcolor: 'background.default',
+          bgcolor: '#141414',
           display: 'flex',
           justifyContent: 'center',
           width: '100%'
@@ -209,13 +241,25 @@ const DashboardLayout = ({ children }) => {
           flexShrink: 0,
           py: 2,
           px: 2,
-          bgcolor: 'background.paper',
+          bgcolor: '#152484',
           borderTop: '1px solid',
           borderColor: 'divider',
-          textAlign: 'center'
+          textAlign: 'center',
+          position: 'relative',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.02) 2px, rgba(255,255,255,0.02) 4px)',
+            pointerEvents: 'none',
+            zIndex: 1
+          }
         }}
       >
-        <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.6 }}>
+        <Typography variant="caption" sx={{ lineHeight: 1.6, color: 'white', position: 'relative', zIndex: 2 }}>
           사이버브레인 | 사업자등록번호: 870-55-00786 | 통신판매업신고번호: (비움)<br />
           대표: 차서영 | 인천광역시 계양구 용종로 124, 학마을한진아파트 139동 1504호<br />
           Copyright 2025. CyberBrain. All Rights Reserved.

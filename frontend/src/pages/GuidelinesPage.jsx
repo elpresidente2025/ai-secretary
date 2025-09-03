@@ -114,7 +114,7 @@ const GuidelinesPage = () => {
       <Container maxWidth="xl">
         {/* 페이지 헤더 */}
         <Box sx={{ mb: 4 }}>
-          <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
+          <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1, color: 'white' }}>
             콘텐츠 작성 가이드라인
           </Typography>
           <Typography variant="body1" color="text.secondary">

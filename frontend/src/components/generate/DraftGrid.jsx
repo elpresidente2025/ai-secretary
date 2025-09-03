@@ -106,7 +106,7 @@ export default function DraftGrid({
               </Typography>
               
               <Box sx={{ 
-                bgcolor: 'white', 
+                bgcolor: '#f5f5f5', 
                 p: 2, 
                 borderRadius: 1,
                 mt: 1

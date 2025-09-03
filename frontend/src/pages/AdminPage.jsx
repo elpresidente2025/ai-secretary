@@ -88,7 +88,7 @@ function AdminPage() {
             <Typography 
               variant="h4" 
               sx={{ 
-                color: '#152484', 
+                color: 'white', 
                 fontWeight: 700,
                 mb: 1
               }}

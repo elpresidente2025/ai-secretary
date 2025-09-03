@@ -14,6 +14,121 @@ import {
   HowToVote
 } from '@mui/icons-material';
 
+// 7-세그먼트 디스플레이 컴포넌트
+const SevenSegmentDisplay = ({ dDay, cardHeight = '140px' }) => {
+  // 각 숫자별 세그먼트 매핑 (a, b, c, d, e, f, g)
+  const segmentPatterns = {
+    '0': [1, 1, 1, 1, 1, 1, 0],
+    '1': [0, 1, 1, 0, 0, 0, 0],
+    '2': [1, 1, 0, 1, 1, 0, 1],
+    '3': [1, 1, 1, 1, 0, 0, 1],
+    '4': [0, 1, 1, 0, 0, 1, 1],
+    '5': [1, 0, 1, 1, 0, 1, 1],
+    '6': [1, 0, 1, 1, 1, 1, 1],
+    '7': [1, 1, 1, 0, 0, 0, 0],
+    '8': [1, 1, 1, 1, 1, 1, 1],
+    '9': [1, 1, 1, 1, 0, 1, 1],
+    'D': [0, 1, 1, 1, 1, 0, 1],
+    '-': [0, 0, 0, 0, 0, 0, 1],
+    '+': [0, 1, 1, 0, 0, 1, 1], // 4와 같은 패턴 사용
+    ' ': [0, 0, 0, 0, 0, 0, 0]
+  };
+
+  const formatDDayForSegment = (days) => {
+    if (days > 0) {
+      return `D-${days.toString().padStart(3, ' ')}`;
+    } else if (days === 0) {
+      return 'D- 0';
+    } else {
+      return `D+${Math.abs(days).toString().padStart(2, ' ')}`;
+    }
+  };
+
+  const displayText = formatDDayForSegment(dDay);
+
+  // 개별 세그먼트 컴포넌트
+  const Segment = ({ active, type }) => {
+    const isHorizontal = ['a', 'd', 'g'].includes(type);
+    
+    return (
+      <Box
+        sx={{
+          position: 'absolute',
+          bgcolor: active ? '#FF0000' : '#330000',
+          boxShadow: active ? '0 0 12px #FF0000, 0 0 24px #FF0000' : 'none',
+          transition: 'all 0.1s ease',
+          ...(isHorizontal ? {
+            // 가로 세그먼트
+            width: '30px',
+            height: '6px',
+            borderRadius: '3px',
+            ...(type === 'a' && { top: '0px', left: '5px' }),
+            ...(type === 'd' && { bottom: '0px', left: '5px' }),
+            ...(type === 'g' && { top: '50%', left: '5px', transform: 'translateY(-50%)' })
+          } : {
+            // 세로 세그먼트
+            width: '6px',
+            height: '32px',
+            borderRadius: '3px',
+            ...(type === 'b' && { top: '4px', right: '0px' }),
+            ...(type === 'c' && { bottom: '4px', right: '0px' }),
+            ...(type === 'e' && { bottom: '4px', left: '0px' }),
+            ...(type === 'f' && { top: '4px', left: '0px' })
+          })
+        }}
+      />
+    );
+  };
+
+  // 개별 문자 디스플레이
+  const CharacterDisplay = ({ char }) => {
+    const pattern = segmentPatterns[char] || [0, 0, 0, 0, 0, 0, 0];
+    const segmentTypes = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
+
+    return (
+      <Box
+        sx={{
+          position: 'relative',
+          width: '40px',
+          height: '80px',
+          mx: 1
+        }}
+      >
+        {segmentTypes.map((type, index) => (
+          <Segment key={type} active={pattern[index]} type={type} />
+        ))}
+      </Box>
+    );
+  };
+
+  return (
+    <Box 
+      sx={{ 
+        textAlign: 'right', 
+        minWidth: '220px',
+        bgcolor: '#000',
+        borderRadius: 2,
+        py: 3,
+        px: 2,
+        border: '2px solid #333',
+        position: 'relative',
+        height: cardHeight,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center'
+      }}
+    >
+      {/* 디지털 문자 표시 */}
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+        {displayText.split('').map((char, index) => (
+          <CharacterDisplay key={index} char={char} />
+        ))}
+      </Box>
+      
+    </Box>
+  );
+};
+
 /**
  * 선거일 디데이 컴포넌트
  * @param {Object} props
@@ -201,65 +316,21 @@ function ElectionDDay({ position, status }) {
             <Typography variant="body2" color="text.secondary">
               {electionInfo.type}
             </Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-              {electionInfo.cycle} 주기 자동 계산
+            <Typography variant="body2" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+              {electionInfo.date.toLocaleDateString('ko-KR', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                weekday: 'short'
+              })}
             </Typography>
           </Box>
         </Box>
 
-        {/* 우측: D-Day */}
-        <Box sx={{ textAlign: 'right', minWidth: '120px' }}>
-          <Typography
-            variant="h4"
-            sx={{
-              fontSize: { xs: '2.5rem', sm: '3rem', md: '3.5rem' },
-              fontFamily: '"Noto Serif KR", "Times New Roman", serif',
-              fontWeight: 600,
-              color: 'text.primary',
-              letterSpacing: '-0.01em',
-              lineHeight: 1.2,
-              mb: 0.5
-            }}
-          >
-            {formatDDay(dDay)}
-          </Typography>
-          <Typography
-            variant="caption"
-            sx={{
-              color: 'text.secondary',
-              fontWeight: 400,
-              fontSize: '0.75rem'
-            }}
-          >
-            {dDay > 0 ? '남은 일수' : dDay === 0 ? '투표일' : '경과 일수'}
-          </Typography>
-        </Box>
+        {/* 우측: 7-세그먼트 디지털 D-Day 카운터 */}
+        <SevenSegmentDisplay dDay={dDay} cardHeight="150px" />
       </Box>
 
-      {/* 하단: 날짜 정보 */}
-      <Box sx={{ mb: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-          <CalendarToday sx={{ fontSize: 16, color: 'text.secondary' }} />
-          <Typography variant="body2" color="text.secondary">
-            {electionInfo.date.toLocaleDateString('ko-KR', {
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric',
-              weekday: 'short'
-            })}
-          </Typography>
-        </Box>
-        
-        {/* 정확한 일수 표시 (윤년 고려) */}
-        <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-          {dDay > 0 && (
-            <>정확히 {dDay.toLocaleString()}일 후 
-            {dDay > 365 && ` (약 ${(dDay/365).toFixed(1)}년)`}</>
-          )}
-          {dDay === 0 && '오늘이 투표일입니다!'}
-          {dDay < 0 && `선거 종료 후 ${Math.abs(dDay).toLocaleString()}일 경과`}
-        </Typography>
-      </Box>
 
         {/* 선거법 준수 알림 */}
         {(() => {

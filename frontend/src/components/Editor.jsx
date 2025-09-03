@@ -37,7 +37,7 @@ const Editor = ({ initialContent }) => {
           minHeight: 200,
           "& img": { maxWidth: "100%" },
           "& p": { m: 0, mb: 1.2 },
-          backgroundColor: "background.paper",
+          backgroundColor: "#f5f5f5",
         }}
         dangerouslySetInnerHTML={{ __html: initialContent || "<p>(내용 없음)</p>" }}
       />

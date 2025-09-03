@@ -185,7 +185,7 @@ const PublishingProgress = () => {
             <Typography variant="h6">발행 목표</Typography>
           </Box>
           <LinearProgress />
-          <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
+          <Typography variant="caption" sx={{ mt: 2, display: 'block', color: '#f8c023' }}>
             로딩 중...
           </Typography>
         </CardContent>

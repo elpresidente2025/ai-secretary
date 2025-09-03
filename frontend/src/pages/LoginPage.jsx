@@ -1,4 +1,3 @@
-// frontend/src/pages/LoginPage.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link as RouterLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
@@ -36,9 +35,8 @@ function LoginPage() {
   
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, user } = useAuth();
+  const { login, signInWithNaver, user } = useAuth();
 
-  // 이미 로그인된 경우 리다이렉트
   useEffect(() => {
     if (user) {
       const redirectTo = location.state?.from?.pathname || '/dashboard';
@@ -46,7 +44,6 @@ function LoginPage() {
     }
   }, [user, navigate, location.state]);
 
-  // 페이지 제목 설정
   useEffect(() => {
     document.title = '전자두뇌비서관 - 로그인';
   }, []);
@@ -65,7 +62,6 @@ function LoginPage() {
 
     try {
       await login(formData.email, formData.password);
-      // 성공 시 useAuth의 useEffect에서 자동으로 리다이렉트됩니다.
     } catch (error) {
       console.error('로그인 오류:', error);
       let errorMessage = '로그인에 실패했습니다.';
@@ -90,7 +86,7 @@ function LoginPage() {
           errorMessage = '너무 많은 로그인 시도가 있었습니다. 잠시 후 다시 시도해주세요.';
           break;
         default:
-          errorMessage = `로그인 실패: ${error.message}`;
+          errorMessage = '로그인 실패: ' + error.message;
       }
       
       setError(errorMessage);
@@ -99,8 +95,20 @@ function LoginPage() {
     }
   };
 
+  const handleNaverLogin = async () => {
+    setError('');
+    setLoading(true);
+
+    try {
+      await signInWithNaver();
+    } catch (error) {
+      console.error('네이버 로그인 오류:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handlePasswordReset = async () => {
-    // 입력 검증
     if (!resetEmail.trim()) {
       setResetMessage('이메일을 입력해주세요.');
       return;
@@ -111,14 +119,12 @@ function LoginPage() {
       return;
     }
 
-    // 이메일 형식 검증
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(resetEmail.trim())) {
       setResetMessage('올바른 이메일 형식을 입력해주세요.');
       return;
     }
 
-    // 사용자 이름 길이 검증
     if (resetName.trim().length < 2) {
       setResetMessage('사용자 이름은 2글자 이상 입력해주세요.');
       return;
@@ -128,9 +134,8 @@ function LoginPage() {
     setResetMessage('');
 
     try {
-      // Firebase Auth로 비밀번호 재설정 이메일 발송
       await sendPasswordResetEmail(auth, resetEmail.trim());
-      setResetMessage(`${resetName.trim()}님, 비밀번호 재설정 이메일을 ${resetEmail.trim()}로 발송했습니다. 메일함을 확인해주세요.`);
+      setResetMessage(resetName.trim() + '님, 비밀번호 재설정 이메일을 ' + resetEmail.trim() + '로 발송했습니다. 메일함을 확인해주세요.');
     } catch (error) {
       console.error('비밀번호 재설정 오류:', error);
       let errorMessage = '비밀번호 재설정 이메일 발송에 실패했습니다.';
@@ -146,7 +151,7 @@ function LoginPage() {
           errorMessage = '너무 많은 요청이 발생했습니다. 잠시 후 다시 시도해주세요.';
           break;
         default:
-          errorMessage = `오류: ${error.message}`;
+          errorMessage = '오류: ' + error.message;
       }
       
       setResetMessage(errorMessage);
@@ -173,7 +178,7 @@ function LoginPage() {
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <Box
           component="img"
-          src="/logo.png"
+          src="/logo-portrait.png"
           alt="전자두뇌비서관 로고"
           sx={{ 
             width: '80%', 
@@ -224,17 +229,40 @@ function LoginPage() {
               type="submit"
               fullWidth
               variant="contained"
-              sx={{ 
-                mt: 3, 
-                mb: 2,
-                bgcolor: '#152484',
-                '&:hover': {
-                  bgcolor: '#003A87'
-                }
-              }}
               disabled={loading}
+              sx={{ mt: 3, mb: 2 }}
             >
               {loading ? <CircularProgress size={24} /> : '로그인'}
+            </Button>
+
+            <Box sx={{ display: 'flex', alignItems: 'center', my: 2 }}>
+              <Box sx={{ flexGrow: 1, height: '1px', bgcolor: 'divider' }} />
+              <Typography variant="body2" color="text.secondary" sx={{ px: 2 }}>
+                또는
+              </Typography>
+              <Box sx={{ flexGrow: 1, height: '1px', bgcolor: 'divider' }} />
+            </Box>
+
+            <Button
+              fullWidth
+              variant="outlined"
+              onClick={handleNaverLogin}
+              disabled={loading}
+              sx={{ mb: 2 }}
+              startIcon={
+                loading ? (
+                  <CircularProgress size={20} />
+                ) : (
+                  <Box
+                    component="img"
+                    src="https://developers.naver.com/inc/devcenter/images/nd_img.png"
+                    alt="네이버"
+                    sx={{ width: 18, height: 18 }}
+                  />
+                )
+              }
+            >
+              네이버로 로그인
             </Button>
             
             <Box sx={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
@@ -254,7 +282,6 @@ function LoginPage() {
           </Box>
         </Paper>
 
-        {/* 비밀번호 재설정 다이얼로그 */}
         <Dialog open={resetDialogOpen} onClose={handleResetDialogClose} maxWidth="sm" fullWidth>
           <DialogTitle>비밀번호 재설정</DialogTitle>
           <DialogContent>
