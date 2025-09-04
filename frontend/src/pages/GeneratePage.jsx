@@ -28,6 +28,8 @@ import { useAuth } from '../hooks/useAuth';
 import { useGenerateForm } from '../hooks/useGenerateForm';
 import { useGenerateAPI } from '../hooks/useGenerateAPI';
 import { useBonus } from '../hooks/useBonus';
+import HelpButton from '../components/HelpButton';
+import GenerateGuide from '../components/guides/GenerateGuide';
 import { getSNSUsage } from '../services/firebaseService';
 // 폼에서 사용할 카테고리/세부 카테고리 목록 데이터를 가져옵니다.
 import { CATEGORIES } from '../constants/formConstants';
@@ -377,6 +379,11 @@ const GeneratePage = () => {
         onClose={() => setSnsModalOpen(false)}
         post={snsPost}
       />
+
+      {/* 도움말 버튼 */}
+      <HelpButton title="원고 생성 가이드">
+        <GenerateGuide />
+      </HelpButton>
     </DashboardLayout>
   );
 };

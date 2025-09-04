@@ -14,18 +14,59 @@ const theme = createTheme({
   // 2. 브레이크포인트 설정 (가이드 2절)
   breakpoints: {
     values: {
-      xs: 360,
-      sm: 600,
-      md: 900,
-      lg: 1280,
-      xl: 1680,
+      xs: 360,    // 모바일 세로
+      sm: 600,    // 모바일 가로 / 태블릿 세로
+      md: 900,    // 태블릿 가로
+      lg: 1280,   // 데스크탑 작은 화면
+      xl: 1680,   // 데스크탑 큰 화면
+      xxl: 2560,  // QHD 2K 화면 (2560px)
+      xxxl: 3840, // 4K UHD 화면 (3840px)
     },
   },
   // 3. 타이포그래피 설정 (가이드 4절)
   typography: {
     fontFamily: '"Noto Sans KR", "DM Sans", sans-serif',
-    h1: { fontSize: '2.5rem' }, // 기본 폰트 크기 설정
-    // ... 다른 폰트 스타일
+    h1: { 
+      fontSize: '2.5rem', // 기본 폰트 크기 설정
+      '@media (min-width: 2560px)': {
+        fontSize: '3rem', // 2K에서 더 큰 폰트
+      },
+      '@media (min-width: 3840px)': {
+        fontSize: '3.5rem', // 4K에서 더 큰 폰트
+      },
+    },
+    h2: {
+      '@media (min-width: 2560px)': {
+        fontSize: '2.5rem',
+      },
+      '@media (min-width: 3840px)': {
+        fontSize: '3rem',
+      },
+    },
+    h3: {
+      '@media (min-width: 2560px)': {
+        fontSize: '2rem',
+      },
+      '@media (min-width: 3840px)': {
+        fontSize: '2.25rem',
+      },
+    },
+    body1: {
+      '@media (min-width: 2560px)': {
+        fontSize: '1.125rem', // 2K에서 더 큰 본문 텍스트
+      },
+      '@media (min-width: 3840px)': {
+        fontSize: '1.25rem', // 4K에서 더 큰 본문 텍스트
+      },
+    },
+    body2: {
+      '@media (min-width: 2560px)': {
+        fontSize: '1rem',
+      },
+      '@media (min-width: 3840px)': {
+        fontSize: '1.125rem',
+      },
+    },
     // 사이버펑크 터미널 폰트
     mono: {
       fontFamily: '"Courier New", "SF Mono", "Monaco", monospace',
@@ -39,7 +80,13 @@ const theme = createTheme({
       styleOverrides: {
         root: ({ theme }) => ({
           [theme.breakpoints.up('xl')]: {
-            maxWidth: '1440px', // XL 뷰포트에서 최대 너비 제한 (가이드 2절)
+            maxWidth: '1440px', // XL 뷰포트에서 최대 너비 제한
+          },
+          [theme.breakpoints.up('xxl')]: {
+            maxWidth: '1920px', // 2K 화면에서 최대 너비
+          },
+          [theme.breakpoints.up('xxxl')]: {
+            maxWidth: '2560px', // 4K 화면에서 최대 너비
           },
         }),
       },

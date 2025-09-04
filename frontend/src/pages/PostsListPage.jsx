@@ -28,6 +28,8 @@ import {
 import { ContentCopy, DeleteOutline, Assignment, Publish, Link, Share } from '@mui/icons-material';
 import DashboardLayout from '../components/DashboardLayout';
 import SNSConversionModal from '../components/SNSConversionModal';
+import HelpButton from '../components/HelpButton';
+import ManagementGuide from '../components/guides/ManagementGuide';
 import PostViewerModal from '../components/PostViewerModal';
 import { useAuth } from '../hooks/useAuth';
 import { httpsCallable } from 'firebase/functions';
@@ -503,6 +505,11 @@ export default function PostsListPage() {
           onClose={() => setSnsModalOpen(false)}
           post={snsPost}
         />
+
+        {/* 도움말 버튼 */}
+        <HelpButton title="원고 관리 가이드">
+          <ManagementGuide />
+        </HelpButton>
       </Container>
     </DashboardLayout>
   );

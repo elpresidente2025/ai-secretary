@@ -26,18 +26,22 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  FormControlLabel,
+  Checkbox
 } from '@mui/material';
-import { Add, Remove, AutoAwesome, DeleteForever, Warning, Link, LinkOff, Google, Email } from '@mui/icons-material';
+import { Add, Remove, AutoAwesome, DeleteForever, Warning } from '@mui/icons-material';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../services/firebase';
 import DashboardLayout from '../components/DashboardLayout';
 import UserInfoForm from '../components/UserInfoForm';
 import { useAuth } from '../hooks/useAuth';
 import { BIO_ENTRY_TYPES, BIO_TYPE_ORDER, BIO_CATEGORIES, VALIDATION_RULES } from '../constants/bio-types';
+import HelpButton from '../components/HelpButton';
+import ProfileGuide from '../components/guides/ProfileGuide';
 
 export default function ProfilePage() {
-  const { user, logout, linkGoogleAccount, linkEmailAccount, unlinkAccount } = useAuth();
+  const { user, logout } = useAuth();
   
   // httpsCallable 메모이즈
   const callGetProfile = useMemo(() => httpsCallable(functions, 'getUserProfile'), []);
@@ -54,11 +58,6 @@ export default function ProfilePage() {
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
 
-  // 계정 연결 상태
-  const [linking, setLinking] = useState(false);
-  const [linkEmailDialogOpen, setLinkEmailDialogOpen] = useState(false);
-  const [linkEmailForm, setLinkEmailForm] = useState({ email: '', password: '' });
-
   const [profile, setProfile] = useState({
     name: '',
     status: '현역',
@@ -74,10 +73,13 @@ export default function ProfilePage() {
     backgroundCareer: '',
     localConnection: '',
     politicalExperience: '',
+    gender: '',
+    twitterPremium: false,
     committees: [''],
     customCommittees: [],
     constituencyType: '',
   });
+
 
   // 회원탈퇴 처리
   const handleDeleteAccount = async () => {
@@ -138,89 +140,6 @@ export default function ProfilePage() {
     setDeleteConfirmText('');
   };
 
-  // 계정 연결 처리
-  const handleLinkGoogle = async () => {
-    setLinking(true);
-    try {
-      await linkGoogleAccount();
-      setSnack({
-        open: true,
-        message: 'Google 계정이 성공적으로 연결되었습니다.',
-        severity: 'success'
-      });
-    } catch (error) {
-      console.error('Google 계정 연결 실패:', error);
-      setSnack({
-        open: true,
-        message: error.message || 'Google 계정 연결에 실패했습니다.',
-        severity: 'error'
-      });
-    } finally {
-      setLinking(false);
-    }
-  };
-
-  const handleLinkEmail = async () => {
-    setLinking(true);
-    try {
-      await linkEmailAccount(linkEmailForm.email, linkEmailForm.password);
-      setSnack({
-        open: true,
-        message: '이메일 계정이 성공적으로 연결되었습니다.',
-        severity: 'success'
-      });
-      setLinkEmailDialogOpen(false);
-      setLinkEmailForm({ email: '', password: '' });
-    } catch (error) {
-      console.error('이메일 계정 연결 실패:', error);
-      setSnack({
-        open: true,
-        message: error.message || '이메일 계정 연결에 실패했습니다.',
-        severity: 'error'
-      });
-    } finally {
-      setLinking(false);
-    }
-  };
-
-  const handleUnlinkAccount = async (providerId, providerName) => {
-    if (!confirm(`${providerName} 계정 연결을 해제하시겠습니까?`)) {
-      return;
-    }
-
-    setLinking(true);
-    try {
-      await unlinkAccount(providerId);
-      setSnack({
-        open: true,
-        message: `${providerName} 계정 연결이 해제되었습니다.`,
-        severity: 'success'
-      });
-    } catch (error) {
-      console.error('계정 연결 해제 실패:', error);
-      setSnack({
-        open: true,
-        message: error.message || '계정 연결 해제에 실패했습니다.',
-        severity: 'error'
-      });
-    } finally {
-      setLinking(false);
-    }
-  };
-
-  // 연결된 계정 정보 확인
-  const getLinkedProviders = () => {
-    const providers = [];
-    if (user?._firebaseUser?.providerData) {
-      user._firebaseUser.providerData.forEach(provider => {
-        providers.push(provider.providerId);
-      });
-    }
-    return providers;
-  };
-
-  const isGoogleLinked = () => getLinkedProviders().includes('google.com');
-  const isEmailLinked = () => getLinkedProviders().includes('password');
 
   // Bio 엔트리 상태 관리
   const [bioEntries, setBioEntries] = useState([
@@ -283,6 +202,8 @@ export default function ProfilePage() {
           backgroundCareer: profileData.backgroundCareer || '',
           localConnection: profileData.localConnection || '',
           politicalExperience: profileData.politicalExperience || '',
+          gender: profileData.gender || '',
+          twitterPremium: profileData.twitterPremium || false,
           committees: profileData.committees || [''],
           customCommittees: profileData.customCommittees || [],
           constituencyType: profileData.constituencyType || '',
@@ -537,7 +458,21 @@ export default function ProfilePage() {
   if (loading) {
     return (
       <DashboardLayout>
-        <Container maxWidth="md" sx={{ py: 4 }}>
+        <Container 
+        maxWidth="xl" 
+        sx={{ 
+          py: 4,
+          maxWidth: {
+            xs: '100%',
+            sm: '100%', 
+            md: '900px',
+            lg: '1200px',
+            xl: '1400px',
+            xxl: '1800px', // 2K 화면
+            xxxl: '2400px', // 4K 화면
+          }
+        }}
+      >
           <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
             <CircularProgress />
           </Box>
@@ -548,7 +483,21 @@ export default function ProfilePage() {
 
   return (
     <DashboardLayout>
-      <Container maxWidth="md" sx={{ py: 4 }}>
+      <Container 
+        maxWidth="xl" 
+        sx={{ 
+          py: 4,
+          maxWidth: {
+            xs: '100%',
+            sm: '100%', 
+            md: '900px',
+            lg: '1200px',
+            xl: '1400px',
+            xxl: '1800px', // 2K 화면
+            xxxl: '2400px', // 4K 화면
+          }
+        }}
+      >
         <Typography variant="h4" gutterBottom sx={{ color: 'white' }}>
           프로필 설정
         </Typography>
@@ -557,9 +506,12 @@ export default function ProfilePage() {
           프로필 정보를 바탕으로 맞춤형 원고가 생성됩니다.
         </Typography>
 
-        <Paper elevation={2} sx={{ p: 3 }}>
-          <Box component="form" onSubmit={handleSubmit}>
-            <Grid container spacing={3}>
+        <Grid container spacing={3}>
+          {/* 좌측 컬럼: 기본 정보 */}
+          <Grid item xs={12} xxl={6} xxxl={6}>
+            <Paper elevation={2} sx={{ p: 3, height: 'fit-content' }}>
+              <Box component="form" onSubmit={handleSubmit}>
+                <Grid container spacing={3}>
               
               {/* 🔧 UserInfoForm 컴포넌트 사용 */}
               <UserInfoForm
@@ -622,6 +574,24 @@ export default function ProfilePage() {
                     <MenuItem value="초반">초반</MenuItem>
                     <MenuItem value="중반">중반</MenuItem>
                     <MenuItem value="후반">후반</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              {/* 성별 */}
+              <Grid item xs={12} sm={6} md={4}>
+                <FormControl fullWidth>
+                  <InputLabel>성별</InputLabel>
+                  <Select
+                    name="gender"
+                    value={profile.gender}
+                    label="성별"
+                    onChange={(e) => handleUserInfoChange('gender', e.target.value)}
+                    disabled={saving}
+                  >
+                    <MenuItem value="">선택 안함</MenuItem>
+                    <MenuItem value="남성">남성</MenuItem>
+                    <MenuItem value="여성">여성</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
@@ -711,20 +681,23 @@ export default function ProfilePage() {
 
               {/* X 프리미엄 구독 여부 */}
               <Grid item xs={12} sm={6} md={4}>
-                <FormControl fullWidth>
-                  <InputLabel>X 프리미엄 구독 여부</InputLabel>
-                  <Select
-                    name="twitterPremium"
-                    value={profile.twitterPremium || ''}
-                    label="X 프리미엄 구독 여부"
-                    onChange={(e) => handleUserInfoChange('twitterPremium', e.target.value)}
-                    disabled={saving}
-                  >
-                    <MenuItem value="">선택 안함 (미구독으로 간주)</MenuItem>
-                    <MenuItem value="미구독">미구독</MenuItem>
-                    <MenuItem value="구독">구독</MenuItem>
-                  </Select>
-                </FormControl>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={profile.twitterPremium}
+                      onChange={(e) => handleUserInfoChange('twitterPremium', e.target.checked)}
+                      disabled={saving}
+                      sx={{
+                        color: '#006261',
+                        '&.Mui-checked': {
+                          color: '#006261'
+                        }
+                      }}
+                    />
+                  }
+                  label="X 프리미엄 구독"
+                  sx={{ mt: 2 }}
+                />
               </Grid>
 
               {/* 소속 위원회 */}
@@ -845,247 +818,26 @@ export default function ProfilePage() {
                 </Box>
               </Grid>
 
-              {/* 자기소개 및 추가 정보 섹션 */}
+              {/* 저장 버튼 */}
               <Grid item xs={12}>
-                <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <AutoAwesome sx={{ mr: 1, color: '#006261' }} />
-                  자기소개 및 추가 정보
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                  다양한 유형의 정보를 추가하여 더 정확한 개인화 원고를 생성하세요.
-                </Typography>
+                <Button
+                  type="submit"
+                  fullWidth
+                  variant="contained"
+                  disabled={saving}
+                  startIcon={saving ? <CircularProgress size={20} /> : null}
+                  sx={{
+                    mt: 2,
+                    py: 1.5,
+                    bgcolor: '#006261',
+                    '&:hover': {
+                      bgcolor: '#003A87'
+                    }
+                  }}
+                >
+                  {saving ? '저장 중...' : '프로필 저장'}
+                </Button>
               </Grid>
-
-              {/* 1. 자기소개 섹션 */}
-              <Grid item xs={12}>
-                <Box sx={{ mb: 3 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                    <Typography variant="h6" sx={{ color: '#003A87', fontWeight: 600 }}>
-                      👤 자기소개
-                    </Typography>
-                    <Tooltip title="자기소개 항목 추가">
-                      <IconButton 
-                        size="small" 
-                        onClick={() => addBioEntry('PERSONAL')}
-                        disabled={saving || bioEntries.length >= VALIDATION_RULES.maxEntries}
-                        sx={{ 
-                          width: 24,
-                          height: 24,
-                          backgroundColor: '#006261',
-                          color: 'white',
-                          border: '1px solid',
-                          borderColor: '#006261',
-                          '&:hover': { 
-                            backgroundColor: '#003A87',
-                            borderColor: '#003A87'
-                          },
-                          '&:disabled': {
-                            backgroundColor: 'grey.50',
-                            borderColor: 'grey.200',
-                            color: 'grey.400'
-                          }
-                        }}
-                      >
-                        <Add fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </Box>
-                  
-                  <Stack spacing={2}>
-                    {getEntriesByCategory('PERSONAL').map((entry) => {
-                      const index = bioEntries.findIndex(e => e.id === entry.id);
-                      const typeConfig = Object.values(BIO_ENTRY_TYPES).find(t => t.id === entry.type) || BIO_ENTRY_TYPES.SELF_INTRODUCTION;
-                      const isRequired = entry.type === 'self_introduction';
-                      
-                      return (
-                        <Paper key={entry.id} elevation={1} sx={{ p: 2, borderRadius: 2 }}>
-                          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-                            <Box sx={{ flex: 1 }}>
-                              <TextField
-                                required={isRequired}
-                                fullWidth
-                                multiline
-                                rows={isRequired ? 4 : 5}
-                                label={isRequired ? '자기소개 *필수' : '내용'}
-                                value={entry.content}
-                                onChange={(e) => handleBioEntryChange(index, 'content', e.target.value)}
-                                disabled={saving}
-                                placeholder={isRequired ? '본인의 정치 철학, 가치관, 지역에 대한 애정 등을 자유롭게 작성해주세요.' : '연설문, 기고문, 인터뷰 등을 자유롭게 올려 주세요.'}
-                                inputProps={{ maxLength: typeConfig.maxLength }}
-                                helperText={`${entry.content?.length || 0}/${typeConfig.maxLength}자`}
-                              />
-                            </Box>
-                            
-                            {!isRequired && (
-                              <Tooltip title="이 항목 삭제">
-                                <IconButton
-                                  size="small"
-                                  onClick={() => removeBioEntry(index)}
-                                  disabled={saving}
-                                  sx={{ 
-                                    mt: 1,
-                                    width: 24,
-                                    height: 24,
-                                    backgroundColor: '#55207d',
-                                    color: 'white',
-                                    border: '1px solid',
-                                    borderColor: '#55207d',
-                                    '&:hover': { 
-                                      backgroundColor: '#152484',
-                                      borderColor: '#152484'
-                                    },
-                                    '&:disabled': {
-                                      backgroundColor: 'grey.50',
-                                      borderColor: 'grey.200',
-                                      color: 'grey.400'
-                                    }
-                                  }}
-                                >
-                                  <Remove />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-                          </Box>
-                        </Paper>
-                      );
-                    })}
-                  </Stack>
-                </Box>
-              </Grid>
-
-              {/* 2. 추가 정보 섹션 (카드형 3열 배치) */}
-              <Grid item xs={12}>
-                <Box sx={{ mb: 3 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                    <Typography variant="h6" sx={{ color: '#55207D', fontWeight: 600 }}>
-                      📋 추가 정보
-                    </Typography>
-                    <Tooltip title="추가 정보 항목 추가">
-                      <IconButton 
-                        size="small" 
-                        onClick={() => addBioEntry('PERFORMANCE')}
-                        disabled={saving || bioEntries.length >= VALIDATION_RULES.maxEntries}
-                        sx={{ 
-                          width: 24,
-                          height: 24,
-                          backgroundColor: '#006261',
-                          color: 'white',
-                          border: '1px solid',
-                          borderColor: '#006261',
-                          '&:hover': { 
-                            backgroundColor: '#003A87',
-                            borderColor: '#003A87'
-                          },
-                          '&:disabled': {
-                            backgroundColor: 'grey.50',
-                            borderColor: 'grey.200',
-                            color: 'grey.400'
-                          }
-                        }}
-                      >
-                        <Add fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </Box>
-                  
-                  <Grid container spacing={2}>
-                    {getEntriesByCategory('PERFORMANCE').map((entry) => {
-                      const index = bioEntries.findIndex(e => e.id === entry.id);
-                      const typeConfig = Object.values(BIO_ENTRY_TYPES).find(t => t.id === entry.type) || BIO_ENTRY_TYPES.POLICY;
-                      
-                      return (
-                        <Grid item xs={12} sm={6} md={4} key={entry.id}>
-                          <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                            <CardContent sx={{ flex: 1 }}>
-                              <Box sx={{ mb: 2 }}>
-                                <Chip 
-                                  label={typeConfig.name}
-                                  size="small"
-                                  sx={{ 
-                                    bgcolor: typeConfig.color + '20',
-                                    color: typeConfig.color,
-                                    fontWeight: 600
-                                  }}
-                                />
-                              </Box>
-                              
-                              <FormControl fullWidth sx={{ mb: 2 }}>
-                                <InputLabel>유형 선택</InputLabel>
-                                <Select
-                                  value={entry.type}
-                                  label="유형 선택"
-                                  onChange={(e) => handleBioEntryChange(index, 'type', e.target.value)}
-                                  disabled={saving}
-                                  size="small"
-                                >
-                                  {BIO_CATEGORIES.PERFORMANCE.types.map((type) => (
-                                    <MenuItem key={type.id} value={type.id}>
-                                      {type.name}
-                                    </MenuItem>
-                                  ))}
-                                </Select>
-                              </FormControl>
-                              
-                              <TextField
-                                fullWidth
-                                multiline
-                                rows={4}
-                                label="내용"
-                                value={entry.content}
-                                onChange={(e) => handleBioEntryChange(index, 'content', e.target.value)}
-                                disabled={saving}
-                                placeholder={typeConfig.placeholder}
-                                inputProps={{ maxLength: typeConfig.maxLength }}
-                                size="small"
-                              />
-                            </CardContent>
-                            
-                            <CardActions sx={{ justifyContent: 'space-between', px: 2, pb: 2 }}>
-                              <Typography variant="caption" color="text.secondary">
-                                {entry.content?.length || 0}/{typeConfig.maxLength}자
-                              </Typography>
-                              <Tooltip title="이 항목 삭제">
-                                <IconButton
-                                  size="small"
-                                  onClick={() => removeBioEntry(index)}
-                                  disabled={saving}
-                                  sx={{ 
-                                    width: 24,
-                                    height: 24,
-                                    backgroundColor: '#55207d',
-                                    color: 'white',
-                                    border: '1px solid',
-                                    borderColor: '#55207d',
-                                    '&:hover': { 
-                                      backgroundColor: '#152484',
-                                      borderColor: '#152484'
-                                    },
-                                    '&:disabled': {
-                                      backgroundColor: 'grey.50',
-                                      borderColor: 'grey.200',
-                                      color: 'grey.400'
-                                    }
-                                  }}
-                                >
-                                  <Remove />
-                                </IconButton>
-                              </Tooltip>
-                            </CardActions>
-                          </Card>
-                        </Grid>
-                      );
-                    })}
-                  </Grid>
-                </Box>
-              </Grid>
-
-              {bioEntries.length >= VALIDATION_RULES.maxEntries && (
-                <Grid item xs={12}>
-                  <Alert severity="info" sx={{ mb: 2 }}>
-                    최대 {VALIDATION_RULES.maxEntries}개의 엔트리까지 추가할 수 있습니다.
-                  </Alert>
-                </Grid>
-              )}
 
               {/* 에러 메시지 */}
               {error && (
@@ -1094,38 +846,269 @@ export default function ProfilePage() {
                 </Grid>
               )}
 
-              {/* 저장 버튼 */}
-              <Grid item xs={12}>
-                <Box display="flex" justifyContent="space-between" alignItems="center">
-                  <Button
-                    variant="outlined"
-                    color="error"
-                    startIcon={<DeleteForever />}
-                    onClick={() => setDeleteDialogOpen(true)}
-                    size="large"
-                    disabled={saving || deleting}
-                  >
-                    회원탈퇴
-                  </Button>
-                  
-                  <Button
-                    type="submit"
-                    variant="contained"
-                    size="large"
-                    disabled={saving}
-                    sx={{ 
-                      minWidth: 120,
-                      bgcolor: '#152484',
-                      '&:hover': { bgcolor: '#003A87' }
-                    }}
-                  >
-                    {saving ? <CircularProgress size={24} /> : '저장하기'}
-                  </Button>
+                </Grid>
+              </Box>
+            </Paper>
+          </Grid>
+
+          {/* 우측 컬럼: Bio 엔트리들 */}
+          <Grid item xs={12} xxl={6} xxxl={6}>
+            <Paper elevation={2} sx={{ p: 3, height: 'fit-content' }}>
+              <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                <AutoAwesome sx={{ mr: 1, color: '#006261' }} />
+                자기소개 및 추가 정보
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                다양한 유형의 정보를 추가하여 더 정확한 개인화 원고를 생성하세요.
+              </Typography>
+
+              {/* 1. 자기소개 섹션 */}
+              <Box sx={{ mb: 4 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                  <Typography variant="h6" sx={{ color: '#003A87', fontWeight: 600 }}>
+                    👤 자기소개
+                  </Typography>
+                  <Tooltip title="자기소개 항목 추가">
+                    <IconButton 
+                      size="small" 
+                      onClick={() => addBioEntry('PERSONAL')}
+                      disabled={saving || bioEntries.length >= VALIDATION_RULES.maxEntries}
+                      sx={{ 
+                        width: 24,
+                        height: 24,
+                        backgroundColor: '#006261',
+                        color: 'white',
+                        border: '1px solid',
+                        borderColor: '#006261',
+                        '&:hover': { 
+                          backgroundColor: '#003A87',
+                          borderColor: '#003A87'
+                        },
+                        '&:disabled': {
+                          backgroundColor: 'grey.50',
+                          borderColor: 'grey.200',
+                          color: 'grey.400'
+                        }
+                      }}
+                    >
+                      <Add fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
                 </Box>
-              </Grid>
-            </Grid>
-          </Box>
-        </Paper>
+                
+                <Stack spacing={2}>
+                  {getEntriesByCategory('PERSONAL').map((entry) => {
+                    const index = bioEntries.findIndex(e => e.id === entry.id);
+                    const typeConfig = Object.values(BIO_ENTRY_TYPES).find(t => t.id === entry.type) || BIO_ENTRY_TYPES.SELF_INTRODUCTION;
+                    const isRequired = entry.type === 'self_introduction';
+                    
+                    return (
+                      <Paper key={entry.id} elevation={1} sx={{ p: 2, borderRadius: 2 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+                          <Box sx={{ flex: 1 }}>
+                            <TextField
+                              required={isRequired}
+                              fullWidth
+                              multiline
+                              rows={isRequired ? 4 : 5}
+                              label={isRequired ? '자기소개 *필수' : '내용'}
+                              value={entry.content}
+                              onChange={(e) => handleBioEntryChange(index, 'content', e.target.value)}
+                              disabled={saving}
+                              placeholder={isRequired ? '본인의 정치 철학, 가치관, 지역에 대한 애정 등을 자유롭게 작성해주세요.' : '연설문, 기고문, 인터뷰 등을 자유롭게 올려 주세요.'}
+                              inputProps={{ maxLength: typeConfig.maxLength }}
+                              helperText={`${entry.content?.length || 0}/${typeConfig.maxLength}자`}
+                            />
+                          </Box>
+                          
+                          {!isRequired && (
+                            <Tooltip title="이 항목 삭제">
+                              <IconButton
+                                size="small"
+                                onClick={() => removeBioEntry(index)}
+                                disabled={saving}
+                                sx={{ 
+                                  mt: 1,
+                                  width: 24,
+                                  height: 24,
+                                  backgroundColor: '#55207d',
+                                  color: 'white',
+                                  border: '1px solid',
+                                  borderColor: '#55207d',
+                                  '&:hover': { 
+                                    backgroundColor: '#152484',
+                                    borderColor: '#152484'
+                                  },
+                                  '&:disabled': {
+                                    backgroundColor: 'grey.50',
+                                    borderColor: 'grey.200',
+                                    color: 'grey.400'
+                                  }
+                                }}
+                              >
+                                <Remove />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                        </Box>
+                      </Paper>
+                    );
+                  })}
+                </Stack>
+              </Box>
+
+              {/* 2. 추가 정보 섹션 (카드형 배치) */}
+              <Box sx={{ mb: 4 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                  <Typography variant="h6" sx={{ color: '#55207D', fontWeight: 600 }}>
+                    📋 추가 정보
+                  </Typography>
+                  <Tooltip title="추가 정보 항목 추가">
+                    <IconButton 
+                      size="small" 
+                      onClick={() => addBioEntry('PERFORMANCE')}
+                      disabled={saving || bioEntries.length >= VALIDATION_RULES.maxEntries}
+                      sx={{ 
+                        width: 24,
+                        height: 24,
+                        backgroundColor: '#006261',
+                        color: 'white',
+                        border: '1px solid',
+                        borderColor: '#006261',
+                        '&:hover': { 
+                          backgroundColor: '#003A87',
+                          borderColor: '#003A87'
+                        },
+                        '&:disabled': {
+                          backgroundColor: 'grey.50',
+                          borderColor: 'grey.200',
+                          color: 'grey.400'
+                        }
+                      }}
+                    >
+                      <Add fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+                
+                <Grid container spacing={2}>
+                  {getEntriesByCategory('PERFORMANCE').map((entry) => {
+                    const index = bioEntries.findIndex(e => e.id === entry.id);
+                    const typeConfig = Object.values(BIO_ENTRY_TYPES).find(t => t.id === entry.type) || BIO_ENTRY_TYPES.POLICY;
+                    
+                    return (
+                      <Grid item xs={12} sm={6} key={entry.id}>
+                        <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                          <CardContent sx={{ flex: 1 }}>
+                            <Box sx={{ mb: 2 }}>
+                              <Chip 
+                                label={typeConfig.name}
+                                size="small"
+                                sx={{ 
+                                  bgcolor: typeConfig.color + '20',
+                                  color: typeConfig.color,
+                                  fontWeight: 600
+                                }}
+                              />
+                            </Box>
+                            
+                            <FormControl fullWidth sx={{ mb: 2 }}>
+                              <InputLabel>유형 선택</InputLabel>
+                              <Select
+                                value={entry.type}
+                                label="유형 선택"
+                                onChange={(e) => handleBioEntryChange(index, 'type', e.target.value)}
+                                disabled={saving}
+                                size="small"
+                              >
+                                {BIO_CATEGORIES.PERFORMANCE.types.map((type) => (
+                                  <MenuItem key={type.id} value={type.id}>
+                                    {type.name}
+                                  </MenuItem>
+                                ))}
+                              </Select>
+                            </FormControl>
+                            
+                            <TextField
+                              fullWidth
+                              multiline
+                              rows={4}
+                              label="내용"
+                              value={entry.content}
+                              onChange={(e) => handleBioEntryChange(index, 'content', e.target.value)}
+                              disabled={saving}
+                              placeholder={typeConfig.placeholder}
+                              inputProps={{ maxLength: typeConfig.maxLength }}
+                              size="small"
+                            />
+                          </CardContent>
+                          
+                          <CardActions sx={{ justifyContent: 'space-between', px: 2, pb: 2 }}>
+                            <Typography variant="caption" color="text.secondary">
+                              {entry.content?.length || 0}/{typeConfig.maxLength}자
+                            </Typography>
+                            <Tooltip title="이 항목 삭제">
+                              <IconButton
+                                size="small"
+                                onClick={() => removeBioEntry(index)}
+                                disabled={saving}
+                                sx={{ 
+                                  width: 24,
+                                  height: 24,
+                                  backgroundColor: '#55207d',
+                                  color: 'white',
+                                  border: '1px solid',
+                                  borderColor: '#55207d',
+                                  '&:hover': { 
+                                    backgroundColor: '#152484',
+                                    borderColor: '#152484'
+                                  },
+                                  '&:disabled': {
+                                    backgroundColor: 'grey.50',
+                                    borderColor: 'grey.200',
+                                    color: 'grey.400'
+                                  }
+                                }}
+                              >
+                                <Remove />
+                              </IconButton>
+                            </Tooltip>
+                          </CardActions>
+                        </Card>
+                      </Grid>
+                    );
+                  })}
+                </Grid>
+              </Box>
+
+              {bioEntries.length >= VALIDATION_RULES.maxEntries && (
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  최대 {VALIDATION_RULES.maxEntries}개의 엔트리까지 추가할 수 있습니다.
+                </Alert>
+              )}
+            </Paper>
+          </Grid>
+        </Grid>
+
+        {/* 회원탈퇴 버튼 (최하단, 1열) */}
+        <Box sx={{ mt: 4, textAlign: 'center' }}>
+          <Button
+            onClick={() => setDeleteDialogOpen(true)}
+            variant="outlined"
+            color="error"
+            startIcon={<DeleteForever />}
+            sx={{
+              borderColor: '#d32f2f',
+              color: '#d32f2f',
+              '&:hover': {
+                borderColor: '#b71c1c',
+                bgcolor: 'rgba(211, 47, 47, 0.04)'
+              }
+            }}
+          >
+            회원탈퇴
+          </Button>
+        </Box>
 
         {/* 성공 메시지 */}
         <Snackbar
@@ -1213,6 +1196,11 @@ export default function ProfilePage() {
             </Button>
           </DialogActions>
         </Dialog>
+
+        {/* 도움말 버튼 */}
+        <HelpButton title="프로필 설정 가이드">
+          <ProfileGuide />
+        </HelpButton>
       </Container>
     </DashboardLayout>
   );

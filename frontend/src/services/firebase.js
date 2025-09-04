@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 import { getStorage } from 'firebase/storage';
@@ -30,6 +30,15 @@ export { app };
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
+
+// Firebase Auth persistence 설정 (LocalStorage 사용)
+setPersistence(auth, browserLocalPersistence)
+  .then(() => {
+    console.log('✅ Firebase Auth persistence 설정 완료 (LocalStorage)');
+  })
+  .catch((error) => {
+    console.error('❌ Firebase Auth persistence 설정 실패:', error);
+  });
 
 // 네트워크 연결 진단
 if (typeof window !== 'undefined') {

@@ -114,17 +114,16 @@ const DashboardLayout = ({ children }) => {
   );
 
   return (
-    // 전체를 100vh 플렉스 컬럼으로: 헤더 + 본문 + 푸터
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      {/* 상단 헤더: sticky 고정 */}
+    // 전체를 자연스러운 흐름으로: 헤더 + 본문 + 푸터
+    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      {/* 상단 헤더: 완전 고정 */}
       <AppBar 
-        position="sticky" 
+        position="fixed" 
         elevation={0} 
         sx={{ 
           bgcolor: '#152484', 
           top: 0, 
-          zIndex: (t) => t.zIndex.appBar,
-          position: 'relative',
+          zIndex: (t) => t.zIndex.appBar + 1,
           '&::before': {
             content: '""',
             position: 'absolute',
@@ -221,12 +220,12 @@ const DashboardLayout = ({ children }) => {
         component="main"
         sx={{
           flex: 1,
-          minHeight: 0,
-          overflow: 'auto',
           bgcolor: '#141414',
           display: 'flex',
           justifyContent: 'center',
-          width: '100%'
+          width: '100%',
+          pt: '64px', // 고정 헤더 높이만큼 상단 여백
+          pb: 4, // 푸터와의 간격
         }}
       >
         <Box sx={{ width: '100%', maxWidth: '85vw' }}>
@@ -234,11 +233,11 @@ const DashboardLayout = ({ children }) => {
         </Box>
       </Box>
 
-      {/* 푸터 */}
+      {/* 푸터 - 콘텐츠 끝에 자연스럽게 배치 */}
       <Box
         component="footer"
         sx={{
-          flexShrink: 0,
+          mt: 'auto', // 자동으로 하단에 밀어넣기
           py: 2,
           px: 2,
           bgcolor: '#152484',

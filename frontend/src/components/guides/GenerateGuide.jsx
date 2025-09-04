@@ -1,0 +1,130 @@
+import React from 'react';
+import {
+  Box,
+  Typography,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+} from '@mui/material';
+import { CheckCircleOutline, Edit } from '@mui/icons-material';
+
+const GenerateGuide = () => {
+  const steps = [
+    {
+      title: '1. 주제 입력하기',
+      description: '대시보드에서 "새 원고 생성" 버튼을 클릭하세요.',
+      examples: [
+        { bad: '❌ 나쁜 예: "교통 문제"', color: '#ff5252' },
+        { good: '⭐ 좋은 예: "○○동 스쿨존 신호등 설치 건의"', color: '#4caf50' },
+        { good: '⭐ 좋은 예: "청년 월세 지원 조례 발의 계획"', color: '#4caf50' }
+      ]
+    },
+    {
+      title: '2. 카테고리 선택',
+      description: '글의 목적에 맞게 선택하세요',
+      categories: [
+        '일상 소통: 인사말, 안부 전하기',
+        '정책 제안: 새로운 정책이나 법안 제안',
+        '의정활동 보고: 현장 방문, 회의 참석 후기',
+        '시사 분석: 뉴스나 사회 이슈에 대한 의견',
+        '지역 현안: 우리 지역 문제 해결방안'
+      ]
+    },
+    {
+      title: '3. 참고자료 추가 (선택)',
+      description: '더 정확한 글을 원한다면',
+      tips: [
+        '관련 뉴스 기사 링크나 내용',
+        '정부 발표자료, 통계 수치',
+        '현장에서 확인한 내용',
+        '주민 건의사항'
+      ]
+    },
+    {
+      title: '4. 생성 완료',
+      description: '1-2분 후 완성된 원고를 확인하세요',
+      features: [
+        '마음에 들지 않으면 재생성 가능 (최대 3회)',
+        '복사하기로 SNS에 바로 사용'
+      ]
+    }
+  ];
+
+  return (
+    <Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+        <Edit sx={{ color: '#003A87', mr: 2 }} />
+        <Typography variant="h5" sx={{ fontWeight: 600 }}>
+          원고 생성하기
+        </Typography>
+      </Box>
+
+      {steps.map((step, index) => (
+        <Box key={index} sx={{ mb: 3 }}>
+          <Typography variant="h6" sx={{ fontWeight: 600, mb: 1, color: '#003A87' }}>
+            {step.title}
+          </Typography>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            {step.description}
+          </Typography>
+          
+          {step.examples && (
+            <Box sx={{ mb: 2 }}>
+              {step.examples.map((example, exIndex) => (
+                <Typography key={exIndex} variant="body2" sx={{ 
+                  color: example.color, 
+                  fontWeight: 500,
+                  mb: 0.5
+                }}>
+                  {example.bad || example.good}
+                </Typography>
+              ))}
+            </Box>
+          )}
+          
+          {step.categories && (
+            <List dense>
+              {step.categories.map((category, catIndex) => (
+                <ListItem key={catIndex} sx={{ py: 0.5 }}>
+                  <ListItemIcon sx={{ minWidth: 24 }}>
+                    <CheckCircleOutline sx={{ fontSize: 16, color: '#4caf50' }} />
+                  </ListItemIcon>
+                  <ListItemText primary={category} primaryTypographyProps={{ variant: 'body2' }} />
+                </ListItem>
+              ))}
+            </List>
+          )}
+          
+          {step.tips && (
+            <List dense>
+              {step.tips.map((tip, tipIndex) => (
+                <ListItem key={tipIndex} sx={{ py: 0.5 }}>
+                  <ListItemIcon sx={{ minWidth: 24 }}>
+                    <CheckCircleOutline sx={{ fontSize: 16, color: '#2196f3' }} />
+                  </ListItemIcon>
+                  <ListItemText primary={tip} primaryTypographyProps={{ variant: 'body2' }} />
+                </ListItem>
+              ))}
+            </List>
+          )}
+          
+          {step.features && (
+            <List dense>
+              {step.features.map((feature, fIndex) => (
+                <ListItem key={fIndex} sx={{ py: 0.5 }}>
+                  <ListItemIcon sx={{ minWidth: 24 }}>
+                    <CheckCircleOutline sx={{ fontSize: 16, color: '#ff9800' }} />
+                  </ListItemIcon>
+                  <ListItemText primary={feature} primaryTypographyProps={{ variant: 'body2' }} />
+                </ListItem>
+              ))}
+            </List>
+          )}
+        </Box>
+      ))}
+    </Box>
+  );
+};
+
+export default GenerateGuide;

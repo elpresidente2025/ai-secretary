@@ -42,6 +42,7 @@ import {
   AttachFile
 } from '@mui/icons-material';
 import DashboardLayout from '../components/DashboardLayout';
+import PaymentDialog from '../components/PaymentDialog';
 import { useAuth } from '../hooks/useAuth';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../services/firebase';
@@ -51,6 +52,8 @@ const Billing = () => {
   const [currentPlan, setCurrentPlan] = useState(user?.plan || user?.subscription || '리전 인플루언서');
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
   const [membershipDialogOpen, setMembershipDialogOpen] = useState(false);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
   const [updatingPlan, setUpdatingPlan] = useState(false);
 
@@ -103,33 +106,15 @@ const Billing = () => {
     { quarter: '2024년 3분기', status: '인증완료', date: '2024-07-02', method: 'OCR 자동인증' }
   ];
 
-  const handlePlanChange = async (planName) => {
-    if (updatingPlan) return;
-    
-    setUpdatingPlan(true);
-    try {
-      // 백엔드 함수 호출하여 사용자 플랜 업데이트
-      const response = await callUpdateUserPlan({ plan: planName });
-      console.log('플랜 업데이트 응답:', response.data);
-      
-      if (response.data.success) {
-        setCurrentPlan(planName);
-        
-        // 사용자 컨텍스트 새로고침 (가능한 경우)
-        if (refreshUserProfile) {
-          await refreshUserProfile();
-        }
-        
-        alert(`${planName} 플랜으로 변경이 완료되었습니다.`);
-      } else {
-        throw new Error(response.data.message || '플랜 변경에 실패했습니다.');
-      }
-    } catch (error) {
-      console.error('플랜 변경 실패:', error);
-      alert(`플랜 변경에 실패했습니다: ${error.message}`);
-    } finally {
-      setUpdatingPlan(false);
-    }
+  const handlePlanChange = (plan) => {
+    // 결제 다이얼로그 열기
+    setSelectedPlan(plan);
+    setPaymentDialogOpen(true);
+  };
+
+  const handlePaymentClose = () => {
+    setPaymentDialogOpen(false);
+    setSelectedPlan(null);
   };
 
   const handleFileUpload = (event) => {
@@ -259,8 +244,8 @@ const Billing = () => {
                         <Button
                           variant="contained"
                           fullWidth
-                          disabled={currentPlan === plan.name || updatingPlan}
-                          onClick={() => handlePlanChange(plan.name)}
+                          disabled={currentPlan === plan.name}
+                          onClick={() => handlePlanChange(plan)}
                           sx={{ 
                             bgcolor: plan.color,
                             '&:hover': { 
@@ -273,7 +258,7 @@ const Billing = () => {
                             }
                           }}
                         >
-                          {updatingPlan ? '처리 중...' : currentPlan === plan.name ? '현재 플랜' : '선택하기'}
+                          {currentPlan === plan.name ? '현재 플랜' : '결제하기'}
                         </Button>
                       </CardActions>
                     </Card>
@@ -617,6 +602,13 @@ const Billing = () => {
             </Button>
           </DialogActions>
         </Dialog>
+
+        {/* 토스페이먼츠 결제 다이얼로그 */}
+        <PaymentDialog
+          open={paymentDialogOpen}
+          onClose={handlePaymentClose}
+          selectedPlan={selectedPlan}
+        />
       </Container>
     </DashboardLayout>
   );

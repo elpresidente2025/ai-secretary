@@ -12,13 +12,13 @@ function App() {
   const [statusLoading, setStatusLoading] = useState(true);
   const location = useLocation();
 
-  // 시스템 상태 확인 (타임아웃 추가)
+  // 시스템 상태 확인 (타임아웃 1.5초로 단축)
   const checkSystemStatus = useCallback(async () => {
     setStatusLoading(true);
     try {
-      // 3초 타임아웃 설정
+      // 1.5초 타임아웃 설정 (더 빠른 응답)
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('타임아웃')), 3000)
+        setTimeout(() => reject(new Error('타임아웃')), 1500)
       );
       
       const status = await Promise.race([
@@ -40,11 +40,24 @@ function App() {
   const isAdmin = user?.email === 'kjk6206@gmail.com' || user?.email === 'taesoo@secretart.ai';
 
   useEffect(() => {
-    // 로그인 상태가 확정된 후에만 시스템 상태 확인
-    if (!loading) {
+    // 로그인 상태가 확정된 후에만 시스템 상태 확인 (최초 1회만)
+    if (!loading && systemStatus === null) {
+      // 탭 전환에서 돌아올 때 불필요한 재확인 방지
+      const lastCheck = sessionStorage.getItem('systemStatusLastCheck');
+      const now = Date.now();
+      
+      // 5분 이내에 확인했다면 스킵
+      if (lastCheck && (now - parseInt(lastCheck)) < 300000) {
+        console.log('⚡ 최근 시스템 상태 확인됨 - 스킵');
+        setSystemStatus({ status: 'active' });
+        setStatusLoading(false);
+        return;
+      }
+      
       checkSystemStatus();
+      sessionStorage.setItem('systemStatusLastCheck', now.toString());
     }
-  }, [loading, checkSystemStatus]); // loading 상태 변경 시에만 확인
+  }, [loading, checkSystemStatus, systemStatus]);
 
   // 점검 모드일 때만 주기적으로 상태 확인 (복구 감지용)
   useEffect(() => {

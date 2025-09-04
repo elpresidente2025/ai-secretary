@@ -46,14 +46,14 @@ export const AuthProvider = ({ children }) => {
   const auth = getAuth(app);
   const db = getFirestore(app);
   
-  // 강제 타임아웃으로 무한 로딩 방지
+  // 강제 타임아웃으로 무한 로딩 방지 (5초로 복원 - 탭 전환 고려)
   React.useEffect(() => {
     const timeout = setTimeout(() => {
       if (loading) {
         console.warn('⚠️ Auth 로딩 타임아웃 - 강제 완료');
         setLoading(false);
       }
-    }, 5000); // 5초 타임아웃
+    }, 5000); // 5초로 복원 (탭 전환 시 충분한 시간 제공)
     
     return () => clearTimeout(timeout);
   }, [loading]);
@@ -80,12 +80,21 @@ export const AuthProvider = ({ children }) => {
   };
 
   useEffect(() => {
+    let isFirstLoad = true;
+    
     // onAuthStateChanged는 구독을 해제하는 함수를 반환합니다.
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      console.log('🔥 Auth 상태 변경:', currentUser?.uid);
+      console.log('🔥 Auth 상태 변경:', currentUser?.uid, '첫 로드:', isFirstLoad);
       
       try {
         if (currentUser) {
+          // 첫 로드가 아니고 이미 사용자가 설정되어 있다면 스킵 (탭 전환 시)
+          if (!isFirstLoad && user?.uid === currentUser.uid) {
+            console.log('⚡ 탭 전환 감지 - Auth 재처리 스킵');
+            setLoading(false);
+            return;
+          }
+          
           // 임시로 Firestore 연결 없이 Firebase Auth만 사용
           console.log('⚡ 빠른 로딩을 위해 Firestore 스킵');
           
@@ -108,22 +117,24 @@ export const AuthProvider = ({ children }) => {
           console.log('👤 기본 사용자 정보:', combinedUser);
           setUser(combinedUser);
           
-          // Firestore 프로필 정보를 비동기로 나중에 로드
-          setTimeout(async () => {
-            try {
-              console.log('🔍 Firestore 프로필 백그라운드 로드 중...');
-              const userProfile = await fetchUserProfile(currentUser.uid);
-              if (userProfile) {
-                setUser(prev => ({
-                  ...prev,
-                  ...userProfile
-                }));
-                console.log('✅ Firestore 프로필 로드 완료');
+          // Firestore 프로필 정보를 즉시 백그라운드에서 로드 (첫 로드 시만)
+          if (isFirstLoad) {
+            (async () => {
+              try {
+                console.log('🔍 Firestore 프로필 백그라운드 로드 중...');
+                const userProfile = await fetchUserProfile(currentUser.uid);
+                if (userProfile) {
+                  setUser(prev => ({
+                    ...prev,
+                    ...userProfile
+                  }));
+                  console.log('✅ Firestore 프로필 로드 완료');
+                }
+              } catch (error) {
+                console.warn('⚠️ Firestore 프로필 로드 실패:', error);
               }
-            } catch (error) {
-              console.warn('⚠️ Firestore 프로필 로드 실패:', error);
-            }
-          }, 100);
+            })();
+          }
           
         } else {
           console.log('🚫 로그아웃됨');
@@ -135,6 +146,7 @@ export const AuthProvider = ({ children }) => {
       } finally {
         // 성공하든 실패하든 로딩은 완료
         setLoading(false);
+        isFirstLoad = false;
       }
     });
 

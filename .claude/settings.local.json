@@ -43,7 +43,15 @@
       "Read(E:\\e\\ai-secretary\\frontend\\src\\pages/**)",
       "WebFetch(domain:reactjs.org)",
       "WebFetch(domain:legacy.reactjs.org)",
-      "Read(E:\\e\\ai-secretary\\frontend/**)"
+      "Read(E:\\e\\ai-secretary\\frontend/**)",
+      "Read(E:\\e\\ai-secretary/**)",
+      "Read(\\e\\ai-secretary/**)",
+      "Read(\\e\\ai-secretary/**)",
+      "Read(\\e\\ai-secretary/**)",
+      "Read(E:\\e\\ai-secretary/**)",
+      "Read(E:\\e\\ai-secretary/**)",
+      "Read(E:\\e\\ai-secretary/**)",
+      "Read(E:\\e\\ai-secretary/**)"
     ],
     "deny": [],
     "ask": [],

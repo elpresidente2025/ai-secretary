@@ -24,6 +24,8 @@ import PostsListPage from './pages/PostsListPage.jsx';
 import Billing from './pages/Billing.jsx';
 import GuidelinesPage from './pages/GuidelinesPage.jsx';
 import TermsOfService from './pages/TermsOfService.jsx';
+import PaymentSuccess from './pages/PaymentSuccess.jsx';
+import PaymentFail from './pages/PaymentFail.jsx';
 
 // 🎯 프리로드 함수들 (사용자 의도 감지 시 사용)
 export const preloadGenerate = () => import('./pages/GeneratePage.jsx');
@@ -72,6 +74,14 @@ const router = createBrowserRouter([
         path: 'terms',
         element: <TermsOfService />,
       },
+      {
+        path: 'payment/success',
+        element: <ProtectedRoute><PaymentSuccess /></ProtectedRoute>,
+      },
+      {
+        path: 'payment/fail',
+        element: <ProtectedRoute><PaymentFail /></ProtectedRoute>,
+      },
     ],
   },
 ]);
@@ -88,11 +98,9 @@ root.render(
   </React.StrictMode>
 );
 
-// React 마운트 완료 후 로딩 스피너 숨기기
-setTimeout(() => {
-  const loadingContainer = document.getElementById('loading-container');
-  if (loadingContainer) {
-    console.log('🎯 React 마운트 완료 - 로딩 스피너 제거');
-    loadingContainer.classList.add('hidden');
-  }
-}, 100);
+// React 마운트 완료 후 즉시 로딩 스피너 숨기기
+const loadingContainer = document.getElementById('loading-container');
+if (loadingContainer) {
+  console.log('🎯 React 마운트 완료 - 로딩 스피너 즉시 제거');
+  loadingContainer.classList.add('hidden');
+}

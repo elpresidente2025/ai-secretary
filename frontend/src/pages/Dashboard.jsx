@@ -47,6 +47,8 @@ import { useAuth } from '../hooks/useAuth';
 import { getUserFullTitle, getUserDisplayTitle, getUserRegionInfo, getUserStatusIcon } from '../utils/userUtils';
 import { functions } from '../services/firebase';
 import { httpsCallable } from 'firebase/functions';
+import HelpButton from '../components/HelpButton';
+import DashboardGuide from '../components/guides/DashboardGuide';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -795,10 +797,10 @@ const Dashboard = () => {
             </Paper>
           </Box>
         ) : (
-          /* PC - 2컬럼 레이아웃 */
+          /* PC - 반응형 레이아웃: 2K 이상에서 3컬럼, 이하에서 2컬럼 */
           <Grid container spacing={3}>
             {/* 좌측: 최근 생성한 글 */}
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} md={6} xl={4}>
               <Paper elevation={1} sx={{ height: 'fit-content' }}>
                 <Box sx={{ p: 3, borderBottom: '1px solid', borderColor: 'divider' }}>
                   <Typography variant="h6" sx={{ fontWeight: 600 }}>
@@ -840,91 +842,185 @@ const Dashboard = () => {
               </Paper>
             </Grid>
 
-            {/* 우측: 사이드바 카드들 */}
-            <Grid item xs={12} md={6}>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                {/* 발행 진행률 카드 */}
-                <PublishingProgress />
-
-                {/* 공지사항 카드 - 항상 표시 */}
-                <Paper elevation={1}>
-                  <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
-                    <Typography variant="h6" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center' }}>
-                      <Notifications sx={{ mr: 1, color: '#55207D' }} />
-                      공지사항
+            {/* 가운데: 공지사항 (2K 이상에서만 표시) */}
+            <Grid 
+              item 
+              xl={4}
+              sx={{ 
+                display: { xs: 'none', xl: 'block' } // 2K 미만에서는 숨김
+              }}
+            >
+              <Paper elevation={1} sx={{ height: 'fit-content' }}>
+                <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
+                  <Typography variant="h6" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center' }}>
+                    <Notifications sx={{ mr: 1, color: '#55207D' }} />
+                    공지사항
+                  </Typography>
+                </Box>
+                
+                {notices.length === 0 ? (
+                  <Box sx={{ p: 3 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      현재 공지사항이 없습니다.
                     </Typography>
                   </Box>
-                  
-                  {notices.length === 0 ? (
-                    <Box sx={{ p: 3 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        현재 공지사항이 없습니다.
+                ) : (
+                  <>
+                    <List>
+                      {notices.slice(0, 8).map((notice, index) => ( // 더 많은 공지사항 표시
+                        <React.Fragment key={notice.id || index}>
+                          <ListItem sx={{ alignItems: 'flex-start' }}>
+                            <ListItemText
+                              primary={
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                                      {notice.title || '제목 없음'}
+                                    </Typography>
+                                    {notice.priority === 'high' && (
+                                      <Chip label="중요" color="error" size="small" />
+                                    )}
+                                  </Box>
+                                  <Typography variant="caption" color="text.secondary">
+                                    {notice.createdAt ? new Date(notice.createdAt).toLocaleDateString('ko-KR', { 
+                                      month: 'short', 
+                                      day: 'numeric' 
+                                    }) : ''}
+                                  </Typography>
+                                </Box>
+                              }
+                              secondary={
+                                <Typography 
+                                  variant="body2" 
+                                  color="text.secondary"
+                                  sx={{
+                                    mt: 0.5,
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    display: '-webkit-box',
+                                    WebkitLineClamp: 2,
+                                    WebkitBoxOrient: 'vertical'
+                                  }}
+                                >
+                                  {notice.content || '내용 없음'}
+                                </Typography>
+                              }
+                            />
+                          </ListItem>
+                          {index < Math.min(notices.length, 8) - 1 && <Divider />}
+                        </React.Fragment>
+                      ))}
+                    </List>
+                    
+                    {notices.length > 8 && (
+                      <Box sx={{ p: 2, textAlign: 'center' }}>
+                        <Button variant="text" size="small" sx={{ color: planColor }}>
+                          더 보기 ({notices.length - 8}개 더)
+                        </Button>
+                      </Box>
+                    )}
+                  </>
+                )}
+              </Paper>
+            </Grid>
+
+            {/* 우측: 발행 진행률(상단) + 선거일정(하단), 2K 미만에서는 공지사항도 포함 */}
+            <Grid item xs={12} md={6} xl={4}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                {/* 발행 진행률 카드 - 항상 상단에 */}
+                <PublishingProgress />
+
+                {/* 2K 이상에서 표시되는 선거 일정 */}
+                <Box sx={{ display: { xs: 'none', xl: 'block' } }}>
+                  <ElectionDDay 
+                    position={user?.position || '기초의원'} 
+                    status={user?.status || '현역'} 
+                  />
+                </Box>
+
+                {/* 2K 미만에서만 표시되는 공지사항 */}
+                <Box sx={{ display: { xs: 'block', xl: 'none' } }}>
+                  <Paper elevation={1}>
+                    <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
+                      <Typography variant="h6" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center' }}>
+                        <Notifications sx={{ mr: 1, color: '#55207D' }} />
+                        공지사항
                       </Typography>
                     </Box>
-                  ) : (
-                    <>
-                      <List>
-                        {notices.slice(0, 5).map((notice, index) => (
-                          <React.Fragment key={notice.id || index}>
-                            <ListItem sx={{ alignItems: 'flex-start' }}>
-                              <ListItemText
-                                primary={
-                                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                                        {notice.title || '제목 없음'}
+                    
+                    {notices.length === 0 ? (
+                      <Box sx={{ p: 3 }}>
+                        <Typography variant="body2" color="text.secondary">
+                          현재 공지사항이 없습니다.
+                        </Typography>
+                      </Box>
+                    ) : (
+                      <>
+                        <List>
+                          {notices.slice(0, 5).map((notice, index) => (
+                            <React.Fragment key={notice.id || index}>
+                              <ListItem sx={{ alignItems: 'flex-start' }}>
+                                <ListItemText
+                                  primary={
+                                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                                          {notice.title || '제목 없음'}
+                                        </Typography>
+                                        {notice.priority === 'high' && (
+                                          <Chip label="중요" color="error" size="small" />
+                                        )}
+                                      </Box>
+                                      <Typography variant="caption" color="text.secondary">
+                                        {notice.createdAt ? new Date(notice.createdAt).toLocaleDateString('ko-KR', { 
+                                          month: 'short', 
+                                          day: 'numeric' 
+                                        }) : ''}
                                       </Typography>
-                                      {notice.priority === 'high' && (
-                                        <Chip label="중요" color="error" size="small" />
-                                      )}
                                     </Box>
-                                    <Typography variant="caption" color="text.secondary">
-                                      {notice.createdAt ? new Date(notice.createdAt).toLocaleDateString('ko-KR', { 
-                                        month: 'short', 
-                                        day: 'numeric' 
-                                      }) : ''}
+                                  }
+                                  secondary={
+                                    <Typography 
+                                      variant="body2" 
+                                      color="text.secondary"
+                                      sx={{
+                                        mt: 0.5,
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        display: '-webkit-box',
+                                        WebkitLineClamp: 2,
+                                        WebkitBoxOrient: 'vertical'
+                                      }}
+                                    >
+                                      {notice.content || '내용 없음'}
                                     </Typography>
-                                  </Box>
-                                }
-                                secondary={
-                                  <Typography 
-                                    variant="body2" 
-                                    color="text.secondary"
-                                    sx={{
-                                      mt: 0.5,
-                                      overflow: 'hidden',
-                                      textOverflow: 'ellipsis',
-                                      display: '-webkit-box',
-                                      WebkitLineClamp: 2,
-                                      WebkitBoxOrient: 'vertical'
-                                    }}
-                                  >
-                                    {notice.content || '내용 없음'}
-                                  </Typography>
-                                }
-                              />
-                            </ListItem>
-                            {index < Math.min(notices.length, 5) - 1 && <Divider />}
-                          </React.Fragment>
-                        ))}
-                      </List>
-                      
-                      {notices.length > 5 && (
-                        <Box sx={{ p: 2, textAlign: 'center' }}>
-                          <Button variant="text" size="small" sx={{ color: planColor }}>
-                            더 보기 ({notices.length - 5}개 더)
-                          </Button>
-                        </Box>
-                      )}
-                    </>
-                  )}
-                </Paper>
+                                  }
+                                />
+                              </ListItem>
+                              {index < Math.min(notices.length, 5) - 1 && <Divider />}
+                            </React.Fragment>
+                          ))}
+                        </List>
+                        
+                        {notices.length > 5 && (
+                          <Box sx={{ p: 2, textAlign: 'center' }}>
+                            <Button variant="text" size="small" sx={{ color: planColor }}>
+                              더 보기 ({notices.length - 5}개 더)
+                            </Button>
+                          </Box>
+                        )}
+                      </>
+                    )}
+                  </Paper>
+                </Box>
 
-                {/* 선거 일정 */}
-                <ElectionDDay 
-                  position={user?.position || '기초의원'} 
-                  status={user?.status || '현역'} 
-                />
+                {/* 2K 미만에서만 표시되는 선거 일정 */}
+                <Box sx={{ display: { xs: 'block', xl: 'none' } }}>
+                  <ElectionDDay 
+                    position={user?.position || '기초의원'} 
+                    status={user?.status || '현역'} 
+                  />
+                </Box>
 
               </Box>
             </Grid>
@@ -955,6 +1051,11 @@ const Dashboard = () => {
           {snack.message}
         </Alert>
       </Snackbar>
+
+      {/* 도움말 버튼 */}
+      <HelpButton title="대시보드 사용 가이드">
+        <DashboardGuide />
+      </HelpButton>
     </DashboardLayout>
   );
 };
