@@ -58,13 +58,69 @@ const SmallSevenSegmentChar = ({ character, color, inactiveColor = '#333', size 
             backgroundColor: pattern[index] === 1 ? color : inactiveColor,
             borderRadius: '0.5px',
             opacity: pattern[index] === 1 ? 1 : 0.2,
-            transition: 'all 0.3s ease',
+            transition: 'background-color 0.8s ease, box-shadow 0.8s ease',
             ...segments[segmentId]
           }}
         />
       ))}
     </Box>
   );
+};
+
+// 개별 세그먼트 컴포넌트 (컴포넌트 외부에서 정의)
+const Segment = ({ isActive, segmentId, mainColor, glowColor }) => {
+  const segments = {
+    a: { top: '2px', left: '7px', width: '31px', height: '6.5px' },        // 상단
+    b: { top: '8.5px', right: '2px', width: '6.5px', height: '32.5px' },        // 우상
+    c: { bottom: '8.5px', right: '2px', width: '6.5px', height: '32.5px' },     // 우하
+    d: { bottom: '2px', left: '7px', width: '31px', height: '6.5px' },     // 하단
+    e: { bottom: '8.5px', left: '2px', width: '6.5px', height: '32.5px' },      // 좌하
+    f: { top: '8.5px', left: '2px', width: '6.5px', height: '32.5px' },         // 좌상
+    g: { top: '50%', left: '7px', width: '31px', height: '6.5px', transform: 'translateY(-50%)' }  // 중간
+  };
+
+  return (
+    <Box
+      sx={{
+        position: 'absolute',
+        backgroundColor: isActive ? mainColor : '#222',
+        borderRadius: '3px',
+        boxShadow: isActive 
+          ? `0 0 8px ${glowColor}80, 0 0 16px ${glowColor}40, inset 0 0 4px ${glowColor}60`
+          : 'none',
+        opacity: isActive ? 1 : 0.15,
+        transition: 'background-color 0.5s ease-out, box-shadow 0.5s ease-out, opacity 0.5s ease-out',
+        ...segments[segmentId]
+      }}
+    />
+  );
+};
+
+// 색상 옵션 (컴포넌트 외부에서 정의)
+const colorOptions = [
+  { main: '#d22730', glow: '#d22730' }, // 클래식 레드
+  { main: '#152484', glow: '#152484' }, // 사이버 블루  
+  { main: '#006261', glow: '#006261' }, // 네온 그린
+  { main: '#f8c023', glow: '#f8c023' }, // 사이버펑키 옐로우
+  { main: '#55207d', glow: '#55207d' }, // 퍼플
+  { main: '#ffffff', glow: '#ffffff' }  // 화이트
+];
+
+// 7세그먼트 숫자 패턴 (a, b, c, d, e, f, g 순서)
+const digitPatterns = {
+  '0': [1, 1, 1, 1, 1, 1, 0],
+  '1': [0, 1, 1, 0, 0, 0, 0],
+  '2': [1, 1, 0, 1, 1, 0, 1],
+  '3': [1, 1, 1, 1, 0, 0, 1],
+  '4': [0, 1, 1, 0, 0, 1, 1],
+  '5': [1, 0, 1, 1, 0, 1, 1],
+  '6': [1, 0, 1, 1, 1, 1, 1],
+  '7': [1, 1, 1, 0, 0, 0, 0],
+  '8': [1, 1, 1, 1, 1, 1, 1],
+  '9': [1, 1, 1, 1, 0, 1, 1],
+  'D': [0, 1, 1, 1, 1, 0, 1],
+  '-': [0, 0, 0, 0, 0, 0, 1],
+  ' ': [0, 0, 0, 0, 0, 0, 0]
 };
 
 // 7-세그먼트 디스플레이 컴포넌트
@@ -74,26 +130,47 @@ const SevenSegmentDisplay = ({ dDay, cardHeight = '140px', color = '#d22730', on
     const saved = localStorage.getItem('electionDDayColorIndex');
     return saved ? parseInt(saved) : 0;
   });
-  
-  const colorOptions = [
-    { main: '#d22730', glow: '#d22730' }, // 클래식 레드
-    { main: '#152484', glow: '#152484' }, // 사이버 블루  
-    { main: '#006261', glow: '#006261' }, // 네온 그린
-    { main: '#f8c023', glow: '#f8c023' }, // 사이버펑키 옐로우
-    { main: '#55207d', glow: '#55207d' }, // 퍼플
-    { main: '#ffffff', glow: '#ffffff' }  // 화이트
-  ];
 
-  // 컴포넌트 마운트 시 저장된 색상으로 초기화
-  useEffect(() => {
+  // 현재 색상을 별도 state로 관리
+  const [currentColors, setCurrentColors] = useState(() => {
     const saved = localStorage.getItem('electionDDayColorIndex');
-    if (saved) {
-      const savedIndex = parseInt(saved);
-      if (savedIndex >= 0 && savedIndex < colorOptions.length) {
-        onColorChange && onColorChange(colorOptions[savedIndex].main);
+    const index = saved ? parseInt(saved) : 0;
+    return colorOptions[index] || colorOptions[0];
+  });
+
+  // 실시간 색상 변경 감지
+  useEffect(() => {
+    const updateColors = () => {
+      const saved = localStorage.getItem('electionDDayColorIndex');
+      if (saved) {
+        const savedIndex = parseInt(saved);
+        if (savedIndex >= 0 && savedIndex < colorOptions.length) {
+          setCurrentColorIndex(savedIndex);
+          setCurrentColors(colorOptions[savedIndex]);
+          onColorChange && onColorChange(colorOptions[savedIndex].main);
+        }
       }
-    }
-  }, []);
+    };
+
+    // 초기 색상 설정
+    updateColors();
+
+    // localStorage 변경 감지 (다른 탭)
+    const handleStorageChange = (e) => {
+      if (e.key === 'electionDDayColorIndex') {
+        updateColors();
+      }
+    };
+
+    // 폴링으로 같은 탭에서의 변경 감지
+    const interval = setInterval(updateColors, 100);
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
+  }, [onColorChange]);
 
   const handleColorChange = (direction) => {
     let newIndex;
@@ -103,25 +180,10 @@ const SevenSegmentDisplay = ({ dDay, cardHeight = '140px', color = '#d22730', on
       newIndex = currentColorIndex === colorOptions.length - 1 ? 0 : currentColorIndex + 1;
     }
     setCurrentColorIndex(newIndex);
+    setCurrentColors(colorOptions[newIndex]);
     // localStorage에 저장
     localStorage.setItem('electionDDayColorIndex', newIndex.toString());
     onColorChange && onColorChange(colorOptions[newIndex].main);
-  };
-  // 7세그먼트 숫자 패턴 (a, b, c, d, e, f, g 순서)
-  const digitPatterns = {
-    '0': [1, 1, 1, 1, 1, 1, 0],
-    '1': [0, 1, 1, 0, 0, 0, 0],
-    '2': [1, 1, 0, 1, 1, 0, 1],
-    '3': [1, 1, 1, 1, 0, 0, 1],
-    '4': [0, 1, 1, 0, 0, 1, 1],
-    '5': [1, 0, 1, 1, 0, 1, 1],
-    '6': [1, 0, 1, 1, 1, 1, 1],
-    '7': [1, 1, 1, 0, 0, 0, 0],
-    '8': [1, 1, 1, 1, 1, 1, 1],
-    '9': [1, 1, 1, 1, 0, 1, 1],
-    'D': [0, 1, 1, 1, 1, 0, 1],
-    '-': [0, 0, 0, 0, 0, 0, 1],
-    ' ': [0, 0, 0, 0, 0, 0, 0]
   };
 
   // 디데이 텍스트 생성
@@ -135,38 +197,8 @@ const SevenSegmentDisplay = ({ dDay, cardHeight = '140px', color = '#d22730', on
     }
   };
 
-  // 개별 세그먼트 컴포넌트
-  const Segment = ({ isActive, segmentId }) => {
-    const currentColors = colorOptions[currentColorIndex];
-    const segments = {
-      a: { top: '2px', left: '7px', width: '31px', height: '6.5px' },        // 상단
-      b: { top: '8.5px', right: '2px', width: '6.5px', height: '32.5px' },        // 우상
-      c: { bottom: '8.5px', right: '2px', width: '6.5px', height: '32.5px' },     // 우하
-      d: { bottom: '2px', left: '7px', width: '31px', height: '6.5px' },     // 하단
-      e: { bottom: '8.5px', left: '2px', width: '6.5px', height: '32.5px' },      // 좌하
-      f: { top: '8.5px', left: '2px', width: '6.5px', height: '32.5px' },         // 좌상
-      g: { top: '50%', left: '7px', width: '31px', height: '6.5px', transform: 'translateY(-50%)' }  // 중간
-    };
-
-    return (
-      <Box
-        sx={{
-          position: 'absolute',
-          backgroundColor: isActive ? currentColors.main : '#222',
-          borderRadius: '3px',
-          boxShadow: isActive 
-            ? `0 0 8px ${currentColors.glow}80, 0 0 16px ${currentColors.glow}40, inset 0 0 4px ${currentColors.glow}60`
-            : 'none',
-          opacity: isActive ? 1 : 0.15,
-          transition: 'all 0.3s ease',
-          ...segments[segmentId]
-        }}
-      />
-    );
-  };
-
   // 개별 숫자/문자 디스플레이
-  const DigitDisplay = ({ character }) => {
+  const DigitDisplay = ({ character, colors }) => {
     const pattern = digitPatterns[character] || digitPatterns[' '];
     const segmentIds = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
 
@@ -184,6 +216,8 @@ const SevenSegmentDisplay = ({ dDay, cardHeight = '140px', color = '#d22730', on
             key={segmentId}
             isActive={pattern[index] === 1}
             segmentId={segmentId}
+            mainColor={colors.main}
+            glowColor={colors.glow}
           />
         ))}
       </Box>
@@ -205,7 +239,7 @@ const SevenSegmentDisplay = ({ dDay, cardHeight = '140px', color = '#d22730', on
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.3), 0 2px 8px rgba(0,0,0,0.2)',
+        boxShadow: 'inset 4px 4px 12px rgba(0,0,0,0.8), inset -2px -2px 6px rgba(255,255,255,0.1), 0 2px 8px rgba(0,0,0,0.2)',
         gap: 2
       }}
     >
@@ -219,7 +253,7 @@ const SevenSegmentDisplay = ({ dDay, cardHeight = '140px', color = '#d22730', on
         }}
       >
         {displayText.split('').map((char, index) => (
-          <DigitDisplay key={index} character={char} />
+          <DigitDisplay key={index} character={char} colors={currentColors} />
         ))}
       </Box>
 
@@ -253,7 +287,7 @@ const SevenSegmentDisplay = ({ dDay, cardHeight = '140px', color = '#d22730', on
             <SmallSevenSegmentChar 
               key={index} 
               character={char} 
-              color={colorOptions[currentColorIndex].main}
+              color={currentColors.main}
               inactiveColor="#333"
             />
           ))}

@@ -1,11 +1,12 @@
 // frontend/src/components/loading/LoadingOverlay.jsx
 import React from 'react';
-import { Box, CircularProgress, Typography, Backdrop } from '@mui/material';
+import { Box, Typography, Backdrop } from '@mui/material';
+import BaseSpinner, { SPINNER_SIZES } from './BaseSpinner';
 
 const LoadingOverlay = ({ 
   open = false,
   message = '로딩 중...',
-  size = 60,
+  size = SPINNER_SIZES.medium,
   color = 'primary',
   backdrop = true,
   zIndex = 1300 
@@ -17,15 +18,15 @@ const LoadingOverlay = ({
         sx={{ 
           zIndex,
           color: '#fff',
-          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          backgroundColor: 'background.default',
           display: 'flex',
           flexDirection: 'column',
           gap: 2
         }}
       >
-        <CircularProgress size={size} color="inherit" />
+        <BaseSpinner size={size} color="inherit" />
         {message && (
-          <Typography variant="h6" color="inherit">
+          <Typography variant="h6" sx={{ color: '#f8c023' }}>
             {message}
           </Typography>
         )}
@@ -45,14 +46,14 @@ const LoadingOverlay = ({
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+        backgroundColor: 'background.default',
         zIndex,
         gap: 2
       }}
     >
-      <CircularProgress size={size} color={color} />
+      <BaseSpinner size={size} color={color} />
       {message && (
-        <Typography variant="body1" color="text.secondary">
+        <Typography variant="body1" sx={{ color: '#f8c023' }}>
           {message}
         </Typography>
       )}

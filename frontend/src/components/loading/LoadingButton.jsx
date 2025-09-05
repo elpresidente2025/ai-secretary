@@ -1,13 +1,14 @@
 // frontend/src/components/loading/LoadingButton.jsx
 import React from 'react';
-import { Button, CircularProgress } from '@mui/material';
+import { Button } from '@mui/material';
+import BaseSpinner, { SPINNER_SIZES } from './BaseSpinner';
 
 const LoadingButton = ({ 
   loading = false,
   children,
   disabled = false,
   loadingText = '',
-  spinnerSize = 20,
+  spinnerSize = SPINNER_SIZES.small,
   spinnerColor = 'inherit',
   variant = 'contained',
   color = 'primary',
@@ -19,7 +20,7 @@ const LoadingButton = ({
       variant={variant}
       color={color}
       disabled={loading || disabled}
-      startIcon={loading ? <CircularProgress size={spinnerSize} color={spinnerColor} /> : props.startIcon}
+      startIcon={loading ? <BaseSpinner size={spinnerSize} color={spinnerColor} /> : props.startIcon}
     >
       {loading && loadingText ? loadingText : children}
     </Button>

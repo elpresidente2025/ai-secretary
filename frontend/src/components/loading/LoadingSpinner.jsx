@@ -1,9 +1,10 @@
 // frontend/src/components/loading/LoadingSpinner.jsx
 import React from 'react';
-import { CircularProgress, Box, Typography } from '@mui/material';
+import { Box, Typography } from '@mui/material';
+import BaseSpinner, { SPINNER_SIZES } from './BaseSpinner';
 
 const LoadingSpinner = ({ 
-  size = 40, 
+  size = SPINNER_SIZES.medium, 
   message = '', 
   color = 'primary',
   centered = true,
@@ -28,12 +29,18 @@ const LoadingSpinner = ({
 
   return (
     <Box sx={containerSx}>
-      <CircularProgress size={size} color={color} />
+      <BaseSpinner size={size} color={color} />
       {message && (
         <Typography 
           variant="body2" 
-          color="text.secondary"
-          sx={{ mt: 1 }}
+          sx={{ 
+            mt: 1, 
+            color: '#f8c023',
+            // 카드 내부에서는 파란색으로 표시
+            '.MuiCard-root &, .MuiPaper-root &': {
+              color: '#152484'
+            }
+          }}
         >
           {message}
         </Typography>

@@ -23,10 +23,111 @@ import { useAuth } from '../../hooks/useAuth';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../../services/firebase';
 
+// 7-세그먼트 숫자 컴포넌트 (3자리 고정)
+const SevenSegmentNumber = ({ number, color, size = 'small' }) => {
+  const digitPatterns = {
+    '0': [1, 1, 1, 1, 1, 1, 0],
+    '1': [0, 1, 1, 0, 0, 0, 0],
+    '2': [1, 1, 0, 1, 1, 0, 1],
+    '3': [1, 1, 1, 1, 0, 0, 1],
+    '4': [0, 1, 1, 0, 0, 1, 1],
+    '5': [1, 0, 1, 1, 0, 1, 1],
+    '6': [1, 0, 1, 1, 1, 1, 1],
+    '7': [1, 1, 1, 0, 0, 0, 0],
+    '8': [1, 1, 1, 1, 1, 1, 1],
+    '9': [1, 1, 1, 1, 0, 1, 1],
+    ' ': [0, 0, 0, 0, 0, 0, 0] // 공백
+  };
+
+  const segments = {
+    a: { top: '1px', left: '2px', width: '12px', height: '2px' },
+    b: { top: '3px', right: '1px', width: '2px', height: '10px' },
+    c: { bottom: '3px', right: '1px', width: '2px', height: '10px' },
+    d: { bottom: '1px', left: '2px', width: '12px', height: '2px' },
+    e: { bottom: '3px', left: '1px', width: '2px', height: '10px' },
+    f: { top: '3px', left: '1px', width: '2px', height: '10px' },
+    g: { top: '50%', left: '2px', width: '12px', height: '2px', transform: 'translateY(-50%)' }
+  };
+
+  // 숫자를 3자리로 패딩 (100% 표시를 위해)
+  const numberStr = number.toString().padStart(3, ' ');
+  const segmentIds = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
+
+  return (
+    <Box sx={{ display: 'flex', gap: '2px' }}>
+      {numberStr.split('').map((digit, digitIndex) => {
+        const pattern = digitPatterns[digit] || digitPatterns['0'];
+        return (
+          <Box
+            key={digitIndex}
+            sx={{
+              position: 'relative',
+              width: '16px',
+              height: '28px'
+            }}
+          >
+            {segmentIds.map((segmentId, index) => (
+              <Box
+                key={segmentId}
+                sx={{
+                  position: 'absolute',
+                  backgroundColor: pattern[index] === 1 ? color : '#333',
+                  borderRadius: '1px',
+                  opacity: pattern[index] === 1 ? 1 : 0.2,
+                  boxShadow: pattern[index] === 1 ? `0 0 6px ${color}` : 'none',
+                  transition: 'background-color 0.8s ease, box-shadow 0.8s ease',
+                  ...segments[segmentId]
+                }}
+              />
+            ))}
+          </Box>
+        );
+      })}
+    </Box>
+  );
+};
+
 const PublishingProgress = () => {
   const { user } = useAuth();
   const [publishingStats, setPublishingStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [userPlanColor, setUserPlanColor] = useState('#152484');
+
+  // ElectionDDay와 색상 연동
+  useEffect(() => {
+    const colorOptions = [
+      '#d22730', '#152484', '#006261', '#f8c023', '#55207d', '#ffffff'
+    ];
+
+    const updateColor = () => {
+      const saved = localStorage.getItem('electionDDayColorIndex');
+      if (saved) {
+        const savedIndex = parseInt(saved);
+        if (savedIndex >= 0 && savedIndex < colorOptions.length) {
+          setUserPlanColor(colorOptions[savedIndex]);
+        }
+      }
+    };
+
+    // 초기 색상 설정
+    updateColor();
+
+    // localStorage 변경 감지 (다른 탭)
+    const handleStorageChange = (e) => {
+      if (e.key === 'electionDDayColorIndex') {
+        updateColor();
+      }
+    };
+
+    // 폴링으로 같은 탭에서의 변경 감지
+    const interval = setInterval(updateColor, 100);
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
+  }, []);
 
   const callGetPublishingStats = httpsCallable(functions, 'getPublishingStats');
 
@@ -184,8 +285,8 @@ const PublishingProgress = () => {
             <Publish sx={{ color: '#152484' }} />
             <Typography variant="h6">발행 목표</Typography>
           </Box>
-          <LinearProgress />
-          <Typography variant="caption" sx={{ mt: 2, display: 'block', color: '#f8c023' }}>
+          <LinearProgress sx={{ color: '#152484' }} />
+          <Typography variant="caption" sx={{ mt: 2, display: 'block', color: '#152484' }}>
             로딩 중...
           </Typography>
         </CardContent>
@@ -328,6 +429,35 @@ const PublishingProgress = () => {
         </Typography>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+          {/* 7-세그먼트 퍼센테이지 디스플레이 (좌측) */}
+          <Box
+            sx={{
+              padding: 1,
+              backgroundColor: '#0a0a0a',
+              border: '2px solid #333',
+              borderRadius: 2,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              boxShadow: 'inset 4px 4px 10px rgba(0,0,0,0.8), inset -2px -2px 5px rgba(255,255,255,0.1)'
+            }}
+          >
+            <SevenSegmentNumber 
+              number={Math.round(progress)} 
+              color={userPlanColor}
+            />
+            <Typography
+              variant="caption"
+              sx={{
+                color: '#fff',
+                fontFamily: 'monospace',
+                fontWeight: 700
+              }}
+            >
+              %
+            </Typography>
+          </Box>
+
           <Box sx={{ flexGrow: 1, position: 'relative' }}>
             {/* 사이버펑크 스타일 게이지 */}
             <Box
@@ -357,7 +487,7 @@ const PublishingProgress = () => {
                 }}
               />
               
-              {/* 진행 바 */}
+              {/* 진행 바 - 사용자 플랜 색상 */}
               <Box
                 sx={{
                   position: 'absolute',
@@ -366,15 +496,15 @@ const PublishingProgress = () => {
                   height: '100%',
                   width: `${progress}%`,
                   background: currentStage === 'completed'
-                    ? 'linear-gradient(90deg, #006261, #39ff14)'
+                    ? `linear-gradient(90deg, ${userPlanColor}, #39ff14)`
                     : currentStage === 'bonus'
-                    ? 'linear-gradient(90deg, #55207d, #9932cc)'  
-                    : 'linear-gradient(90deg, #152484, #00ffff)',
+                    ? 'linear-gradient(90deg, #f8c023, #ffff00)' // 보너스 단계는 노란색
+                    : `linear-gradient(90deg, ${userPlanColor}, ${userPlanColor}AA)`,
                   boxShadow: currentStage === 'completed'
                     ? '0 0 12px #39ff14, inset 0 0 8px rgba(57,255,20,0.3)'
                     : currentStage === 'bonus'
-                    ? '0 0 12px #9932cc, inset 0 0 8px rgba(153,50,204,0.3)'
-                    : '0 0 12px #00ffff, inset 0 0 8px rgba(0,255,255,0.3)',
+                    ? '0 0 12px #f8c023, inset 0 0 8px rgba(248,192,35,0.3)'
+                    : `0 0 12px ${userPlanColor}, inset 0 0 8px ${userPlanColor}50`,
                   transition: 'all 0.5s ease',
                   borderRadius: '1px'
                 }}
@@ -395,6 +525,42 @@ const PublishingProgress = () => {
                   }}
                 />
               ))}
+
+              {/* 다음 목표 지점 점멸 효과 */}
+              {(() => {
+                const nextGoalCount = published + 1;
+                const nextGoalPercent = (nextGoalCount / displayTarget) * 100;
+                
+                if (nextGoalCount <= displayTarget) {
+                  return (
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        left: `${nextGoalPercent}%`,
+                        top: '-2px',
+                        width: '4px',
+                        height: '20px',
+                        backgroundColor: '#f8c023',
+                        zIndex: 2,
+                        animation: 'nextGoalBlink 1.5s infinite ease-in-out',
+                        boxShadow: '0 0 12px #f8c023',
+                        borderRadius: '2px',
+                        '@keyframes nextGoalBlink': {
+                          '0%, 100%': { 
+                            opacity: 0.4,
+                            transform: 'translateX(-50%) scaleY(0.8)'
+                          },
+                          '50%': { 
+                            opacity: 1,
+                            transform: 'translateX(-50%) scaleY(1.2)'
+                          }
+                        }
+                      }}
+                    />
+                  );
+                }
+                return null;
+              })()}
               
               {/* 목표 달성 시 반짝임 효과 */}
               {isCompleted && (
@@ -414,68 +580,6 @@ const PublishingProgress = () => {
                   }}
                 />
               )}
-            </Box>
-          </Box>
-          
-          {/* 원형 퍼센테이지 디스플레이 */}
-          <Box
-            sx={{
-              position: 'relative',
-              width: 60,
-              height: 60,
-              borderRadius: '50%',
-              background: `conic-gradient(
-                ${currentStage === 'completed' 
-                  ? '#39ff14' 
-                  : currentStage === 'bonus'
-                  ? '#9932cc'
-                  : '#00ffff'
-                } ${progress * 3.6}deg,
-                #222 ${progress * 3.6}deg
-              )`,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              border: '2px solid #333',
-              boxShadow: currentStage === 'completed'
-                ? '0 0 12px #39ff14'
-                : currentStage === 'bonus'
-                ? '0 0 12px #9932cc'
-                : '0 0 12px #00ffff'
-            }}
-          >
-            <Box
-              sx={{
-                width: 46,
-                height: 46,
-                borderRadius: '50%',
-                backgroundColor: '#0a0a0a',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                border: '1px solid #333'
-              }}
-            >
-              <Typography
-                variant="body2"
-                sx={{
-                  color: currentStage === 'completed' 
-                    ? '#39ff14' 
-                    : currentStage === 'bonus'
-                    ? '#9932cc'
-                    : '#00ffff',
-                  fontWeight: 700,
-                  fontSize: '12px',
-                  fontFamily: 'monospace',
-                  textShadow: currentStage === 'completed'
-                    ? '0 0 8px #39ff14'
-                    : currentStage === 'bonus'
-                    ? '0 0 8px #9932cc'
-                    : '0 0 8px #00ffff'
-                }}
-              >
-                {Math.round(progress)}%
-              </Typography>
             </Box>
           </Box>
         </Box>

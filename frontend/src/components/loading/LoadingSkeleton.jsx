@@ -1,7 +1,6 @@
 // frontend/src/components/loading/LoadingSkeleton.jsx
 import React from 'react';
 import { 
-  Skeleton, 
   Table, 
   TableBody, 
   TableCell, 
@@ -12,6 +11,7 @@ import {
   Card,
   CardContent
 } from '@mui/material';
+import BaseSkeleton from './BaseSkeleton';
 
 // 기본 스켈레톤
 export const BasicSkeleton = ({ 
@@ -19,14 +19,16 @@ export const BasicSkeleton = ({
   width = '100%', 
   height = undefined,
   animation = 'pulse',
-  sx = {}
+  sx = {},
+  ...props
 }) => (
-  <Skeleton 
+  <BaseSkeleton 
     variant={variant} 
     width={width} 
     height={height} 
     animation={animation}
     sx={sx}
+    {...props}
   />
 );
 
@@ -55,7 +57,7 @@ export const TableSkeleton = ({
           <TableRow key={rowIndex}>
             {Array.from({ length: columns }).map((_, colIndex) => (
               <TableCell key={colIndex}>
-                <Skeleton 
+                <BaseSkeleton 
                   variant="text" 
                   width={colIndex === 0 ? '60%' : '80%'} 
                 />
@@ -81,8 +83,8 @@ export const CardSkeleton = ({
         <CardContent sx={{ p: 2 }}>
           {showAvatar && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-              <Skeleton variant="circular" width={40} height={40} />
-              <Skeleton variant="text" width="30%" />
+              <BaseSkeleton variant="circular" width={40} height={40} />
+              <BaseSkeleton variant="text" width="30%" />
             </Box>
           )}
           <Skeleton variant="text" width="60%" height={24} />
@@ -90,8 +92,8 @@ export const CardSkeleton = ({
           <Skeleton variant="text" width="80%" />
           {showActions && (
             <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
-              <Skeleton variant="rectangular" width={80} height={32} />
-              <Skeleton variant="rectangular" width={80} height={32} />
+              <BaseSkeleton variant="rectangular" width={80} height={32} />
+              <BaseSkeleton variant="rectangular" width={80} height={32} />
             </Box>
           )}
         </CardContent>

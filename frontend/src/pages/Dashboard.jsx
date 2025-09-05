@@ -37,6 +37,7 @@ import {
   Schedule,
   ContentCopy
 } from '@mui/icons-material';
+import { LoadingSpinner } from '../components/loading';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout';
 import NoticeBanner from '../components/dashboard/NoticeBanner';
@@ -304,10 +305,8 @@ const Dashboard = () => {
   if (isLoading) {
     return (
       <DashboardLayout>
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
-          <CircularProgress />
-          <Typography variant="h6" sx={{ ml: 2, color: '#f8c023' }}>로딩 중...</Typography>
-        </Box>
+        <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
+        </Container>
       </DashboardLayout>
     );
   }
