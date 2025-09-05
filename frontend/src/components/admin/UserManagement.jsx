@@ -18,9 +18,9 @@ import {
   DialogActions,
   TextField,
   Alert,
-  CircularProgress,
   Tooltip
 } from '@mui/material';
+import { LoadingSpinner } from '../loading';
 import {
   Person,
   Block,
@@ -163,7 +163,7 @@ const UserManagement = () => {
   return (
     <Paper sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-        <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'black' }}>
           <Person />
           사용자 관리
         </Typography>
@@ -190,30 +190,28 @@ const UserManagement = () => {
       </Box>
 
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-          <CircularProgress />
-        </Box>
+        <LoadingSpinner message="사용자 목록 로딩 중..." fullHeight={true} />
       ) : (
         <TableContainer>
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>이름</TableCell>
-                <TableCell>이메일</TableCell>
-                <TableCell>직책</TableCell>
-                <TableCell>선거구</TableCell>
-                <TableCell>상태</TableCell>
-                <TableCell>가입일</TableCell>
-                <TableCell align="center">작업</TableCell>
+                <TableCell sx={{ color: 'black' }}>이름</TableCell>
+                <TableCell sx={{ color: 'black' }}>이메일</TableCell>
+                <TableCell sx={{ color: 'black' }}>직책</TableCell>
+                <TableCell sx={{ color: 'black' }}>선거구</TableCell>
+                <TableCell sx={{ color: 'black' }}>상태</TableCell>
+                <TableCell sx={{ color: 'black' }}>가입일</TableCell>
+                <TableCell align="center" sx={{ color: 'black' }}>작업</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {filteredUsers.map((user) => (
                 <TableRow key={user.uid}>
-                  <TableCell>{user.name || '-'}</TableCell>
-                  <TableCell>{user.email}</TableCell>
-                  <TableCell>{user.position || '-'}</TableCell>
-                  <TableCell>{user.electoralDistrict || '-'}</TableCell>
+                  <TableCell sx={{ color: 'black' }}>{user.name || '-'}</TableCell>
+                  <TableCell sx={{ color: 'black' }}>{user.email}</TableCell>
+                  <TableCell sx={{ color: 'black' }}>{user.position || '-'}</TableCell>
+                  <TableCell sx={{ color: 'black' }}>{user.electoralDistrict || '-'}</TableCell>
                   <TableCell>
                     <Chip
                       label={user.isActive ? '활성' : '비활성'}
@@ -221,7 +219,7 @@ const UserManagement = () => {
                       size="small"
                     />
                   </TableCell>
-                  <TableCell>{formatDate(user.createdAt)}</TableCell>
+                  <TableCell sx={{ color: 'black' }}>{formatDate(user.createdAt)}</TableCell>
                   <TableCell align="center">
                     <Box sx={{ display: 'flex', gap: 1 }}>
                       {user.isActive ? (
@@ -265,7 +263,7 @@ const UserManagement = () => {
 
       {filteredUsers.length === 0 && !loading && (
         <Box sx={{ textAlign: 'center', py: 4 }}>
-          <Typography color="text.secondary">
+          <Typography sx={{ color: 'black' }}>
             {searchTerm ? '검색 결과가 없습니다.' : '등록된 사용자가 없습니다.'}
           </Typography>
         </Box>

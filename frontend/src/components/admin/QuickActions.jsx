@@ -197,12 +197,12 @@ function QuickActions() {
               onClick={toggleTestMode}
               sx={{ 
                 py: 2,
-                borderColor: testMode ? '#FF6B35' : '#FF6B35',
-                color: testMode ? 'white' : '#FF6B35',
-                backgroundColor: testMode ? '#FF6B35' : 'transparent',
+                borderColor: testMode ? '#d22730' : '#d22730',
+                color: testMode ? 'white' : '#d22730',
+                backgroundColor: testMode ? '#d22730' : 'transparent',
                 '&:hover': {
-                  borderColor: '#FF6B35',
-                  backgroundColor: testMode ? '#E55A2B' : 'rgba(255, 107, 53, 0.04)'
+                  borderColor: '#d22730',
+                  backgroundColor: testMode ? '#b71c1c' : 'rgba(210, 39, 48, 0.04)'
                 }
               }}
             >

@@ -132,7 +132,7 @@ const ProfileGuide = () => {
       </Box>
 
       <Box sx={{ mt: 3 }}>
-        <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: '#ff5722' }}>
+        <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: '#d22730' }}>
           주의사항
         </Typography>
         {warnings.map((warning, index) => (

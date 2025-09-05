@@ -14,7 +14,6 @@ import {
   Chip,
   IconButton,
   Tooltip,
-  CircularProgress,
   Snackbar,
   Alert,
   Dialog,
@@ -28,6 +27,7 @@ import {
 import { ContentCopy, DeleteOutline, Assignment, Publish, Link, Share } from '@mui/icons-material';
 import DashboardLayout from '../components/DashboardLayout';
 import SNSConversionModal from '../components/SNSConversionModal';
+import { LoadingSpinner } from '../components/loading';
 import HelpButton from '../components/HelpButton';
 import ManagementGuide from '../components/guides/ManagementGuide';
 import PostViewerModal from '../components/PostViewerModal';
@@ -257,9 +257,7 @@ export default function PostsListPage() {
     return (
       <DashboardLayout title="포스트 목록">
         <Container maxWidth="xl" sx={{ mt: 2 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-            <CircularProgress />
-          </Box>
+          <LoadingSpinner message="게시글 목록 로딩 중..." fullHeight={true} />
         </Container>
       </DashboardLayout>
     );
@@ -299,9 +297,7 @@ export default function PostsListPage() {
           </Typography>
 
           {loading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-              <CircularProgress />
-            </Box>
+            <LoadingSpinner message="게시글 목록 로딩 중..." fullHeight={true} />
           ) : error ? (
             <Alert severity="error">{error}</Alert>
           ) : posts.length === 0 ? (
@@ -397,7 +393,7 @@ export default function PostsListPage() {
                             <IconButton 
                               size="small" 
                               onClick={(e) => handleSNSConvert(p, e)}
-                              sx={{ color: '#E4405F' }}
+                              sx={{ color: '#d22730' }}
                             >
                               <Share fontSize="small" />
                             </IconButton>
@@ -465,6 +461,7 @@ export default function PostsListPage() {
                 startAdornment: <Link sx={{ color: 'text.secondary', mr: 1 }} />,
               }}
               helperText="네이버 블로그, 티스토리, 브런치, 인스타그램 등 실제 발행한 주소를 입력하세요."
+              FormHelperTextProps={{ sx: { color: 'black' } }}
             />
           </DialogContent>
           <DialogActions>

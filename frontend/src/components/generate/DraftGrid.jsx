@@ -22,11 +22,11 @@ export default function DraftGrid({
   if (items.length === 0) {
     return (
       <Paper sx={{ p: 4, textAlign: 'center', color: 'text.secondary' }}>
-        <AutoAwesome sx={{ fontSize: 64, mb: 2, opacity: 0.5 }} />
-        <Typography variant="h6" gutterBottom>
+        <AutoAwesome sx={{ fontSize: 64, mb: 2, color: '#152484' }} />
+        <Typography variant="h6" gutterBottom sx={{ color: 'black' }}>
           AI 원고 생성을 시작해보세요
         </Typography>
-        <Typography variant="body2">
+        <Typography variant="body2" sx={{ color: 'black' }}>
           상단 폼을 작성하고 "새 원고 생성" 버튼을 클릭하세요.<br />
           최대 {maxAttempts}개까지 다른 버전의 초안을 생성할 수 있습니다.
         </Typography>

@@ -5,13 +5,12 @@ import {
   Container,
   Box,
   TextField,
-  Button,
   Typography,
-  CircularProgress,
   Alert,
   Grid,
   Link as MuiLink,
 } from '@mui/material';
+import { LoadingButton, LoadingSpinner } from '../components/loading';
 
 const HomePage = () => {
   // ✅ 젠스파크 수정: 올바른 구조로 수정
@@ -74,9 +73,7 @@ const HomePage = () => {
   // 초기 인증 확인 중일 때 로딩 화면 표시
   if (authLoading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <CircularProgress />
-      </Box>
+      <LoadingSpinner message="시스템 초기화 중..." />
     );
   }
 
@@ -134,10 +131,12 @@ const HomePage = () => {
               {error}
             </Alert>
           )}
-          <Button
+          <LoadingButton
             type="submit"
             fullWidth
             variant="contained"
+            loading={isSubmitting}
+            loadingText="로그인 중..."
             sx={{ 
               mt: 3, 
               mb: 2,
@@ -146,10 +145,9 @@ const HomePage = () => {
                 bgcolor: '#003A87'
               }
             }}
-            disabled={isSubmitting}
           >
-            {isSubmitting ? <CircularProgress size={24} color="inherit" /> : '로그인'}
-          </Button>
+            로그인
+          </LoadingButton>
           <Grid container justifyContent="flex-end">
             <Grid item>
               <MuiLink component={RouterLink} to="/register" variant="body2">

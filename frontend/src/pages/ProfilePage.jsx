@@ -7,7 +7,6 @@ import {
   Typography,
   Paper,
   Container,
-  CircularProgress,
   Alert,
   Snackbar,
   Grid,
@@ -35,6 +34,7 @@ import { httpsCallable } from 'firebase/functions';
 import { functions } from '../services/firebase';
 import DashboardLayout from '../components/DashboardLayout';
 import UserInfoForm from '../components/UserInfoForm';
+import { LoadingSpinner, LoadingButton } from '../components/loading';
 import { useAuth } from '../hooks/useAuth';
 import { BIO_ENTRY_TYPES, BIO_TYPE_ORDER, BIO_CATEGORIES, VALIDATION_RULES } from '../constants/bio-types';
 import HelpButton from '../components/HelpButton';
@@ -473,9 +473,7 @@ export default function ProfilePage() {
           }
         }}
       >
-          <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
-            <CircularProgress />
-          </Box>
+          <LoadingSpinner message="프로필 로딩 중..." fullHeight={true} />
         </Container>
       </DashboardLayout>
     );
@@ -820,12 +818,12 @@ export default function ProfilePage() {
 
               {/* 저장 버튼 */}
               <Grid item xs={12}>
-                <Button
+                <LoadingButton
                   type="submit"
                   fullWidth
                   variant="contained"
-                  disabled={saving}
-                  startIcon={saving ? <CircularProgress size={20} /> : null}
+                  loading={saving}
+                  loadingText="저장 중..."
                   sx={{
                     mt: 2,
                     py: 1.5,
@@ -835,8 +833,8 @@ export default function ProfilePage() {
                     }
                   }}
                 >
-                  {saving ? '저장 중...' : '프로필 저장'}
-                </Button>
+                  프로필 저장
+                </LoadingButton>
               </Grid>
 
               {/* 에러 메시지 */}
@@ -918,6 +916,7 @@ export default function ProfilePage() {
                               placeholder={isRequired ? '본인의 정치 철학, 가치관, 지역에 대한 애정 등을 자유롭게 작성해주세요.' : '연설문, 기고문, 인터뷰 등을 자유롭게 올려 주세요.'}
                               inputProps={{ maxLength: typeConfig.maxLength }}
                               helperText={`${entry.content?.length || 0}/${typeConfig.maxLength}자`}
+                              FormHelperTextProps={{ sx: { color: 'black' } }}
                             />
                           </Box>
                           
@@ -997,7 +996,7 @@ export default function ProfilePage() {
                     const typeConfig = Object.values(BIO_ENTRY_TYPES).find(t => t.id === entry.type) || BIO_ENTRY_TYPES.POLICY;
                     
                     return (
-                      <Grid item xs={12} sm={6} key={entry.id}>
+                      <Grid item xs={12} sm={6} md={4} key={entry.id}>
                         <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                           <CardContent sx={{ flex: 1 }}>
                             <Box sx={{ mb: 2 }}>
@@ -1090,19 +1089,18 @@ export default function ProfilePage() {
           </Grid>
         </Grid>
 
-        {/* 회원탈퇴 버튼 (최하단, 1열) */}
-        <Box sx={{ mt: 4, textAlign: 'center' }}>
+        {/* 회원탈퇴 버튼 (최하단, 카드 폭과 동일) */}
+        <Box sx={{ mt: 4 }}>
           <Button
             onClick={() => setDeleteDialogOpen(true)}
-            variant="outlined"
-            color="error"
+            variant="contained"
             startIcon={<DeleteForever />}
+            fullWidth
             sx={{
-              borderColor: '#d32f2f',
-              color: '#d32f2f',
+              bgcolor: '#d22730',
+              color: 'white',
               '&:hover': {
-                borderColor: '#b71c1c',
-                bgcolor: 'rgba(211, 47, 47, 0.04)'
+                bgcolor: '#b71c1c'
               }
             }}
           >
@@ -1175,6 +1173,7 @@ export default function ProfilePage() {
                   ? '정확히 "회원탈퇴"를 입력해주세요.' 
                   : ''
               }
+              FormHelperTextProps={{ sx: { color: 'black' } }}
             />
           </DialogContent>
           
@@ -1185,15 +1184,17 @@ export default function ProfilePage() {
             >
               취소
             </Button>
-            <Button
+            <LoadingButton
               onClick={handleDeleteAccount}
               color="error"
               variant="contained"
-              disabled={deleting || deleteConfirmText !== '회원탈퇴'}
-              startIcon={deleting ? <CircularProgress size={20} /> : <DeleteForever />}
+              disabled={deleteConfirmText !== '회원탈퇴'}
+              loading={deleting}
+              loadingText="탈퇴 처리 중..."
+              startIcon={<DeleteForever />}
             >
-              {deleting ? '처리 중...' : '회원탈퇴'}
-            </Button>
+              회원탈퇴
+            </LoadingButton>
           </DialogActions>
         </Dialog>
 

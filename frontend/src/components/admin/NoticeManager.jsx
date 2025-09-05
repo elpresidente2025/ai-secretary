@@ -209,7 +209,7 @@ function NoticeManager() {
         </Button>
       </Box>
 
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+      <Typography variant="body2" sx={{ mb: 3, color: 'black' }}>
         작성된 공지사항은 모든 사용자의 대시보드에 표시됩니다.
       </Typography>
 
@@ -217,26 +217,26 @@ function NoticeManager() {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>제목</TableCell>
-              <TableCell>유형</TableCell>
-              <TableCell>우선순위</TableCell>
-              <TableCell>상태</TableCell>
-              <TableCell>작성일</TableCell>
-              <TableCell>만료일</TableCell>
-              <TableCell>작업</TableCell>
+              <TableCell sx={{ color: 'black' }}>제목</TableCell>
+              <TableCell sx={{ color: 'black' }}>유형</TableCell>
+              <TableCell sx={{ color: 'black' }}>우선순위</TableCell>
+              <TableCell sx={{ color: 'black' }}>상태</TableCell>
+              <TableCell sx={{ color: 'black' }}>작성일</TableCell>
+              <TableCell sx={{ color: 'black' }}>만료일</TableCell>
+              <TableCell sx={{ color: 'black' }}>작업</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {loading ? (
               <TableRow>
                 <TableCell colSpan={7} align="center">
-                  <Typography sx={{ color: '#f8c023' }}>로딩 중...</Typography>
+                  <Typography sx={{ color: 'black' }}>로딩 중...</Typography>
                 </TableCell>
               </TableRow>
             ) : notices.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} align="center">
-                  <Typography color="text.secondary">
+                  <Typography sx={{ color: 'black' }}>
                     📢 작성된 공지사항이 없습니다.
                   </Typography>
                 </TableCell>
@@ -245,17 +245,17 @@ function NoticeManager() {
               notices.map((notice) => (
                 <TableRow key={notice.id} hover>
                   <TableCell>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'black' }}>
                       {notice.title}
                     </Typography>
                     <Typography 
                       variant="body2" 
-                      color="text.secondary"
                       sx={{
                         maxWidth: 300,
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap'
+                        whiteSpace: 'nowrap',
+                        color: 'black'
                       }}
                     >
                       {notice.content}
@@ -292,13 +292,13 @@ function NoticeManager() {
                     </Box>
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2">
+                    <Typography variant="body2" sx={{ color: 'black' }}>
                       {notice.createdAt ? 
                         new Date(notice.createdAt).toLocaleDateString() : '-'}
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{ color: 'black' }}>
                       {notice.expiresAt ? 
                         new Date(notice.expiresAt).toLocaleDateString() : '무제한'}
                     </Typography>

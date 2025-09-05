@@ -15,7 +15,7 @@ const GenerateGuide = () => {
       title: '1. 주제 입력하기',
       description: '대시보드에서 "새 원고 생성" 버튼을 클릭하세요.',
       examples: [
-        { bad: '❌ 나쁜 예: "교통 문제"', color: '#ff5252' },
+        { bad: '❌ 나쁜 예: "교통 문제"', color: '#d22730' },
         { good: '⭐ 좋은 예: "○○동 스쿨존 신호등 설치 건의"', color: '#4caf50' },
         { good: '⭐ 좋은 예: "청년 월세 지원 조례 발의 계획"', color: '#4caf50' }
       ]

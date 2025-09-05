@@ -5,10 +5,10 @@ import {
   Button,
   Typography,
   Chip,
-  CircularProgress,
   Alert
 } from '@mui/material';
 import { AutoAwesome, Refresh, EmojiEvents } from '@mui/icons-material';
+import { LoadingButton } from '../loading';
 
 export default function GenerateActions({
   onGenerate,
@@ -41,28 +41,57 @@ export default function GenerateActions({
           gap: 2,
           width: isMobile ? '100%' : 'auto'
         }}>
-          <Button
+          <LoadingButton
             variant="contained"
             size={isMobile ? "medium" : "large"}
-            startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <AutoAwesome />}
+            startIcon={<AutoAwesome />}
             onClick={() => onGenerate(false)}
-            disabled={!canGenerate || loading}
+            disabled={!canGenerate}
+            loading={loading}
+            loadingText="생성 중..."
             sx={{ 
               minWidth: isMobile ? 'auto' : 160,
-              flex: isMobile ? 1 : 'none'
+              flex: isMobile ? 1 : 'none',
+              bgcolor: '#152484 !important',
+              color: 'white !important',
+              '&.Mui-disabled': {
+                bgcolor: '#152484 !important',
+                color: 'white !important'
+              },
+              ...(canGenerate && !loading && {
+                boxShadow: '0 0 10px rgba(0, 255, 255, 0.8)',
+                '&:hover': {
+                  bgcolor: '#152484 !important',
+                  boxShadow: '0 0 15px rgba(0, 255, 255, 1.0)',
+                }
+              })
             }}
           >
-            {loading ? '생성 중...' : attempts === 0 ? '새 원고 생성' : '다른 버전 생성'}
-          </Button>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <span>{attempts === 0 ? '새 원고 생성' : '다른 버전 생성'}</span>
+              <Chip 
+                label={`${attemptsRemaining}/${maxAttempts}`}
+                size="small"
+                sx={{
+                  bgcolor: 'rgba(255, 255, 255, 0.2)',
+                  color: 'white',
+                  fontSize: '0.75rem',
+                  height: '20px'
+                }}
+              />
+            </Box>
+          </LoadingButton>
 
           {/* 보너스 생성 버튼 */}
           {bonusStats.hasBonus && (
-            <Button
+            <LoadingButton
               variant="contained"
               size={isMobile ? "medium" : "large"}
-              startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <EmojiEvents />}
+              startIcon={<EmojiEvents />}
               onClick={() => onGenerate(true)}
-              disabled={!canGenerate || loading}
+              disabled={!canGenerate}
+              loading={loading}
+              loadingText="보너스 생성 중..."
               sx={{ 
                 minWidth: isMobile ? 'auto' : 140,
                 bgcolor: '#006261',
@@ -71,7 +100,7 @@ export default function GenerateActions({
               }}
             >
               보너스 생성 ({bonusStats.availableBonus})
-            </Button>
+            </LoadingButton>
           )}
 
           {drafts.length > 0 && (
@@ -89,40 +118,19 @@ export default function GenerateActions({
           )}
         </Box>
 
-        {/* 오른쪽: 재생성 카운터 */}
-        <Box sx={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: 1,
-          justifyContent: isMobile ? 'center' : 'flex-end'
-        }}>
-          <Typography variant="body2" color="text.secondary">
-            재생성 가능:
-          </Typography>
-          <Chip 
-            label={`${attemptsRemaining}/${maxAttempts}`}
-            size="small"
-            color={
-              attemptsRemaining > 1 ? "primary" : 
-              attemptsRemaining === 1 ? "warning" : 
-              "error"
-            }
-            variant="outlined"
-          />
-        </Box>
       </Box>
 
       {/* 모바일에서 추가 안내 */}
       {isMobile && (
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1, textAlign: 'center' }}>
+        <Typography variant="caption" sx={{ display: 'block', mt: 1, textAlign: 'center', color: 'black' }}>
           한 번에 1개만 생성
         </Typography>
       )}
 
       {/* 주의사항 */}
       <Alert severity="warning" sx={{ mt: 2 }}>
-        <Typography variant="body2" fontWeight="bold">⚠️ 주의사항</Typography>
-        <Typography variant="body2">
+        <Typography variant="body2" fontWeight="bold" sx={{ color: 'black' }}>⚠️ 주의사항</Typography>
+        <Typography variant="body2" sx={{ color: 'black' }}>
           전자두뇌비서관은 원고 초안을 제공하며, 반드시 사용자가 최종 검수 및 수정해야 합니다.
         </Typography>
       </Alert>

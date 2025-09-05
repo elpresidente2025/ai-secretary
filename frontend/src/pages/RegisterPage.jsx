@@ -9,7 +9,6 @@ import {
   Box,
   Paper,
   TextField,
-  CircularProgress,
   Alert,
   Link,
   Avatar,
@@ -18,7 +17,7 @@ import {
   Checkbox,
 } from '@mui/material';
 import UserInfoForm from '../components/UserInfoForm';
-import TermsModal from '../components/TermsModal';
+import { LoadingButton } from '../components/loading';
 
 function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -40,7 +39,6 @@ function RegisterPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
-  const [termsModalOpen, setTermsModalOpen] = useState(false);
   const navigate = useNavigate();
   const { register } = useAuth();
 
@@ -187,13 +185,14 @@ function RegisterPage() {
   }
 
   return (
-    <Container component="main" maxWidth="md">
+    <Container component="main" maxWidth="md" sx={{ height: '100vh', overflow: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <Box
         sx={{
-          marginTop: 8,
+          width: '100%',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
+          py: 2,
         }}
       >
         <Box
@@ -206,7 +205,7 @@ function RegisterPage() {
             mb: 2
           }}
         />
-        <Typography component="h1" variant="h5">
+        <Typography component="h1" variant="h5" sx={{ color: 'white' }}>
           전자두뇌비서관 회원가입
         </Typography>
 
@@ -248,6 +247,7 @@ function RegisterPage() {
                   onChange={handleChange}
                   disabled={loading}
                   helperText="6자 이상 입력해주세요."
+                  FormHelperTextProps={{ sx: { color: 'black' } }}
                 />
               </Grid>
 
@@ -263,6 +263,7 @@ function RegisterPage() {
                   onChange={handleChange}
                   disabled={loading}
                   helperText="위와 같은 비밀번호를 입력해주세요."
+                  FormHelperTextProps={{ sx: { color: 'black' } }}
                 />
               </Grid>
 
@@ -297,26 +298,147 @@ function RegisterPage() {
                       onChange={handleChange}
                       disabled={loading}
                       color="primary"
+                      sx={{
+                        color: '#152484',
+                        '&.Mui-checked': {
+                          color: '#152484',
+                        },
+                        '&.Mui-disabled': {
+                          color: 'rgba(0, 0, 0, 0.26)',
+                        }
+                      }}
                     />
                   }
                   label={
                     <Typography variant="body2">
                       <strong>이용약관</strong> 및 <strong>개인정보처리방침</strong>에 동의합니다. (필수)
-                      <br />
-                      <Link 
-                        component="button" 
-                        variant="body2" 
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setTermsModalOpen(true);
-                        }}
-                        sx={{ cursor: 'pointer' }}
-                      >
-                        약관 내용 보기
-                      </Link>
                     </Typography>
                   }
                 />
+              </Grid>
+
+              {/* 약관 내용을 스크롤 가능한 텍스트박스로 표시 */}
+              <Grid item xs={12}>
+                <Box
+                  sx={{
+                    border: '1px solid #ccc',
+                    borderRadius: 1,
+                    p: 2,
+                    maxHeight: 150,
+                    overflowY: 'auto',
+                    backgroundColor: '#f9f9f9',
+                    fontSize: '0.875rem',
+                    lineHeight: 1.5
+                  }}
+                >
+                  <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 1, color: '#152484' }}>
+                    전자두뇌비서관 이용약관
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>
+                    최종 개정일: 2025년 9월 1일
+                  </Typography>
+                  
+                  <Typography paragraph sx={{ fontSize: '0.75rem' }}>
+                    본 이용약관은 사이버브레인(이하 "회사")이 제공하는 전자두뇌비서관(이하 "서비스")를 이용함에 있어 회사와 이용자 간의 권리, 의무 및 책임사항을 규정함을 목적으로 합니다.
+                  </Typography>
+
+                  <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mt: 2, mb: 1, color: '#152484', fontSize: '0.8rem' }}>
+                    제1조 (목적)
+                  </Typography>
+                  <Typography paragraph sx={{ fontSize: '0.75rem' }}>
+                    이 약관은 회사가 제공하는 AI 콘텐츠 생성 서비스의 이용과 관련하여 회사와 이용자 간의 권리, 의무 및 책임사항, 이용조건 및 절차 등 기본적인 사항을 규정합니다.
+                  </Typography>
+
+                  <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mt: 2, mb: 1, color: '#152484', fontSize: '0.8rem' }}>
+                    제2조 (정의)
+                  </Typography>
+                  <Typography paragraph sx={{ fontSize: '0.75rem' }}>
+                    1. "서비스"란 회사가 제공하는 블로그 원고 초안 자동 생성 및 관련 지원 서비스를 말합니다.<br />
+                    2. "이용자"란 본 약관에 동의하고 회사의 서비스를 이용하는 개인 또는 단체를 말합니다.
+                  </Typography>
+
+                  <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mt: 2, mb: 1, color: '#152484', fontSize: '0.8rem' }}>
+                    제3조 (약관의 효력 및 변경)
+                  </Typography>
+                  <Typography paragraph sx={{ fontSize: '0.75rem' }}>
+                    1. 본 약관은 서비스 화면에 게시하거나 기타의 방법으로 이용자에게 공지함으로써 효력을 발생합니다.<br />
+                    2. 회사는 필요한 경우 관련 법령을 위반하지 않는 범위에서 이 약관을 변경할 수 있습니다.
+                  </Typography>
+
+                  <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mt: 2, mb: 1, color: '#152484', fontSize: '0.8rem' }}>
+                    제4조 (이용계약의 성립)
+                  </Typography>
+                  <Typography paragraph sx={{ fontSize: '0.75rem' }}>
+                    1. 이용계약은 이용자가 약관의 내용에 동의하고 서비스 이용을 신청한 후, 회사가 이를 승낙함으로써 성립합니다.<br />
+                    2. 회사는 타인의 명의를 도용하거나 허위 정보를 기재한 경우, 기타 회사의 정책상 부적절하다고 판단되는 경우 승낙을 하지 않을 수 있습니다.
+                  </Typography>
+
+                  <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mt: 2, mb: 1, color: '#152484', fontSize: '0.8rem' }}>
+                    제5조 (개인정보 수집 및 이용)
+                  </Typography>
+                  <Typography paragraph sx={{ fontSize: '0.75rem' }}>
+                    회사는 서비스 제공을 위해 필요한 개인정보를 수집하고 이를 안전하게 보호하기 위해 노력합니다. 자세한 내용은 개인정보처리방침을 참조하시기 바랍니다.
+                  </Typography>
+
+                  <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mt: 2, mb: 1, color: '#152484', fontSize: '0.8rem' }}>
+                    제6조 (개인정보의 국외이전)
+                  </Typography>
+                  <Typography paragraph sx={{ fontSize: '0.75rem' }}>
+                    1. 회사는 서비스 제공을 위하여 개인정보를 국외에 이전합니다.<br />
+                    2. 이전받는 자: Google LLC (Firebase, Gemini API), 이전 국가: 미국<br />
+                    3. 이전 목적: 데이터 저장, 서비스 운영 및 안정성 확보<br />
+                    4. 보유 및 이용기간: 이용자의 서비스 탈퇴 또는 동의 철회 시까지
+                  </Typography>
+
+                  <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mt: 2, mb: 1, color: '#152484', fontSize: '0.8rem' }}>
+                    제10조 (환불 규정)
+                  </Typography>
+                  <Typography paragraph sx={{ fontSize: '0.75rem' }}>
+                    1. 구매일 또는 서비스 제공 시작일로부터 7일 이내에는 전액 환불이 가능합니다.<br />
+                    2. 원고 생성 횟수를 일부 사용한 이후에는 미사용 횟수에 해당하는 금액을 일할 계산하여 환불합니다.<br />
+                    3. 회사는 환불 요청을 받은 날로부터 7영업일 이내에 환불을 완료하며, 환불은 카드 결제 취소를 통해 처리됩니다.
+                  </Typography>
+
+                  <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mt: 2, mb: 1, color: '#152484', fontSize: '0.8rem' }}>
+                    제12조 (이중당적자의 이용 제한)
+                  </Typography>
+                  <Typography paragraph sx={{ fontSize: '0.75rem' }}>
+                    1. 이용자가 이중당적 상태임이 확인될 경우, 회사는 서비스 이용계약을 해지하고 관련 사실을 관계기관에 통보할 수 있습니다.<br />
+                    2. 이중당적 사실로 인해 발생한 모든 불이익은 이용자 본인의 책임이며, 회사는 이에 대해 일절 책임지지 않습니다.
+                  </Typography>
+
+                  <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mt: 2, mb: 1, color: '#152484', fontSize: '0.8rem' }}>
+                    제13조 (결제 및 정기결제)
+                  </Typography>
+                  <Typography paragraph sx={{ fontSize: '0.75rem' }}>
+                    1. 서비스 이용료는 매월 1일에 자동 결제됩니다.<br />
+                    2. 월 중 가입 시에도 정가로 결제되며, 다음 결제일은 익월 1일입니다.<br />
+                    3. 원고 생성 횟수는 매월 1일 0시에 플랜별 기본 횟수로 초기화됩니다.<br />
+                    4. 잔여 생성 횟수는 다음 달로 이월되지 않습니다.
+                  </Typography>
+
+                  <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mt: 2, mb: 1, color: '#152484', fontSize: '0.8rem' }}>
+                    제14조 (면책조항)
+                  </Typography>
+                  <Typography paragraph sx={{ fontSize: '0.75rem' }}>
+                    1. 회사는 AI가 생성한 콘텐츠의 정확성, 완전성, 적법성에 대해 보장하지 않으며, 이용자가 해당 콘텐츠를 사용하는 과정에서 발생한 문제에 대해 책임지지 않습니다.<br />
+                    2. 회사는 천재지변, 기술적 장애 등 불가항력적인 사유로 인한 서비스 제공 중단에 대해 책임을 지지 않습니다.
+                  </Typography>
+
+                  <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mt: 2, mb: 1, color: '#152484', fontSize: '0.8rem' }}>
+                    제15조 (준거법 및 관할)
+                  </Typography>
+                  <Typography paragraph sx={{ fontSize: '0.75rem' }}>
+                    1. 본 약관은 대한민국 법률에 따라 해석됩니다.<br />
+                    2. 서비스 이용과 관련하여 회사와 이용자 간에 발생한 분쟁에 대해서는 인천지방법원 부천지원 또는 인천지방법원 북부지원을 1심 관할법원으로 합니다.
+                  </Typography>
+
+                  <Box sx={{ mt: 2, p: 1.5, bgcolor: '#e3f2fd', borderRadius: 1 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 'bold', fontSize: '0.75rem', color: '#152484' }}>
+                      부칙: 본 약관은 2025년 9월 1일부터 시행됩니다.
+                    </Typography>
+                  </Box>
+                </Box>
               </Grid>
 
               {/* 에러 메시지 */}
@@ -328,20 +450,21 @@ function RegisterPage() {
 
               {/* 가입 버튼 */}
               <Grid item xs={12}>
-                <Button
+                <LoadingButton
                   type="submit"
                   fullWidth
                   variant="contained"
                   size="large"
-                  disabled={loading}
+                  loading={loading}
+                  loadingText="가입 처리 중..."
                   sx={{ 
                     mt: 2, mb: 2, py: 1.5,
                     bgcolor: '#152484',
                     '&:hover': { bgcolor: '#003A87' }
                   }}
                 >
-                  {loading ? <CircularProgress size={24} /> : '회원가입'}
-                </Button>
+                  회원가입
+                </LoadingButton>
               </Grid>
 
               {/* 로그인 링크 */}
@@ -357,11 +480,6 @@ function RegisterPage() {
           </Box>
         </Paper>
       </Box>
-
-      <TermsModal 
-        open={termsModalOpen} 
-        onClose={() => setTermsModalOpen(false)} 
-      />
     </Container>
   );
 }

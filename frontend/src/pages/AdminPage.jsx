@@ -95,7 +95,7 @@ function AdminPage() {
             >
               시스템 관리
             </Typography>
-            <Typography variant="body1" color="text.secondary">
+            <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
               전자두뇌비서관 서비스의 전반적인 상태를 모니터링하고 관리합니다.
             </Typography>
           </Box>
@@ -167,11 +167,11 @@ function AdminPage() {
             textAlign: 'center'
           }}
         >
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
             💡 <strong>1인 운영 최적화</strong>: 필요한 정보만 간단히 표시하고, 
             상세 분석은 CSV 다운로드를 활용하세요.
           </Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+          <Typography variant="caption" sx={{ mt: 1, display: 'block', color: 'rgba(255, 255, 255, 0.7)' }}>
             자동 새로고침이 비활성화되어 API 비용을 절약합니다. 
             필요시 수동 새로고침을 이용하세요.
           </Typography>

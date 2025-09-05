@@ -1,10 +1,11 @@
 // frontend/src/App.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
-import { Box, CircularProgress } from '@mui/material';
+import { Box } from '@mui/material';
 import { useAuth } from './hooks/useAuth';
 import { getSystemStatus } from './services/firebaseService';
 import MaintenancePage from './components/MaintenancePage';
+import { LoadingOverlay } from './components/loading';
 
 function App() {
   const { user, loading, logout } = useAuth();
@@ -105,13 +106,14 @@ function App() {
   if (loading || statusLoading) {
     return (
       <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
         height: '100vh',
         bgcolor: '#141414'
       }}>
-        <CircularProgress />
+        <LoadingOverlay 
+          open={true} 
+          message="시스템 초기화 중..." 
+          backdrop={false}
+        />
       </Box>
     );
   }

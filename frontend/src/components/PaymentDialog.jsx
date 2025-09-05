@@ -118,12 +118,21 @@ const PaymentDialog = ({ open, onClose, selectedPlan }) => {
               </Typography>
             </Box>
 
+            <Alert severity="info" sx={{ mb: 2 }}>
+              <Typography variant="body2">
+                <strong>서비스 제공 방식</strong><br/>
+                • 본 서비스는 월 단위 계약으로 매월 1일 자동 갱신됩니다<br/>
+                • 원고 생성 횟수는 결제 완료 즉시 제공되어 바로 이용 가능합니다<br/>
+                • 월간 서비스로 언제든 해지 가능합니다
+              </Typography>
+            </Alert>
+            
             <Alert severity="warning" sx={{ mb: 2 }}>
               <Typography variant="body2">
-                <strong>결제 전 확인사항</strong><br/>
-                • 결제는 매월 자동 갱신됩니다<br/>
-                • 환불은 결제일로부터 7일 이내에만 가능합니다<br/>
-                • 플랜 변경은 언제든지 가능합니다
+                <strong>환불 정책</strong><br/>
+                • 구매일로부터 7일 이내: 전액 환불 가능<br/>
+                • 원고 생성 이용 후: 미사용 횟수만큼 일할 계산하여 환불<br/>
+                • 환불 요청 시 7영업일 이내 처리 완료
               </Typography>
             </Alert>
           </Box>

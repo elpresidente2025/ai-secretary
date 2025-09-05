@@ -328,60 +328,158 @@ const PublishingProgress = () => {
         </Typography>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-          <Box sx={{ flexGrow: 1 }}>
-            <LinearProgress
-              variant="determinate"
-              value={progress}
+          <Box sx={{ flexGrow: 1, position: 'relative' }}>
+            {/* 사이버펑크 스타일 게이지 */}
+            <Box
               sx={{
-                height: 12,
-                borderRadius: 6,
-                backgroundColor: 'rgba(0, 0, 0, 0.1)',
-                '& .MuiLinearProgress-bar': {
-                  backgroundColor: isCompleted ? '#006261' : '#152484',
-                  borderRadius: 6,
-                },
+                position: 'relative',
+                height: 16,
+                backgroundColor: '#0a0a0a',
+                border: '1px solid #333',
+                borderRadius: 2,
+                overflow: 'hidden',
+                boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.3)'
               }}
-            />
+            >
+              {/* 배경 그리드 패턴 */}
+              <Box
+                sx={{
+                  position: 'absolute',
+                  width: '100%',
+                  height: '100%',
+                  background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.05) 50%, transparent 100%)',
+                  backgroundSize: '8px 100%',
+                  animation: currentStage !== 'basic' ? 'cyberpunkScan 2s infinite linear' : 'none',
+                  '@keyframes cyberpunkScan': {
+                    '0%': { transform: 'translateX(-100%)' },
+                    '100%': { transform: 'translateX(100%)' }
+                  }
+                }}
+              />
+              
+              {/* 진행 바 */}
+              <Box
+                sx={{
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  height: '100%',
+                  width: `${progress}%`,
+                  background: currentStage === 'completed'
+                    ? 'linear-gradient(90deg, #006261, #39ff14)'
+                    : currentStage === 'bonus'
+                    ? 'linear-gradient(90deg, #55207d, #9932cc)'  
+                    : 'linear-gradient(90deg, #152484, #00ffff)',
+                  boxShadow: currentStage === 'completed'
+                    ? '0 0 12px #39ff14, inset 0 0 8px rgba(57,255,20,0.3)'
+                    : currentStage === 'bonus'
+                    ? '0 0 12px #9932cc, inset 0 0 8px rgba(153,50,204,0.3)'
+                    : '0 0 12px #00ffff, inset 0 0 8px rgba(0,255,255,0.3)',
+                  transition: 'all 0.5s ease',
+                  borderRadius: '1px'
+                }}
+              />
+              
+              {/* 구분선들 (33.33%, 66.67% 지점 - 30개씩 3등분) */}
+              {[33.33, 66.67].map(percent => (
+                <Box
+                  key={percent}
+                  sx={{
+                    position: 'absolute',
+                    left: `${percent}%`,
+                    top: 0,
+                    width: '1px',
+                    height: '100%',
+                    backgroundColor: 'rgba(255,255,255,0.3)',
+                    zIndex: 1
+                  }}
+                />
+              ))}
+              
+              {/* 목표 달성 시 반짝임 효과 */}
+              {isCompleted && (
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    background: 'linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%)',
+                    animation: 'cyberpunkGlow 1.5s infinite ease-in-out',
+                    '@keyframes cyberpunkGlow': {
+                      '0%, 100%': { opacity: 0 },
+                      '50%': { opacity: 1 }
+                    }
+                  }}
+                />
+              )}
+            </Box>
           </Box>
-          <Typography variant="h6" sx={{ 
-            color: statusMessage.color,
-            fontWeight: 600,
-            minWidth: 'fit-content'
-          }}>
-            {published}/{displayTarget}
-            {currentStage === 'bonus' && (
-              <Typography component="span" sx={{ fontSize: '0.75em', color: 'text.secondary', ml: 0.5 }}>
-                (기본 {basicTarget} + 보너스 {bonusAmount})
-              </Typography>
-            )}
-          </Typography>
-        </Box>
-
-        <Grid container spacing={2}>
-          <Grid item xs={6}>
-            <Box sx={{ textAlign: 'center' }}>
-              <Typography variant="h4" sx={{ color: '#55207D', fontWeight: 700 }}>
+          
+          {/* 원형 퍼센테이지 디스플레이 */}
+          <Box
+            sx={{
+              position: 'relative',
+              width: 60,
+              height: 60,
+              borderRadius: '50%',
+              background: `conic-gradient(
+                ${currentStage === 'completed' 
+                  ? '#39ff14' 
+                  : currentStage === 'bonus'
+                  ? '#9932cc'
+                  : '#00ffff'
+                } ${progress * 3.6}deg,
+                #222 ${progress * 3.6}deg
+              )`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              border: '2px solid #333',
+              boxShadow: currentStage === 'completed'
+                ? '0 0 12px #39ff14'
+                : currentStage === 'bonus'
+                ? '0 0 12px #9932cc'
+                : '0 0 12px #00ffff'
+            }}
+          >
+            <Box
+              sx={{
+                width: 46,
+                height: 46,
+                borderRadius: '50%',
+                backgroundColor: '#0a0a0a',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: '1px solid #333'
+              }}
+            >
+              <Typography
+                variant="body2"
+                sx={{
+                  color: currentStage === 'completed' 
+                    ? '#39ff14' 
+                    : currentStage === 'bonus'
+                    ? '#9932cc'
+                    : '#00ffff',
+                  fontWeight: 700,
+                  fontSize: '12px',
+                  fontFamily: 'monospace',
+                  textShadow: currentStage === 'completed'
+                    ? '0 0 8px #39ff14'
+                    : currentStage === 'bonus'
+                    ? '0 0 8px #9932cc'
+                    : '0 0 8px #00ffff'
+                }}
+              >
                 {Math.round(progress)}%
               </Typography>
-              <Typography variant="caption" color="text.secondary">
-                달성률
-              </Typography>
             </Box>
-          </Grid>
-          <Grid item xs={6}>
-            <Box sx={{ textAlign: 'center' }}>
-              <Typography variant="h4" sx={{ 
-                color: isCompleted ? '#006261' : '#003A87', 
-                fontWeight: 700 
-              }}>
-                {remaining}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                남은 목표
-              </Typography>
-            </Box>
-          </Grid>
-        </Grid>
+          </Box>
+        </Box>
+
 
         <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid #e0e0e0' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

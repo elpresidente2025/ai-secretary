@@ -23,7 +23,6 @@ import PostDetailPage from './pages/PostDetailPage.jsx';
 import PostsListPage from './pages/PostsListPage.jsx';
 import Billing from './pages/Billing.jsx';
 import GuidelinesPage from './pages/GuidelinesPage.jsx';
-import TermsOfService from './pages/TermsOfService.jsx';
 import PaymentSuccess from './pages/PaymentSuccess.jsx';
 import PaymentFail from './pages/PaymentFail.jsx';
 
@@ -69,10 +68,6 @@ const router = createBrowserRouter([
       {
         path: 'guidelines',
         element: <ProtectedRoute><ProfileRequiredRoute><GuidelinesPage /></ProfileRequiredRoute></ProtectedRoute>,
-      },
-      {
-        path: 'terms',
-        element: <TermsOfService />,
       },
       {
         path: 'payment/success',

@@ -11,11 +11,11 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Skeleton,
   Alert,
   Chip,
   Tooltip
 } from '@mui/material';
+import { LoadingSkeleton } from '../loading';
 import { Download, Warning, Error } from '@mui/icons-material';
 import { useAuth } from '../../hooks/useAuth';
 import { getErrorLogs } from '../../services/firebaseService';
@@ -194,28 +194,12 @@ function ErrorsMiniTable() {
       </Box>
 
       {loading ? (
-        <TableContainer>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>시간</TableCell>
-                <TableCell>메시지</TableCell>
-                <TableCell>사용자</TableCell>
-                <TableCell>함수</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {Array.from({ length: 5 }).map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell><Skeleton variant="text" width={80} /></TableCell>
-                  <TableCell><Skeleton variant="text" /></TableCell>
-                  <TableCell><Skeleton variant="text" width={120} /></TableCell>
-                  <TableCell><Skeleton variant="text" width={100} /></TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+        <LoadingSkeleton 
+          type="table" 
+          rows={5} 
+          columns={4}
+          headers={['시간', '메시지', '사용자', '함수']}
+        />
       ) : error ? (
         <Alert severity="error">
           에러 로그를 불러오는데 실패했습니다: {error}
@@ -225,10 +209,10 @@ function ErrorsMiniTable() {
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ minWidth: 80 }}>시간</TableCell>
-                <TableCell sx={{ minWidth: 300 }}>메시지</TableCell>
-                <TableCell sx={{ minWidth: 120 }}>사용자</TableCell>
-                <TableCell sx={{ minWidth: 100 }}>함수</TableCell>
+                <TableCell sx={{ minWidth: 80, color: 'black' }}>시간</TableCell>
+                <TableCell sx={{ minWidth: 300, color: 'black' }}>메시지</TableCell>
+                <TableCell sx={{ minWidth: 120, color: 'black' }}>사용자</TableCell>
+                <TableCell sx={{ minWidth: 100, color: 'black' }}>함수</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -236,7 +220,7 @@ function ErrorsMiniTable() {
                 <TableRow>
                   <TableCell colSpan={4} align="center">
                     <Box sx={{ py: 3 }}>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="body2" sx={{ color: 'black' }}>
                         🎉 최근 에러가 없습니다!
                       </Typography>
                     </Box>
@@ -245,7 +229,7 @@ function ErrorsMiniTable() {
               ) : (
                 errors.map((error, index) => (
                   <TableRow key={error.id || index} hover>
-                    <TableCell sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
+                    <TableCell sx={{ fontSize: '0.75rem', color: 'black' }}>
                       {formatTimestamp(error.timestamp)}
                     </TableCell>
                     <TableCell>
@@ -262,7 +246,8 @@ function ErrorsMiniTable() {
                               overflow: 'hidden',
                               textOverflow: 'ellipsis',
                               whiteSpace: 'nowrap',
-                              cursor: 'help'
+                              cursor: 'help',
+                              color: 'black'
                             }}
                           >
                             {error.message || '-'}
@@ -270,10 +255,10 @@ function ErrorsMiniTable() {
                         </Tooltip>
                       </Box>
                     </TableCell>
-                    <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                    <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'black' }}>
                       {error.userId || error.userEmail || '-'}
                     </TableCell>
-                    <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'text.secondary' }}>
+                    <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'black' }}>
                       {error.functionName || '-'}
                     </TableCell>
                   </TableRow>
@@ -285,7 +270,7 @@ function ErrorsMiniTable() {
       )}
       
       {errors.length > 0 && (
-        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+        <Typography variant="caption" sx={{ mt: 1, display: 'block', color: 'black' }}>
           💡 최근 50건만 표시됩니다. 전체 분석은 CSV 다운로드를 이용하세요.
         </Typography>
       )}

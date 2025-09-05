@@ -10,10 +10,9 @@ import {
   Button,
   IconButton,
   Tooltip,
-  Chip,
-  Skeleton,
-  CircularProgress
+  Chip
 } from '@mui/material';
+import { LoadingSkeleton } from '../loading';
 import {
   Refresh,
   CheckCircle,
@@ -151,21 +150,7 @@ function DashboardCards() {
   }
 
   if (loading) {
-    return (
-      <Grid container spacing={3}>
-        {[1, 2, 3, 4].map((i) => (
-          <Grid item xs={12} sm={6} md={3} key={i}>
-            <Card>
-              <CardContent sx={{ p: 2 }}>
-                <Skeleton variant="text" width="60%" />
-                <Skeleton variant="text" width="40%" height={40} />
-                <Skeleton variant="text" width="80%" />
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
-    );
+    return <LoadingSkeleton type="dashboard" count={4} />;
   }
 
   if (error) {
@@ -209,7 +194,7 @@ function DashboardCards() {
         <Card>
           <CardContent sx={{ p: 2 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <Typography variant="h6" gutterBottom>
+              <Typography variant="h6" gutterBottom sx={{ color: 'black' }}>
                 오늘 총 원고 생성
               </Typography>
               <Tooltip title="새로고침">
@@ -218,7 +203,7 @@ function DashboardCards() {
                 </IconButton>
               </Tooltip>
             </Box>
-            <Typography variant="h3" sx={{ mb: 1 }}>
+            <Typography variant="h3" sx={{ mb: 1, color: 'black' }}>
               {totalToday}
             </Typography>
             <Box sx={{ display: 'flex', gap: 1 }}>
@@ -244,10 +229,10 @@ function DashboardCards() {
         <Card>
           <CardContent sx={{ p: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-              <People color="action" />
-              <Typography variant="h6">활성 사용자</Typography>
+              <People sx={{ color: 'black' }} />
+              <Typography variant="h6" sx={{ color: 'black' }}>활성 사용자</Typography>
             </Box>
-            <Typography variant="h3" sx={{ mb: 1 }}>
+            <Typography variant="h3" sx={{ mb: 1, color: 'black' }}>
               {stats.activeUsers}
             </Typography>
             <Typography variant="body2" color="text.secondary">
@@ -262,10 +247,10 @@ function DashboardCards() {
         <Card>
           <CardContent sx={{ p: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-              <Error color={stats.last30mErrors > 0 ? 'error' : 'action'} />
-              <Typography variant="h6">최근 30분 에러</Typography>
+              <Error sx={{ color: stats.last30mErrors > 0 ? '#d22730' : 'black' }} />
+              <Typography variant="h6" sx={{ color: 'black' }}>최근 30분 에러</Typography>
             </Box>
-            <Typography variant="h3" sx={{ mb: 1 }}>
+            <Typography variant="h3" sx={{ mb: 1, color: 'black' }}>
               {stats.last30mErrors}
             </Typography>
             <Typography variant="body2" color="text.secondary">
@@ -280,8 +265,8 @@ function DashboardCards() {
         <Card>
           <CardContent sx={{ p: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-              <Api color="action" />
-              <Typography variant="h6">Gemini API</Typography>
+              <Api sx={{ color: 'black' }} />
+              <Typography variant="h6" sx={{ color: 'black' }}>Gemini API</Typography>
             </Box>
             <Box sx={{ mb: 2 }}>
               <Chip

@@ -14,10 +14,101 @@ import {
   HowToVote
 } from '@mui/icons-material';
 
+// 작은 7-세그먼트 문자 컴포넌트 (color 표시용)
+const SmallSevenSegmentChar = ({ character, color, inactiveColor = '#333', size = 'small' }) => {
+  const digitPatterns = {
+    'C': [1, 0, 0, 1, 1, 1, 0],
+    'O': [1, 1, 1, 1, 1, 1, 0],
+    'L': [0, 0, 0, 1, 1, 1, 0],
+    'R': [0, 0, 0, 0, 1, 0, 1],
+    'c': [0, 0, 0, 1, 1, 0, 1],
+    'o': [0, 0, 1, 1, 1, 0, 1],
+    'l': [0, 1, 1, 0, 0, 0, 0],
+    'r': [0, 0, 0, 0, 1, 0, 1],
+    ' ': [0, 0, 0, 0, 0, 0, 0]
+  };
+
+  const pattern = digitPatterns[character] || digitPatterns[' '];
+  const segmentIds = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
+
+  const segments = {
+    a: { top: '1px', left: '2px', width: '6px', height: '1.5px' },
+    b: { top: '2.5px', right: '0.5px', width: '1.5px', height: '8px' },
+    c: { bottom: '2.5px', right: '0.5px', width: '1.5px', height: '8px' },
+    d: { bottom: '1px', left: '2px', width: '6px', height: '1.5px' },
+    e: { bottom: '2.5px', left: '0.5px', width: '1.5px', height: '8px' },
+    f: { top: '2.5px', left: '0.5px', width: '1.5px', height: '8px' },
+    g: { top: '50%', left: '2px', width: '6px', height: '1.5px', transform: 'translateY(-50%)' }
+  };
+
+  return (
+    <Box
+      sx={{
+        position: 'relative',
+        width: '10px',
+        height: '22px',
+        margin: '0 0.5px'
+      }}
+    >
+      {segmentIds.map((segmentId, index) => (
+        <Box
+          key={segmentId}
+          sx={{
+            position: 'absolute',
+            backgroundColor: pattern[index] === 1 ? color : inactiveColor,
+            borderRadius: '0.5px',
+            opacity: pattern[index] === 1 ? 1 : 0.2,
+            transition: 'all 0.3s ease',
+            ...segments[segmentId]
+          }}
+        />
+      ))}
+    </Box>
+  );
+};
+
 // 7-세그먼트 디스플레이 컴포넌트
-const SevenSegmentDisplay = ({ dDay, cardHeight = '140px' }) => {
-  // 각 숫자별 세그먼트 매핑 (a, b, c, d, e, f, g)
-  const segmentPatterns = {
+const SevenSegmentDisplay = ({ dDay, cardHeight = '140px', color = '#d22730', onColorChange }) => {
+  // localStorage에서 저장된 색상 인덱스 불러오기
+  const [currentColorIndex, setCurrentColorIndex] = useState(() => {
+    const saved = localStorage.getItem('electionDDayColorIndex');
+    return saved ? parseInt(saved) : 0;
+  });
+  
+  const colorOptions = [
+    { main: '#d22730', glow: '#d22730' }, // 클래식 레드
+    { main: '#152484', glow: '#152484' }, // 사이버 블루  
+    { main: '#006261', glow: '#006261' }, // 네온 그린
+    { main: '#f8c023', glow: '#f8c023' }, // 사이버펑키 옐로우
+    { main: '#55207d', glow: '#55207d' }, // 퍼플
+    { main: '#ffffff', glow: '#ffffff' }  // 화이트
+  ];
+
+  // 컴포넌트 마운트 시 저장된 색상으로 초기화
+  useEffect(() => {
+    const saved = localStorage.getItem('electionDDayColorIndex');
+    if (saved) {
+      const savedIndex = parseInt(saved);
+      if (savedIndex >= 0 && savedIndex < colorOptions.length) {
+        onColorChange && onColorChange(colorOptions[savedIndex].main);
+      }
+    }
+  }, []);
+
+  const handleColorChange = (direction) => {
+    let newIndex;
+    if (direction === 'prev') {
+      newIndex = currentColorIndex === 0 ? colorOptions.length - 1 : currentColorIndex - 1;
+    } else {
+      newIndex = currentColorIndex === colorOptions.length - 1 ? 0 : currentColorIndex + 1;
+    }
+    setCurrentColorIndex(newIndex);
+    // localStorage에 저장
+    localStorage.setItem('electionDDayColorIndex', newIndex.toString());
+    onColorChange && onColorChange(colorOptions[newIndex].main);
+  };
+  // 7세그먼트 숫자 패턴 (a, b, c, d, e, f, g 순서)
+  const digitPatterns = {
     '0': [1, 1, 1, 1, 1, 1, 0],
     '1': [0, 1, 1, 0, 0, 0, 0],
     '2': [1, 1, 0, 1, 1, 0, 1],
@@ -30,101 +121,159 @@ const SevenSegmentDisplay = ({ dDay, cardHeight = '140px' }) => {
     '9': [1, 1, 1, 1, 0, 1, 1],
     'D': [0, 1, 1, 1, 1, 0, 1],
     '-': [0, 0, 0, 0, 0, 0, 1],
-    '+': [0, 1, 1, 0, 0, 1, 1], // 4와 같은 패턴 사용
     ' ': [0, 0, 0, 0, 0, 0, 0]
   };
 
-  const formatDDayForSegment = (days) => {
+  // 디데이 텍스트 생성
+  const getDDayText = (days) => {
     if (days > 0) {
       return `D-${days.toString().padStart(3, ' ')}`;
     } else if (days === 0) {
       return 'D- 0';
     } else {
-      return `D+${Math.abs(days).toString().padStart(2, ' ')}`;
+      return `D+${Math.abs(days)}`;
     }
   };
 
-  const displayText = formatDDayForSegment(dDay);
-
   // 개별 세그먼트 컴포넌트
-  const Segment = ({ active, type }) => {
-    const isHorizontal = ['a', 'd', 'g'].includes(type);
-    
+  const Segment = ({ isActive, segmentId }) => {
+    const currentColors = colorOptions[currentColorIndex];
+    const segments = {
+      a: { top: '2px', left: '7px', width: '31px', height: '6.5px' },        // 상단
+      b: { top: '8.5px', right: '2px', width: '6.5px', height: '32.5px' },        // 우상
+      c: { bottom: '8.5px', right: '2px', width: '6.5px', height: '32.5px' },     // 우하
+      d: { bottom: '2px', left: '7px', width: '31px', height: '6.5px' },     // 하단
+      e: { bottom: '8.5px', left: '2px', width: '6.5px', height: '32.5px' },      // 좌하
+      f: { top: '8.5px', left: '2px', width: '6.5px', height: '32.5px' },         // 좌상
+      g: { top: '50%', left: '7px', width: '31px', height: '6.5px', transform: 'translateY(-50%)' }  // 중간
+    };
+
     return (
       <Box
         sx={{
           position: 'absolute',
-          bgcolor: active ? '#FF0000' : '#330000',
-          boxShadow: active ? '0 0 12px #FF0000, 0 0 24px #FF0000' : 'none',
-          transition: 'all 0.1s ease',
-          ...(isHorizontal ? {
-            // 가로 세그먼트
-            width: '30px',
-            height: '6px',
-            borderRadius: '3px',
-            ...(type === 'a' && { top: '0px', left: '5px' }),
-            ...(type === 'd' && { bottom: '0px', left: '5px' }),
-            ...(type === 'g' && { top: '50%', left: '5px', transform: 'translateY(-50%)' })
-          } : {
-            // 세로 세그먼트
-            width: '6px',
-            height: '32px',
-            borderRadius: '3px',
-            ...(type === 'b' && { top: '4px', right: '0px' }),
-            ...(type === 'c' && { bottom: '4px', right: '0px' }),
-            ...(type === 'e' && { bottom: '4px', left: '0px' }),
-            ...(type === 'f' && { top: '4px', left: '0px' })
-          })
+          backgroundColor: isActive ? currentColors.main : '#222',
+          borderRadius: '3px',
+          boxShadow: isActive 
+            ? `0 0 8px ${currentColors.glow}80, 0 0 16px ${currentColors.glow}40, inset 0 0 4px ${currentColors.glow}60`
+            : 'none',
+          opacity: isActive ? 1 : 0.15,
+          transition: 'all 0.3s ease',
+          ...segments[segmentId]
         }}
       />
     );
   };
 
-  // 개별 문자 디스플레이
-  const CharacterDisplay = ({ char }) => {
-    const pattern = segmentPatterns[char] || [0, 0, 0, 0, 0, 0, 0];
-    const segmentTypes = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
+  // 개별 숫자/문자 디스플레이
+  const DigitDisplay = ({ character }) => {
+    const pattern = digitPatterns[character] || digitPatterns[' '];
+    const segmentIds = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
 
     return (
       <Box
         sx={{
           position: 'relative',
-          width: '40px',
-          height: '80px',
-          mx: 1
+          width: '45px',
+          height: '85px',
+          margin: '0 0.5px'
         }}
       >
-        {segmentTypes.map((type, index) => (
-          <Segment key={type} active={pattern[index]} type={type} />
+        {segmentIds.map((segmentId, index) => (
+          <Segment
+            key={segmentId}
+            isActive={pattern[index] === 1}
+            segmentId={segmentId}
+          />
         ))}
       </Box>
     );
   };
 
+  const displayText = getDDayText(dDay);
+
   return (
-    <Box 
-      sx={{ 
-        textAlign: 'right', 
-        minWidth: '220px',
-        bgcolor: '#000',
-        borderRadius: 2,
-        py: 3,
-        px: 2,
+    <Box
+      sx={{
+        backgroundColor: '#0a0a0a',
         border: '2px solid #333',
-        position: 'relative',
+        borderRadius: 2,
+        padding: '16px 20px',
+        minWidth: '280px',
         height: cardHeight,
         display: 'flex',
         flexDirection: 'column',
-        justifyContent: 'center'
+        alignItems: 'center',
+        justifyContent: 'center',
+        boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.3), 0 2px 8px rgba(0,0,0,0.2)',
+        gap: 2
       }}
     >
-      {/* 디지털 문자 표시 */}
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+      {/* 메인 디스플레이 */}
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '0'
+        }}
+      >
         {displayText.split('').map((char, index) => (
-          <CharacterDisplay key={index} char={char} />
+          <DigitDisplay key={index} character={char} />
         ))}
       </Box>
-      
+
+      {/* 색상 변경 컨트롤 */}
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 1
+        }}
+      >
+        {/* 왼쪽 화살표 */}
+        <Box
+          onClick={() => handleColorChange('prev')}
+          sx={{
+            color: '#666',
+            cursor: 'pointer',
+            fontSize: '14px',
+            userSelect: 'none',
+            '&:hover': { color: '#999' },
+            transition: 'color 0.2s ease'
+          }}
+        >
+          ◀
+        </Box>
+
+        {/* color 텍스트 (7세그먼트) */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+          {'color'.split('').map((char, index) => (
+            <SmallSevenSegmentChar 
+              key={index} 
+              character={char} 
+              color={colorOptions[currentColorIndex].main}
+              inactiveColor="#333"
+            />
+          ))}
+        </Box>
+
+        {/* 오른쪽 화살표 */}
+        <Box
+          onClick={() => handleColorChange('next')}
+          sx={{
+            color: '#666',
+            cursor: 'pointer',
+            fontSize: '14px',
+            userSelect: 'none',
+            '&:hover': { color: '#999' },
+            transition: 'color 0.2s ease'
+          }}
+        >
+          ▶
+        </Box>
+      </Box>
     </Box>
   );
 };
@@ -139,6 +288,19 @@ function ElectionDDay({ position, status }) {
   const theme = useTheme(); // Hook을 맨 위로 이동
   const [electionInfo, setElectionInfo] = useState(null);
   const [dDay, setDDay] = useState(null);
+  const [displayColor, setDisplayColor] = useState(() => {
+    const saved = localStorage.getItem('electionDDayColorIndex');
+    const colorOptions = [
+      '#d22730', '#152484', '#006261', '#f8c023', '#55207d', '#ffffff'
+    ];
+    if (saved) {
+      const savedIndex = parseInt(saved);
+      if (savedIndex >= 0 && savedIndex < colorOptions.length) {
+        return colorOptions[savedIndex];
+      }
+    }
+    return '#d22730';
+  });
 
   // 선거 정보 설정
   useEffect(() => {
@@ -328,7 +490,12 @@ function ElectionDDay({ position, status }) {
         </Box>
 
         {/* 우측: 7-세그먼트 디지털 D-Day 카운터 */}
-        <SevenSegmentDisplay dDay={dDay} cardHeight="150px" />
+        <SevenSegmentDisplay 
+          dDay={dDay} 
+          cardHeight="150px" 
+          color={displayColor} 
+          onColorChange={setDisplayColor}
+        />
       </Box>
 
 

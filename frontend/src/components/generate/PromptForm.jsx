@@ -151,6 +151,7 @@ export default function PromptForm({
             rows={2}
             inputProps={{ maxLength: 500 }}
             helperText={`${formData.topic?.length || 0}/500자`}
+            FormHelperTextProps={{ sx: { color: 'black' } }}
           />
         </Grid>
         
@@ -209,6 +210,7 @@ export default function PromptForm({
                     ? `예시: • 한미정상회담 주요 성과: 반도체 협력, 사이버보안 공동대응 체제 구축 • 지역 현황: 청년 실업률 8.2% (${instruction?.length || 0}/1500자)`
                     : `${instruction?.length || 0}/1500자`
                   }
+                  FormHelperTextProps={{ sx: { color: 'black' } }}
                 />
                 {instructionsList.length > 1 && (
                   <Tooltip title="이 참고자료 삭제">
@@ -261,6 +263,7 @@ export default function PromptForm({
             onChange={handleInputChange('keywords')}
             disabled={disabled}
             helperText="예: 민생안정, 경제활성화, 부동산문제"
+            FormHelperTextProps={{ sx: { color: 'black' } }}
           />
         </Grid>
       </Grid>

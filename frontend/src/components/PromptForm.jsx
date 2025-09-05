@@ -3,7 +3,6 @@ import {
   Box, 
   TextField, 
   Button, 
-  CircularProgress, 
   Stack, 
   FormControl, 
   InputLabel, 
@@ -17,6 +16,7 @@ import {
 } from '@mui/material';
 import { useAuth } from '../hooks/useAuth';
 import { CATEGORIES, CATEGORY_DESCRIPTIONS } from '../constants/formConstants';
+import { LoadingButton } from './loading';
 
 /**
  * @description AI 포스트 생성을 위한 프롬프트 입력 폼 컴포넌트
@@ -84,14 +84,14 @@ const PromptForm = ({
 
   return (
     <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
-      <Typography variant="h6" gutterBottom>
+      <Typography variant="h6" gutterBottom sx={{ color: 'black' }}>
         📝 AI 원고 생성
       </Typography>
       
       {/* 사용자 정보 표시 */}
       {user && (
         <Alert severity="info" sx={{ mb: 2 }}>
-          <Typography variant="body2">
+          <Typography variant="body2" sx={{ color: 'black' }}>
             <strong>{user.name || '이름 없음'}</strong> 
             {user.position && ` (${user.position})`}
             {regionInfo && ` | ${regionInfo}`}
@@ -143,7 +143,7 @@ const PromptForm = ({
           {/* 카테고리 설명 */}
           {CATEGORY_DESCRIPTIONS[category] && (
             <Alert severity="info">
-              <Typography variant="body2">
+              <Typography variant="body2" sx={{ color: 'black' }}>
                 {CATEGORY_DESCRIPTIONS[category]}
               </Typography>
             </Alert>
@@ -158,6 +158,7 @@ const PromptForm = ({
             onChange={(e) => setPrompt(e.target.value)}
             error={!!promptError}
             helperText={promptError || `${prompt.length}/500자`}
+            FormHelperTextProps={{ sx: { color: 'black' } }}
             placeholder="어떤 내용의 원고를 작성하시겠습니까? 구체적으로 설명해주세요."
             disabled={isLoading}
             fullWidth
@@ -171,6 +172,7 @@ const PromptForm = ({
             onChange={(e) => setKeywords(e.target.value)}
             error={!!keywordsError}
             helperText={keywordsError || `${keywords.length}/200자 | 쉼표로 구분하여 입력하세요`}
+            FormHelperTextProps={{ sx: { color: 'black' } }}
             placeholder="예: 경제정책, 일자리 창출, 청년 지원"
             disabled={isLoading}
             fullWidth
@@ -179,7 +181,7 @@ const PromptForm = ({
           {/* 키워드 미리보기 */}
           {keywords.trim() && (
             <Box>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
+              <Typography variant="body2" gutterBottom sx={{ color: 'black' }}>
                 키워드 미리보기:
               </Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
@@ -198,16 +200,17 @@ const PromptForm = ({
           <Divider />
 
           {/* 생성 버튼 */}
-          <Button
+          <LoadingButton
             type="submit"
             variant="contained"
             size="large"
-            disabled={hasErrors || !prompt.trim() || isLoading}
-            startIcon={isLoading ? <CircularProgress size={20} /> : null}
+            disabled={hasErrors || !prompt.trim()}
+            loading={isLoading}
+            loadingText="생성 중..."
             fullWidth
           >
-            {isLoading ? '생성 중...' : buttonText}
-          </Button>
+            {buttonText}
+          </LoadingButton>
         </Stack>
       </Box>
     </Paper>

@@ -8,7 +8,6 @@ import {
   Box,
   Paper,
   TextField,
-  CircularProgress,
   Alert,
   Link,
   Dialog,
@@ -16,6 +15,7 @@ import {
   DialogContent,
   DialogActions,
 } from '@mui/material';
+import { LoadingButton } from '../components/loading';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../services/firebase';
 
@@ -186,7 +186,7 @@ function LoginPage() {
             objectFit: 'contain'
           }}
         />
-        <Typography component="h1" variant="h5">
+        <Typography component="h1" variant="h5" sx={{ color: 'white' }}>
           전자두뇌비서관 로그인
         </Typography>
 
@@ -225,15 +225,16 @@ function LoginPage() {
               disabled={loading}
             />
             
-            <Button
+            <LoadingButton
               type="submit"
               fullWidth
               variant="contained"
-              disabled={loading}
+              loading={loading}
+              loadingText="로그인 중..."
               sx={{ mt: 3, mb: 2 }}
             >
-              {loading ? <CircularProgress size={24} /> : '로그인'}
-            </Button>
+              로그인
+            </LoadingButton>
 
             <Box sx={{ display: 'flex', alignItems: 'center', my: 2 }}>
               <Box sx={{ flexGrow: 1, height: '1px', bgcolor: 'divider' }} />
@@ -243,27 +244,24 @@ function LoginPage() {
               <Box sx={{ flexGrow: 1, height: '1px', bgcolor: 'divider' }} />
             </Box>
 
-            <Button
+            <LoadingButton
               fullWidth
               variant="outlined"
               onClick={handleNaverLogin}
-              disabled={loading}
+              loading={loading}
+              loadingText="네이버 로그인 중..."
               sx={{ mb: 2 }}
               startIcon={
-                loading ? (
-                  <CircularProgress size={20} />
-                ) : (
-                  <Box
-                    component="img"
-                    src="https://developers.naver.com/inc/devcenter/images/nd_img.png"
-                    alt="네이버"
-                    sx={{ width: 18, height: 18 }}
-                  />
-                )
+                <Box
+                  component="img"
+                  src="https://developers.naver.com/inc/devcenter/images/nd_img.png"
+                  alt="네이버"
+                  sx={{ width: 18, height: 18 }}
+                />
               }
             >
               네이버로 로그인
-            </Button>
+            </LoadingButton>
             
             <Box sx={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
               <Link
@@ -326,13 +324,14 @@ function LoginPage() {
           <Button onClick={handleResetDialogClose} disabled={resetLoading}>
             취소
           </Button>
-          <Button 
+          <LoadingButton 
             onClick={handlePasswordReset} 
             variant="contained" 
-            disabled={resetLoading}
+            loading={resetLoading}
+            loadingText="이메일 발송 중..."
           >
-            {resetLoading ? <CircularProgress size={20} /> : '재설정 이메일 발송'}
-          </Button>
+            재설정 이메일 발송
+          </LoadingButton>
         </DialogActions>
         </Dialog>
         </Box>
