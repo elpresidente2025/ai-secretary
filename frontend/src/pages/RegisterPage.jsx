@@ -1,6 +1,6 @@
 // frontend/src/pages/RegisterPage.jsx
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { useNavigate, Link as RouterLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import {
   Container,
@@ -20,13 +20,16 @@ import UserInfoForm from '../components/UserInfoForm';
 import { LoadingButton } from '../components/loading';
 
 function RegisterPage() {
+  const location = useLocation();
+  const naverUserData = location.state?.naverUserData;
+  
   const [formData, setFormData] = useState({
-    // 인증 정보
-    email: '',
-    password: '',
-    confirmPassword: '',
-    // 사용자 기본 정보
-    name: '',
+    // 인증 정보 (네이버 로그인 시 자동 입력)
+    email: naverUserData?.email || '',
+    password: naverUserData ? 'naver_oauth_user' : '', // 네이버 사용자는 OAuth이므로 더미 비밀번호
+    confirmPassword: naverUserData ? 'naver_oauth_user' : '',
+    // 사용자 기본 정보 (네이버에서 수집된 이름 자동 입력)
+    name: naverUserData?.name || '',
     status: '현역',
     position: '',
     regionMetro: '',
@@ -34,6 +37,9 @@ function RegisterPage() {
     electoralDistrict: '',
     // 약관 동의
     agreedToTerms: false,
+    // 네이버 연동 정보
+    isNaverUser: !!naverUserData,
+    naverData: naverUserData || null,
   });
   
   const [error, setError] = useState('');
@@ -68,7 +74,7 @@ function RegisterPage() {
 
   // 폼 검증
   const validateForm = () => {
-    const { email, password, confirmPassword, name, position, regionMetro, regionLocal, electoralDistrict, agreedToTerms } = formData;
+    const { email, password, confirmPassword, name, position, regionMetro, regionLocal, electoralDistrict, agreedToTerms, isNaverUser } = formData;
     
     if (!email.trim()) {
       setError('이메일을 입력해주세요.');
@@ -79,6 +85,24 @@ function RegisterPage() {
     if (!emailRegex.test(email)) {
       setError('올바른 이메일 형식이 아닙니다.');
       return false;
+    }
+    
+    // 네이버 사용자가 아닌 경우에만 비밀번호 검증
+    if (!isNaverUser) {
+      if (!password.trim()) {
+        setError('비밀번호를 입력해주세요.');
+        return false;
+      }
+      
+      if (password.length < 6) {
+        setError('비밀번호는 6자 이상이어야 합니다.');
+        return false;
+      }
+      
+      if (password !== confirmPassword) {
+        setError('비밀번호가 일치하지 않습니다.');
+        return false;
+      }
     }
     
     if (!name.trim()) {
@@ -120,6 +144,9 @@ function RegisterPage() {
           regionMetro: formData.regionMetro,
           regionLocal: formData.regionLocal,
           electoralDistrict: formData.electoralDistrict,
+          // 네이버 사용자 정보 포함
+          isNaverUser: formData.isNaverUser,
+          naverData: formData.naverData,
         }
       });
 
@@ -185,39 +212,50 @@ function RegisterPage() {
   }
 
   return (
-    <Container component="main" maxWidth="md" sx={{ height: '100vh', overflow: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <Box
-        sx={{
-          width: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          py: 2,
-        }}
-      >
+    <Box sx={{ 
+      minHeight: '100vh', 
+      display: 'flex', 
+      alignItems: 'center', 
+      justifyContent: 'center',
+      py: { xs: 2, sm: 4 }
+    }}>
+      <Container component="main" maxWidth="md">
+        <Box
+          sx={{
+            width: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+          }}
+        >
         <Box
           component="img"
           src="/logo-portrait.png"
           alt="전자두뇌비서관 로고"
           sx={{
-            height: 80,
+            height: { xs: 60, sm: 80 },
             width: 'auto',
-            mb: 2
+            mb: { xs: 1, sm: 2 }
           }}
         />
         <Typography component="h1" variant="h5" sx={{ color: 'white' }}>
           전자두뇌비서관 회원가입
         </Typography>
 
-        <Paper elevation={2} sx={{ p: 4, mt: 3, width: '100%' }}>
+        <Paper elevation={2} sx={{ p: { xs: 2, sm: 4 }, mt: { xs: 2, sm: 3 }, width: '100%' }}>
           <Box component="form" onSubmit={handleSubmit}>
-            <Grid container spacing={3}>
+            <Grid container spacing={{ xs: 2, sm: 3 }}>
 
               {/* 계정 정보 */}
               <Grid item xs={12}>
                 <Typography variant="h6" gutterBottom>
                   계정 정보
                 </Typography>
+                {formData.isNaverUser && (
+                  <Alert severity="info" sx={{ mb: 2 }}>
+                    네이버 계정 연동으로 가입합니다. 이메일과 이름이 자동으로 입력되었습니다.
+                  </Alert>
+                )}
               </Grid>
 
               <Grid item xs={12}>
@@ -230,42 +268,48 @@ function RegisterPage() {
                   autoComplete="email"
                   value={formData.email}
                   onChange={handleChange}
-                  disabled={loading}
+                  disabled={loading || formData.isNaverUser}
+                  helperText={formData.isNaverUser ? "네이버 계정의 이메일이 자동으로 설정되었습니다." : ""}
+                  FormHelperTextProps={{ sx: { color: formData.isNaverUser ? 'success.main' : 'text.secondary' } }}
                 />
               </Grid>
 
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  required
-                  fullWidth
-                  name="password"
-                  label="비밀번호"
-                  type="password"
-                  id="password"
-                  autoComplete="new-password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  disabled={loading}
-                  helperText="6자 이상 입력해주세요."
-                  FormHelperTextProps={{ sx: { color: 'black' } }}
-                />
-              </Grid>
+              {!formData.isNaverUser && (
+                <>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      required
+                      fullWidth
+                      name="password"
+                      label="비밀번호"
+                      type="password"
+                      id="password"
+                      autoComplete="new-password"
+                      value={formData.password}
+                      onChange={handleChange}
+                      disabled={loading}
+                      helperText="6자 이상 입력해주세요."
+                      FormHelperTextProps={{ sx: { color: 'black' } }}
+                    />
+                  </Grid>
 
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  required
-                  fullWidth
-                  name="confirmPassword"
-                  label="비밀번호 확인"
-                  type="password"
-                  id="confirmPassword"
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  disabled={loading}
-                  helperText="위와 같은 비밀번호를 입력해주세요."
-                  FormHelperTextProps={{ sx: { color: 'black' } }}
-                />
-              </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      required
+                      fullWidth
+                      name="confirmPassword"
+                      label="비밀번호 확인"
+                      type="password"
+                      id="confirmPassword"
+                      value={formData.confirmPassword}
+                      onChange={handleChange}
+                      disabled={loading}
+                      helperText="위와 같은 비밀번호를 입력해주세요."
+                      FormHelperTextProps={{ sx: { color: 'black' } }}
+                    />
+                  </Grid>
+                </>
+              )}
 
               {/* 🔧 UserInfoForm 컴포넌트 사용 */}
               <UserInfoForm
@@ -277,6 +321,7 @@ function RegisterPage() {
                 electoralDistrict={formData.electoralDistrict}
                 onChange={handleUserInfoChange}
                 disabled={loading}
+                nameDisabled={formData.isNaverUser} // 네이버 사용자인 경우 이름 필드 비활성화
                 enableDuplicateCheck={false} // 🔧 중복 체크 비활성화
                 excludeUserId={null}
                 showTitle={true}
@@ -479,8 +524,9 @@ function RegisterPage() {
             </Grid>
           </Box>
         </Paper>
-      </Box>
-    </Container>
+        </Box>
+      </Container>
+    </Box>
   );
 }
 

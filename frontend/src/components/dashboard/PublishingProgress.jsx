@@ -93,6 +93,14 @@ const PublishingProgress = () => {
   const [loading, setLoading] = useState(true);
   const [userPlanColor, setUserPlanColor] = useState('#152484');
 
+  // 호버 시 랜덤 글로우 색상 생성 함수
+  const getRandomGlowColor = () => {
+    const colors = ['#00ffff', '#ff00ff', '#00ff88', '#ff4444', '#8844ff', '#ffff00'];
+    return colors[Math.floor(Math.random() * colors.length)];
+  };
+
+  const [currentGlowColor, setCurrentGlowColor] = useState('#00ffff');
+
   // ElectionDDay와 색상 연동
   useEffect(() => {
     const colorOptions = [
@@ -120,7 +128,7 @@ const PublishingProgress = () => {
     };
 
     // 폴링으로 같은 탭에서의 변경 감지
-    const interval = setInterval(updateColor, 100);
+    const interval = setInterval(updateColor, 300);
 
     window.addEventListener('storage', handleStorageChange);
     return () => {
@@ -279,7 +287,18 @@ const PublishingProgress = () => {
 
   if (loading || !publishingStats || !user) {
     return (
-      <Card sx={{ height: '100%' }}>
+      <Card 
+        onMouseEnter={() => setCurrentGlowColor(getRandomGlowColor())}
+        sx={{ 
+          height: '100%',
+          cursor: 'pointer',
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          '&:hover': {
+            transform: 'scale(0.98)',
+            boxShadow: `0 8px 32px ${currentGlowColor}40, 0 4px 16px ${currentGlowColor}20, inset 0 1px 0 ${currentGlowColor}10`,
+            border: `1px solid ${currentGlowColor}30`
+          }
+        }}>
         <CardContent>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
             <Publish sx={{ color: '#152484' }} />
@@ -317,7 +336,18 @@ const PublishingProgress = () => {
   
   if (!plan && !isAdmin) {
     return (
-      <Card sx={{ height: '100%' }}>
+      <Card
+        onMouseEnter={() => setCurrentGlowColor(getRandomGlowColor())}
+        sx={{ 
+          height: '100%',
+          cursor: 'pointer',
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          '&:hover': {
+            transform: 'scale(0.98)',
+            boxShadow: `0 8px 32px ${currentGlowColor}40, 0 4px 16px ${currentGlowColor}20, inset 0 1px 0 ${currentGlowColor}10`,
+            border: `1px solid ${currentGlowColor}30`
+          }
+        }}>
         <CardContent>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
             <Publish sx={{ color: '#152484' }} />
@@ -410,7 +440,19 @@ const PublishingProgress = () => {
   }
 
   return (
-    <Card sx={{ height: '100%', position: 'relative' }}>
+    <Card
+      onMouseEnter={() => setCurrentGlowColor(getRandomGlowColor())}
+      sx={{ 
+        height: '100%', 
+        position: 'relative',
+        cursor: 'pointer',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        '&:hover': {
+          transform: 'scale(0.98)',
+          boxShadow: `0 8px 32px ${currentGlowColor}40, 0 4px 16px ${currentGlowColor}20, inset 0 1px 0 ${currentGlowColor}10`,
+          border: `1px solid ${currentGlowColor}30`
+        }
+      }}>
       <CardContent>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
           <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

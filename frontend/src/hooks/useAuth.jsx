@@ -590,6 +590,82 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // 네이버 로그인 함수
+  const signInWithNaver = async () => {
+    setError(null);
+    try {
+      console.log('🔐 네이버 로그인 시도');
+      
+      // 실제로는 네이버 OAuth를 구현해야 하지만, 
+      // 현재는 시뮬레이션을 위해 Firebase Functions를 통해 처리
+      const naverLogin = httpsCallable(functions, 'naverLogin');
+      const result = await naverLogin();
+      
+      if (!result.data.success) {
+        // 가입 정보가 없는 경우
+        if (result.data.error === 'USER_NOT_FOUND') {
+          const error = new Error('가입 정보가 없습니다. 회원가입 페이지로 이동합니다.');
+          error.code = 'auth/user-not-found';
+          error.isNaverUser = true;
+          error.naverUserData = result.data.naverUserData; // 네이버 사용자 데이터 포함
+          throw error;
+        }
+        
+        throw new Error(result.data.error || '네이버 로그인에 실패했습니다.');
+      }
+      
+      // 로그인 성공
+      const userData = result.data.user;
+      const combinedUser = {
+        uid: userData.uid,
+        email: userData.email,
+        displayName: userData.displayName,
+        photoURL: userData.photoURL,
+        emailVerified: true,
+        
+        // 네이버 로그인 특별 정보
+        isNaverUser: true,
+        
+        // Firestore 프로필 정보
+        ...userData,
+        
+        // 원본 데이터
+        _naverData: userData
+      };
+      
+      setUser(combinedUser);
+      console.log('✅ 네이버 로그인 성공:', combinedUser);
+      return combinedUser;
+      
+    } catch (err) {
+      console.error('❌ 네이버 로그인 실패:', err);
+      
+      let errorMessage = '네이버 로그인에 실패했습니다.';
+      
+      if (err.code === 'auth/user-not-found' && err.isNaverUser) {
+        // 이 에러는 상위에서 처리하도록 그대로 throw
+        throw err;
+      }
+      
+      switch (err.code) {
+        case 'auth/network-request-failed':
+          errorMessage = '네트워크 오류입니다. 다시 시도해주세요.';
+          break;
+        case 'auth/cancelled-popup-request':
+          errorMessage = '네이버 로그인이 취소되었습니다.';
+          break;
+        case 'auth/popup-blocked':
+          errorMessage = '팝업이 차단되었습니다. 팝업 차단을 해제해주세요.';
+          break;
+        default:
+          errorMessage = err.message || '네이버 로그인에 실패했습니다.';
+      }
+      
+      setError(errorMessage);
+      throw err;
+    }
+  };
+
   // 컨텍스트로 제공할 값들
   const value = {
     user,
@@ -597,6 +673,7 @@ export const AuthProvider = ({ children }) => {
     error,
     login,
     signInWithGoogle, // 🔥 Google 로그인 함수 추가
+    signInWithNaver, // 🔥 네이버 로그인 함수 추가
     register,
     logout,
     refreshUserProfile, // 🔥 프로필 새로고침 함수 추가

@@ -142,7 +142,7 @@ const Billing = () => {
 
   return (
     <DashboardLayout title="인증 및 결제">
-      <Container maxWidth="xl">
+      <Container maxWidth="lg">
         {/* 페이지 헤더 */}
         <Box sx={{ mb: 4 }}>
           <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1, color: 'white' }}>
@@ -153,24 +153,16 @@ const Billing = () => {
           </Typography>
         </Box>
 
-        {/* 반응형 레이아웃 재구성 */}
-        
-        {/* 모바일: 1열 순서 - 플랜및인증, 플랜선택, 애드온, 서비스정책, 결제내역 */}
-        {/* 태블릿: 마지막만 2열 - 플랜및인증, 플랜선택, 애드온, (서비스정책|결제내역) */}
-        {/* PC/2K/4K: 2열 - (플랜및인증|플랜선택), (결제내역|애드온), (서비스정책|) */}
-        
+        {/* 반응형 레이아웃 */}
         <Box sx={{ 
-          display: 'grid', 
-          gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' },
-          gridTemplateRows: { lg: 'repeat(7, minmax(auto, 1fr))' },
-          gap: 1
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 3
         }}>
-          {/* 1. 플랜 및 인증 상태 */}
-          <Box sx={{ 
-            order: { xs: 1, lg: 0 },
-            gridArea: { lg: '1 / 1 / 4 / 2' } // 1~3행, 1열
-          }}>
-            <Paper sx={{ p: 2, height: '100%', mb: { xs: 1, lg: 0 }, display: 'flex', flexDirection: 'column' }}>
+          {/* 상단: 현재 플랜과 인증 상태 */}
+          <Grid container spacing={3}>
+            <Grid item xs={12} lg={4}>
+              <Paper sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
               <Typography variant="h6" sx={{ mb: 1, display: 'flex', alignItems: 'center', fontSize: '1rem' }}>
                 <CreditCard sx={{ mr: 1 }} />
                 현재 플랜 및 인증 상태
@@ -227,20 +219,67 @@ const Billing = () => {
                 </Button>
               </Box>
             </Paper>
-          </Box>
+            </Grid>
 
-          {/* 2. 플랜 선택 */}
-          <Box sx={{ 
-            order: { xs: 2, lg: 0 },
-            gridArea: { lg: '1 / 2 / 5 / 3' } // 1~4행, 2열
-          }}>
-            <Paper sx={{ p: 2, height: '100%', mb: { xs: 1, lg: 0 }, display: 'flex', flexDirection: 'column' }}>
-              <Typography variant="h6" sx={{ mb: 1, fontSize: '1rem' }}>
-                플랜 선택
-              </Typography>
-              <Grid container spacing={0.5} sx={{ flex: 1 }}>
-                {plans.map((plan, index) => (
-                  <Grid item xs={12} md={4} key={index}>
+            <Grid item xs={12} lg={4}>
+              <Paper sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
+                <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', fontSize: '1rem' }}>
+                  <Payment sx={{ mr: 1 }} />
+                  결제 내역
+                </Typography>
+                <List sx={{ flex: 1 }}>
+                  {paymentHistory.map((payment, index) => (
+                    <ListItem key={index} sx={{ px: 0 }}>
+                      <ListItemIcon>
+                        <CheckCircle color="success" />
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={`${payment.plan} - ${payment.amount.toLocaleString()}원`}
+                        secondary={`${payment.date} (${payment.status})`}
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              </Paper>
+            </Grid>
+
+            <Grid item xs={12} lg={4}>
+              <Paper sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
+                <Typography variant="h6" sx={{ mb: 2, color: '#152484', fontSize: '1rem' }}>
+                  서비스 제공 방식 및 환불 정책
+                </Typography>
+                
+                <Alert severity="info" sx={{ flex: 1 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                    📅 서비스 제공 방식
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 2 }}>
+                    • 본 서비스는 월 단위 계약으로 제공되며, 매월 1일 자동 갱신됩니다<br/>
+                    • 원고 생성 횟수는 결제 완료 즉시 제공되어 바로 이용 가능합니다<br/>
+                    • 월간 서비스로 언제든 해지 가능합니다
+                  </Typography>
+                  
+                  <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                    💰 환불 정책
+                  </Typography>
+                  <Typography variant="body2">
+                    • 구매일로부터 7일 이내: 전액 환불 가능<br/>
+                    • 원고 생성 이용 후: 미사용 횟수만큼 일할 계산하여 환불<br/>
+                    • 환불 요청 시 7영업일 이내 처리 완료
+                  </Typography>
+                </Alert>
+              </Paper>
+            </Grid>
+          </Grid>
+
+          {/* 중단: 플랜 선택 */}
+          <Paper sx={{ p: 3 }}>
+            <Typography variant="h6" sx={{ mb: 3, fontSize: '1.25rem', fontWeight: 'bold' }}>
+              플랜 선택
+            </Typography>
+            <Grid container spacing={3}>
+              {plans.map((plan, index) => (
+                <Grid item xs={12} md={4} key={index}>
                     <Card sx={{ 
                       height: '100%',
                       position: 'relative',
@@ -304,27 +343,22 @@ const Billing = () => {
                     </Card>
                   </Grid>
                 ))}
-              </Grid>
-            </Paper>
-          </Box>
+            </Grid>
+          </Paper>
 
-          {/* 3. 애드온 서비스 */}
-          <Box sx={{ 
-            order: { xs: 3, lg: 0 },
-            gridArea: { lg: '5 / 2 / 8 / 3' } // 5~7행, 2열
-          }}>
-            <Paper sx={{ p: 2, height: '100%', mb: { xs: 1, lg: 0 }, display: 'flex', flexDirection: 'column' }}>
-              <Typography variant="h6" sx={{ mb: 1, fontSize: '1rem' }}>
-                애드온 서비스
-              </Typography>
-              <Card sx={{ border: '1px solid #e0e0e0' }}>
-                <CardContent sx={{ p: 2, display: 'flex', flexDirection: 'column', height: '100%' }}>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                    기본 요금제와 함께 사용할 수 있는 부가 서비스입니다.
-                  </Typography>
-                  
-                  <Grid container spacing={0.5}>
-                    <Grid item xs={4}>
+          {/* 하단: 애드온 서비스 */}
+          <Paper sx={{ p: 3 }}>
+            <Typography variant="h6" sx={{ mb: 3, fontSize: '1.25rem', fontWeight: 'bold' }}>
+              애드온 서비스
+            </Typography>
+            <Card sx={{ border: '1px solid #e0e0e0' }}>
+              <CardContent sx={{ p: 3 }}>
+                <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+                  기본 요금제와 함께 사용할 수 있는 부가 서비스입니다.
+                </Typography>
+                
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={4}>
                       <Button
                         variant="contained"
                         fullWidth
@@ -347,7 +381,7 @@ const Billing = () => {
                       </Button>
                     </Grid>
 
-                    <Grid item xs={4}>
+                    <Grid item xs={12} sm={4}>
                       <Button
                         variant="outlined"
                         fullWidth
@@ -370,7 +404,7 @@ const Billing = () => {
                       </Button>
                     </Grid>
 
-                    <Grid item xs={4}>
+                    <Grid item xs={12} sm={4}>
                       <Button
                         variant="outlined"
                         fullWidth
@@ -398,7 +432,7 @@ const Billing = () => {
                     <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 2, color: '#e89f2f' }}>
                       💡 SNS 원고 추가 생성 서비스
                     </Typography>
-                    <Grid container spacing={1}>
+                    <Grid container spacing={2}>
                       <Grid item xs={12} md={6}>
                         <List dense>
                           <ListItem sx={{ py: 0.5, px: 0 }}>
@@ -445,68 +479,9 @@ const Billing = () => {
                       </Grid>
                     </Grid>
                   </Box>
-                </CardContent>
-              </Card>
-            </Paper>
-          </Box>
-
-          {/* 4. 결제 내역 */}
-          <Box sx={{ 
-            order: { xs: 5, lg: 0 },
-            gridArea: { lg: '4 / 1 / 6 / 2' } // 4~5행, 1열 (중앙에 위치)
-          }}>
-            <Paper sx={{ p: 2, height: '100%', mb: { xs: 1, lg: 0 }, display: 'flex', flexDirection: 'column' }}>
-              <Typography variant="h6" sx={{ mb: 1, display: 'flex', alignItems: 'center', fontSize: '1rem' }}>
-                <Payment sx={{ mr: 1 }} />
-                결제 내역
-              </Typography>
-              <List>
-                {paymentHistory.map((payment, index) => (
-                  <ListItem key={index} sx={{ px: 0 }}>
-                    <ListItemIcon>
-                      <CheckCircle color="success" />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={`${payment.plan} - ${payment.amount.toLocaleString()}원`}
-                      secondary={`${payment.date} (${payment.status})`}
-                    />
-                  </ListItem>
-                ))}
-              </List>
-            </Paper>
-          </Box>
-
-          {/* 5. 서비스 제공 방식 및 환불 정책 */}
-          <Box sx={{ 
-            order: { xs: 4, lg: 0 },
-            gridArea: { lg: '6 / 1 / 8 / 2' } // 6~7행, 1열
-          }}>
-            <Paper sx={{ p: 2, height: '100%', mb: { xs: 1, lg: 0 }, display: 'flex', flexDirection: 'column' }}>
-              <Typography variant="h6" sx={{ mb: 1, color: '#152484', fontSize: '0.9rem' }}>
-                서비스 제공 방식 및 환불 정책
-              </Typography>
-              
-              <Alert severity="info">
-                <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                  📅 서비스 제공 방식
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 2 }}>
-                  • 본 서비스는 월 단위 계약으로 제공되며, 매월 1일 자동 갱신됩니다<br/>
-                  • 원고 생성 횟수는 결제 완료 즉시 제공되어 바로 이용 가능합니다<br/>
-                  • 월간 서비스로 언제든 해지 가능합니다
-                </Typography>
-                
-                <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                  💰 환불 정책
-                </Typography>
-                <Typography variant="body2">
-                  • 구매일로부터 7일 이내: 전액 환불 가능<br/>
-                  • 원고 생성 이용 후: 미사용 횟수만큼 일할 계산하여 환불<br/>
-                  • 환불 요청 시 7영업일 이내 처리 완료
-                </Typography>
-              </Alert>
-            </Paper>
-          </Box>
+              </CardContent>
+            </Card>
+          </Paper>
         </Box>
 
 

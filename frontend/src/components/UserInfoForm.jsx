@@ -51,6 +51,7 @@ function getElectoralList(metro, local, position) {
  * @param {string} props.electoralDistrict - 선거구
  * @param {function} props.onChange - 값 변경 콜백 (name, value)
  * @param {boolean} props.disabled - 비활성화 여부
+ * @param {boolean} props.nameDisabled - 이름 필드만 비활성화 여부
  * @param {boolean} props.enableDuplicateCheck - 중복 체크 활성화 (기본: true)
  * @param {string} props.excludeUserId - 중복 체크에서 제외할 사용자 ID
  * @param {boolean} props.showTitle - 제목 표시 여부 (기본: true)
@@ -64,6 +65,7 @@ export default function UserInfoForm({
   electoralDistrict = '',
   onChange,
   disabled = false,
+  nameDisabled = false,
   enableDuplicateCheck = false, // 🔧 기본값을 false로 변경
   excludeUserId = null,
   showTitle = true,
@@ -142,7 +144,9 @@ export default function UserInfoForm({
           name="name"
           value={name}
           onChange={handleTextFieldChange}
-          disabled={disabled}
+          disabled={disabled || nameDisabled}
+          helperText={nameDisabled ? "네이버 계정의 이름이 자동으로 설정되었습니다." : ""}
+          FormHelperTextProps={{ sx: { color: nameDisabled ? 'success.main' : 'text.secondary' } }}
         />
       </Grid>
 

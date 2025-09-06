@@ -24,6 +24,7 @@ const publishingHandler = require('./handlers/publishing');
 const adminUsersHandler = require('./handlers/admin-users');
 const snsAddonHandler = require('./handlers/sns-addon');
 const tossPaymentsHandler = require('./handlers/toss-payments');
+const naverLoginHandler = require('./handlers/naver-login');
 
 // 스크래핑 테스트 함수들
 const { testElectionScraping, checkCacheStatus, refreshCache } = require('./handlers/test-scraper');
@@ -116,6 +117,9 @@ exports.purchaseSNSAddon = snsAddonHandler.purchaseSNSAddon;
 // 토스페이먼츠 결제 관련 함수들
 exports.confirmTossPayment = tossPaymentsHandler.confirmTossPayment;
 exports.getUserPayments = tossPaymentsHandler.getUserPayments;
+
+// 네이버 로그인 관련 함수들
+exports.naverLogin = naverLoginHandler.naverLogin;
 
 // 관리자 전용 함수들 (HTTP 함수로 변경하여 CORS 문제 해결)
 const { onRequest } = require('firebase-functions/v2/https');

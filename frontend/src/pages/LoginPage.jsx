@@ -32,6 +32,8 @@ function LoginPage() {
   const [resetName, setResetName] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
   const [resetMessage, setResetMessage] = useState('');
+  const [naverDialogOpen, setNaverDialogOpen] = useState(false);
+  const [naverUserData, setNaverUserData] = useState(null);
   
   const navigate = useNavigate();
   const location = useLocation();
@@ -103,9 +105,47 @@ function LoginPage() {
       await signInWithNaver();
     } catch (error) {
       console.error('네이버 로그인 오류:', error);
+      
+      // 가입 정보가 없는 경우 팝업 띄우기
+      if (error.code === 'auth/user-not-found' && error.isNaverUser) {
+        setNaverUserData(error.naverUserData);
+        setNaverDialogOpen(true);
+      } else {
+        let errorMessage = '네이버 로그인에 실패했습니다.';
+        
+        switch (error.code) {
+          case 'auth/network-request-failed':
+            errorMessage = '네트워크 오류입니다. 다시 시도해주세요.';
+            break;
+          case 'auth/cancelled-popup-request':
+            errorMessage = '네이버 로그인이 취소되었습니다.';
+            break;
+          case 'auth/popup-blocked':
+            errorMessage = '팝업이 차단되었습니다. 팝업 차단을 해제해주세요.';
+            break;
+          default:
+            errorMessage = error.message || '네이버 로그인에 실패했습니다.';
+        }
+        
+        setError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleNaverDialogClose = () => {
+    setNaverDialogOpen(false);
+  };
+
+  const handleGoToRegister = () => {
+    setNaverDialogOpen(false);
+    // 네이버 사용자 데이터를 state로 전달
+    navigate('/register', { 
+      state: { 
+        naverUserData: naverUserData 
+      } 
+    });
   };
 
   const handlePasswordReset = async () => {
@@ -333,6 +373,28 @@ function LoginPage() {
             재설정 이메일 발송
           </LoadingButton>
         </DialogActions>
+        </Dialog>
+
+        {/* 네이버 로그인 실패 다이얼로그 */}
+        <Dialog open={naverDialogOpen} onClose={handleNaverDialogClose} maxWidth="sm" fullWidth>
+          <DialogTitle>가입 정보 없음</DialogTitle>
+          <DialogContent>
+            <Alert severity="info" sx={{ mb: 2 }}>
+              가입 정보가 없습니다. 회원가입 페이지로 이동합니다.
+            </Alert>
+            <Typography variant="body2" color="text.secondary">
+              네이버 계정으로 로그인하려면 먼저 회원가입을 완료해야 합니다. 
+              회원가입 페이지에서 네이버 계정을 연결하여 가입할 수 있습니다.
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleNaverDialogClose} color="secondary">
+              취소
+            </Button>
+            <Button onClick={handleGoToRegister} variant="contained" color="primary">
+              회원가입 페이지로 이동
+            </Button>
+          </DialogActions>
         </Dialog>
         </Box>
       </Container>

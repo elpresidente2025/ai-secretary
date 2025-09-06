@@ -54,7 +54,8 @@
       "Read(E:\\e\\ai-secretary/**)",
       "Read(E:\\e\\ai-secretary/**)",
       "Read(E:\\e\\ai-secretary/**)",
-      "Read(E:\\e\\ai-secretary/**)"
+      "Read(E:\\e\\ai-secretary/**)",
+      "Bash(npm start)"
     ],
     "deny": [],
     "ask": [],

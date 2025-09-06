@@ -220,7 +220,7 @@ const DashboardLayout = ({ children }) => {
         component="main"
         sx={{
           flex: 1,
-          bgcolor: '#141414',
+          bgcolor: 'transparent', // 카본 질감이 보이도록 투명하게 설정
           display: 'flex',
           justifyContent: 'center',
           width: '100%',
