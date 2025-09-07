@@ -164,22 +164,17 @@ const PublishingProgress = () => {
     
     try {
       setLoading(true);
-      console.log('PublishingProgress: 함수 호출 시작');
       const response = await callGetPublishingStats();
-      console.log('PublishingProgress: 전체 응답:', JSON.stringify(response, null, 2));
       
       // 백엔드 응답 구조 확인 및 안전한 데이터 처리
       // Firebase Functions는 { data: { success: true, data: {...} } } 구조로 응답
       const responseData = response.data || {};
-      console.log('PublishingProgress: Firebase response:', responseData);
       
       // responseData가 { success: true, data: {...} } 형태라면 data를 추출
       let statsData = responseData.data || responseData;
-      console.log('PublishingProgress: 파싱된 statsData:', statsData);
       
       // currentMonth가 없거나 올바르지 않은 경우 기본값 설정
       if (!statsData.currentMonth || typeof statsData.currentMonth !== 'object') {
-        console.log('PublishingProgress: currentMonth가 없음, 기본값 설정');
         statsData = {
           ...statsData,
           currentMonth: {
@@ -190,7 +185,6 @@ const PublishingProgress = () => {
           nextBonusEligible: statsData.nextBonusEligible !== false
         };
       } else {
-        console.log('PublishingProgress: currentMonth 존재, 필드 검증');
         // currentMonth는 있지만 필수 필드가 없는 경우
         const userBasedTarget = getMonthlyTarget(user);
         console.log('🎯 Target 결정:', {
@@ -205,8 +199,6 @@ const PublishingProgress = () => {
         };
       }
       
-      console.log('PublishingProgress: 설정할 데이터:', statsData);
-      console.log('PublishingProgress: currentMonth 최종 확인:', statsData.currentMonth);
       setPublishingStats(statsData);
     } catch (error) {
       console.error('Failed to fetch publishing stats:', error);
@@ -239,7 +231,7 @@ const PublishingProgress = () => {
     if (plan) {
       switch (plan) {
         case '오피니언 리더':
-          return 90;
+          return 60;
         case '리전 인플루언서':
           return 20;
         case '로컬 블로거':
@@ -260,7 +252,7 @@ const PublishingProgress = () => {
     if (plan) {
       switch (plan) {
         case '오피니언 리더':
-          return 0; // 오피니언 리더는 이미 SNS 원고 무료이므로 별도 보너스 없음
+          return 30; // 60회 달성 시 익월 30회 추가 제공
         case '리전 인플루언서':
           return 10;
         case '로컬 블로거':
@@ -317,9 +309,6 @@ const PublishingProgress = () => {
   const actualData = publishingStats?.data || publishingStats || {};
   const { currentMonth } = actualData;
   
-  console.log('🔥🔥🔥 실제 사용할 데이터:', actualData);
-  console.log('🔥🔥🔥 currentMonth 최종:', currentMonth);
-  console.log('🔥🔥🔥 사용자 정보 확인:', user);
   const published = currentMonth?.published || 0;
   
   // 플랜 검증을 먼저 수행 (관리자는 예외)

@@ -7,7 +7,7 @@ import {
   Chip,
   Alert
 } from '@mui/material';
-import { AutoAwesome, Refresh, EmojiEvents } from '@mui/icons-material';
+import { AutoAwesome, Refresh } from '@mui/icons-material';
 import { LoadingButton } from '../loading';
 
 export default function GenerateActions({
@@ -18,9 +18,7 @@ export default function GenerateActions({
   attempts = 0,
   maxAttempts = 3,
   drafts = [],
-  isMobile = false,
-  bonusStats = { hasBonus: false, availableBonus: 0 },
-  onBonusGenerate
+  isMobile = false
 }) {
   const attemptsRemaining = maxAttempts - attempts;
 
@@ -45,24 +43,26 @@ export default function GenerateActions({
             variant="contained"
             size={isMobile ? "medium" : "large"}
             startIcon={<AutoAwesome />}
-            onClick={() => onGenerate(false)}
+            onClick={onGenerate}
             disabled={!canGenerate}
             loading={loading}
             loadingText="생성 중..."
             sx={{ 
               minWidth: isMobile ? 'auto' : 160,
               flex: isMobile ? 1 : 'none',
-              bgcolor: '#152484 !important',
+              bgcolor: canGenerate ? '#152484 !important' : '#757575 !important',
               color: 'white !important',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
               '&.Mui-disabled': {
-                bgcolor: '#152484 !important',
-                color: 'white !important'
+                bgcolor: '#757575 !important',
+                color: 'rgba(255, 255, 255, 0.6) !important'
               },
               ...(canGenerate && !loading && {
                 boxShadow: '0 0 10px rgba(0, 255, 255, 0.8)',
                 '&:hover': {
                   bgcolor: '#152484 !important',
                   boxShadow: '0 0 15px rgba(0, 255, 255, 1.0)',
+                  transform: 'scale(0.98)',
                 }
               })
             }}
@@ -82,26 +82,6 @@ export default function GenerateActions({
             </Box>
           </LoadingButton>
 
-          {/* 보너스 생성 버튼 */}
-          {bonusStats.hasBonus && (
-            <LoadingButton
-              variant="contained"
-              size={isMobile ? "medium" : "large"}
-              startIcon={<EmojiEvents />}
-              onClick={() => onGenerate(true)}
-              disabled={!canGenerate}
-              loading={loading}
-              loadingText="보너스 생성 중..."
-              sx={{ 
-                minWidth: isMobile ? 'auto' : 140,
-                bgcolor: '#006261',
-                '&:hover': { bgcolor: '#003A87' },
-                flex: isMobile ? 1 : 'none'
-              }}
-            >
-              보너스 생성 ({bonusStats.availableBonus})
-            </LoadingButton>
-          )}
 
           {drafts.length > 0 && (
             <Button

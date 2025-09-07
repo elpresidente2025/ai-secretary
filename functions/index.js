@@ -121,6 +121,10 @@ exports.getUserPayments = tossPaymentsHandler.getUserPayments;
 // 네이버 로그인 관련 함수들
 exports.naverLogin = naverLoginHandler.naverLogin;
 
+// 네이버 연결 끊기 콜백 함수
+const naverDisconnectHandler = require('./handlers/naver-disconnect');
+exports.naverDisconnect = naverDisconnectHandler.naverDisconnect;
+
 // 관리자 전용 함수들 (HTTP 함수로 변경하여 CORS 문제 해결)
 const { onRequest } = require('firebase-functions/v2/https');
 const { districtKey } = require('./services/district');
@@ -539,7 +543,8 @@ exports.fixDuplicateDistricts = onRequest({
 // 시스템 상태 함수 (HTTP 함수로 변경)
 exports.getSystemStatus = onRequest({
   region: 'asia-northeast3',
-  cors: true
+  cors: true,
+  timeoutSeconds: 30
 }, async (req, res) => {
   try {
     // CORS 헤더 명시적 설정

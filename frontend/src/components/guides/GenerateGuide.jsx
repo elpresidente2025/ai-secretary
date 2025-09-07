@@ -123,6 +123,42 @@ const GenerateGuide = () => {
           )}
         </Box>
       ))}
+
+      {/* 주의사항 섹션 */}
+      <Box sx={{ mt: 4, p: 3, bgcolor: '#fff3e0', borderRadius: 2, border: '1px solid #ffb74d' }}>
+        <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: '#e65100', display: 'flex', alignItems: 'center' }}>
+          ⚠️ 블로그 발행 시 주의사항
+        </Typography>
+        <List dense>
+          <ListItem sx={{ py: 0.5 }}>
+            <ListItemIcon sx={{ minWidth: 24 }}>
+              <CheckCircleOutline sx={{ fontSize: 16, color: '#ff9800' }} />
+            </ListItemIcon>
+            <ListItemText 
+              primary="하루 3회 초과 발행 시 네이버 블로그에서 스팸 블로그로 분류될 수 있습니다" 
+              primaryTypographyProps={{ variant: 'body2', fontWeight: 500 }}
+            />
+          </ListItem>
+          <ListItem sx={{ py: 0.5 }}>
+            <ListItemIcon sx={{ minWidth: 24 }}>
+              <CheckCircleOutline sx={{ fontSize: 16, color: '#ff9800' }} />
+            </ListItemIcon>
+            <ListItemText 
+              primary="생성된 원고는 반드시 사용자가 최종 검수 및 수정 후 발행하세요" 
+              primaryTypographyProps={{ variant: 'body2', fontWeight: 500 }}
+            />
+          </ListItem>
+          <ListItem sx={{ py: 0.5 }}>
+            <ListItemIcon sx={{ minWidth: 24 }}>
+              <CheckCircleOutline sx={{ fontSize: 16, color: '#ff9800' }} />
+            </ListItemIcon>
+            <ListItemText 
+              primary="적절한 간격(최소 3시간 이상 권장)을 두고 발행하여 자연스러운 블로그 운영을 유지하세요" 
+              primaryTypographyProps={{ variant: 'body2', fontWeight: 500 }}
+            />
+          </ListItem>
+        </List>
+      </Box>
     </Box>
   );
 };

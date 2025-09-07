@@ -335,9 +335,14 @@ const useBonusGeneration = wrap(async (request) => {
 // 헬퍼 함수들
 const getMonthlyTarget = (role) => {
   switch (role) {
+    case 'opinion_leader':
+    case '오피니언 리더':
+      return 60;
     case 'regional_influencer':
+    case '리전 인플루언서':
       return 20;
     case 'local_blogger':
+    case '로컬 블로거':
     default:
       return 8;
   }
@@ -345,9 +350,14 @@ const getMonthlyTarget = (role) => {
 
 const getBonusAmount = (role) => {
   switch (role) {
+    case 'opinion_leader':
+    case '오피니언 리더':
+      return 30; // 60회 달성 시 익월 30회 추가 제공
     case 'regional_influencer':
+    case '리전 인플루언서':
       return 10;
     case 'local_blogger':
+    case '로컬 블로거':
     default:
       return 4;
   }

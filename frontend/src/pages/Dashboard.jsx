@@ -106,8 +106,6 @@ const Dashboard = () => {
     setError(null);
 
     try {
-      console.log('🔥 Dashboard 데이터 로딩 시작');
-      
       // 사용량 정보와 포스트 목록을 별도로 호출
       const getDashboardDataFn = httpsCallable(functions, 'getDashboardData');
       const getUserPostsFn = httpsCallable(functions, 'getUserPosts');
@@ -117,9 +115,6 @@ const Dashboard = () => {
         getDashboardDataFn(),
         getUserPostsFn()
       ]);
-      
-      console.log('✅ Dashboard 응답:', dashboardResponse.data);
-      console.log('✅ Posts 응답:', postsResponse.data);
       
       const dashboardData = dashboardResponse.data;
       const postsData = postsResponse.data?.posts || [];
@@ -172,12 +167,8 @@ const Dashboard = () => {
       if (!user?.uid) return;
 
       try {
-        console.log('🔥 공지사항 로딩 시작');
-        
         const getActiveNoticesFn = httpsCallable(functions, 'getActiveNotices');
         const noticesResponse = await getActiveNoticesFn();
-        
-        console.log('✅ 공지사항 응답:', noticesResponse.data);
         
         // 올바른 경로로 공지사항 데이터 추출
         const noticesData = noticesResponse.data?.notices || [];
@@ -192,8 +183,10 @@ const Dashboard = () => {
     fetchNotices();
   }, [user]);
 
+
   // 이벤트 핸들러들
   const handleGeneratePost = () => {
+    // 비활성화 조건 체크는 버튼 레벨에서 처리
     navigate('/generate');
   };
 
@@ -330,6 +323,9 @@ const Dashboard = () => {
   // 자기소개 완성 여부 확인
   const hasBio = user?.bio && user.bio.trim().length > 0;
   const showBioAlert = !hasBio && !isAdmin;
+  
+  // 버튼 비활성화 조건 계산
+  const canGeneratePost = isAdmin || (hasBio && usage.postsGenerated < usage.monthlyLimit);
 
   return (
     <DashboardLayout>
@@ -349,8 +345,7 @@ const Dashboard = () => {
             radial-gradient(circle at 75% 25%, rgba(255,255,255,0.12) 0%, transparent 40%)
           `,
           backgroundSize: '16px 16px, 16px 16px, 32px 32px, 32px 32px, 200px 200px, 200px 200px',
-          backgroundAttachment: 'fixed',
-          minHeight: '100vh'
+          backgroundAttachment: 'fixed'
         }}
       >
         {/* 공지사항 배너 - 최상단에 위치 */}
@@ -426,10 +421,21 @@ const Dashboard = () => {
                   size="large" 
                   startIcon={<Create />}
                   onClick={handleGeneratePost}
+                  disabled={!canGeneratePost}
                   fullWidth
                   sx={{ 
-                    bgcolor: planColor,
-                    '&:hover': { bgcolor: planColor, filter: 'brightness(0.9)' }
+                    bgcolor: canGeneratePost ? planColor : '#757575',
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    '&:hover': canGeneratePost ? { 
+                      bgcolor: planColor, 
+                      filter: 'brightness(0.9)',
+                      transform: 'scale(0.98)',
+                      boxShadow: `0 8px 32px ${planColor}40, 0 4px 16px ${planColor}20`,
+                    } : {},
+                    '&.Mui-disabled': {
+                      bgcolor: '#757575 !important',
+                      color: 'rgba(255, 255, 255, 0.6) !important'
+                    }
                   }}
                 >
                   새 원고 생성
@@ -647,10 +653,21 @@ const Dashboard = () => {
                       size="large" 
                       startIcon={<Create />}
                       onClick={handleGeneratePost}
+                      disabled={!canGeneratePost}
                       fullWidth
                       sx={{ 
-                        bgcolor: planColor,
-                        '&:hover': { bgcolor: planColor, filter: 'brightness(0.9)' }
+                        bgcolor: canGeneratePost ? planColor : '#757575',
+                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                        '&:hover': canGeneratePost ? { 
+                          bgcolor: planColor, 
+                          filter: 'brightness(0.9)',
+                          transform: 'scale(0.98)',
+                          boxShadow: `0 8px 32px ${planColor}40, 0 4px 16px ${planColor}20`,
+                        } : {},
+                        '&.Mui-disabled': {
+                          bgcolor: '#757575 !important',
+                          color: 'rgba(255, 255, 255, 0.6) !important'
+                        }
                       }}
                     >
                       새 원고 생성

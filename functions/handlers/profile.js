@@ -80,7 +80,7 @@ exports.updateProfile = wrap(async (req) => {
     // 개인화 정보 필드들
     'ageDecade', 'ageDetail', 'familyStatus', 'backgroundCareer',
     'localConnection', 'politicalExperience', 'committees', 'customCommittees',
-    'constituencyType'
+    'constituencyType', 'twitterPremium', 'gender'
   ];
   const sanitized = {};
   for (const k of allowed) if (profileData[k] !== undefined) sanitized[k] = profileData[k];

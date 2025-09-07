@@ -136,14 +136,7 @@ function generatePersonaHints(userProfile, category, topic) {
     hints.push(relevantInfo.connection);
   }
   
-  // X 프리미엄 구독 정보 추가 (일상 소통, 시사 분석에서 활용)
-  if ((category === 'daily-communication' || category === 'current-affairs') && userProfile.twitterPremium) {
-    if (userProfile.twitterPremium === '구독') {
-      hints.push('X(트위터) 프리미엄 이용자의 관점에서 디지털 소통에 능숙한');
-    } else if (userProfile.twitterPremium === '미구독') {
-      hints.push('SNS 소통에서 일반 이용자들의 입장을 잘 아는');
-    }
-  }
+  // X(트위터) 프리미엄 구독 여부는 SNS 변환 시 글자수 제한 체크용이므로 페르소나에 반영하지 않음
   
   const persona = hints.filter(h => h).join(' ');
   return persona ? `[작성 관점: ${persona}]` : '';
@@ -518,6 +511,16 @@ exports.generatePosts = httpWrap(async (req) => {
         userProfile = userDoc.data();
         console.log('✅ 사용자 프로필 조회 성공:', userProfile.name || 'Unknown');
         
+        // 하루 생성량 제한 확인 (모든 원고에 적용 - 네이버 블로그 스팸 방지)
+        const today = new Date();
+        const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        const dailyUsage = userProfile.dailyUsage || {};
+        const todayGenerated = dailyUsage[todayKey] || 0;
+        
+        if (todayGenerated >= 3) {
+          throw new HttpsError('resource-exhausted', '하루 원고 생성 한도(3회)를 초과했습니다. 네이버 블로그 정책상 하루에 3회를 초과하여 발행하면 스팸 블로그로 분류될 수 있습니다.');
+        }
+
         // 보너스 사용 여부에 따른 사용 가능량 확인
         if (useBonus) {
           const usage = userProfile.usage || { bonusGenerated: 0, bonusUsed: 0 };
@@ -984,19 +987,27 @@ ${currentStatus === '예비' ? `- **예비 상태 특별 금지사항**: "예비
     if (userProfile && Object.keys(userProfile).length > 0) {
       try {
         if (useBonus) {
-          // 보너스 사용량 증가
+          // 보너스 사용량 증가 (하루 사용량도 함께 증가)
+          const today = new Date();
+          const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+          
           await db.collection('users').doc(uid).update({
             'usage.bonusUsed': admin.firestore.FieldValue.increment(1),
+            [`dailyUsage.${todayKey}`]: admin.firestore.FieldValue.increment(1),
             lastBonusUsed: admin.firestore.FieldValue.serverTimestamp()
           });
-          console.log('✅ 보너스 원고 사용량 업데이트');
+          console.log('✅ 보너스 원고 사용량 및 하루 사용량 업데이트');
         } else {
           // 일반 사용량 증가 (기존 로직)
+          const today = new Date();
+          const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+          
           await db.collection('users').doc(uid).update({
             'usage.postsGenerated': admin.firestore.FieldValue.increment(1),
+            [`dailyUsage.${todayKey}`]: admin.firestore.FieldValue.increment(1),
             lastGenerated: admin.firestore.FieldValue.serverTimestamp()
           });
-          console.log('✅ 일반 원고 사용량 업데이트');
+          console.log('✅ 일반 원고 사용량 및 하루 사용량 업데이트');
         }
       } catch (updateError) {
         console.warn('⚠️ 사용량 업데이트 실패:', updateError.message);

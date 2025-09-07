@@ -29,7 +29,7 @@ const SNS_LIMITS = {
     hashtagLimit: 7        // Meta 플랫폼 통합용 (적당한 개수)
   },
   x: {
-    maxLength: 230,        // 공백 제외 기준으로 조정 (여유분 고려)
+    maxLength: 230,        // 기본값 (일반 사용자)
     recommendedLength: 230,
     hashtagLimit: 2         // 1-2개 적절
   },
@@ -39,6 +39,22 @@ const SNS_LIMITS = {
     hashtagLimit: 3         // Threads는 해시태그 좀 더 사용 가능
   }
 };
+
+/**
+ * 사용자 프로필에 따른 X(트위터) 글자수 제한 반환
+ * @param {Object} userProfile - 사용자 프로필 정보
+ * @param {number} originalLength - 원본 글자수 (공백 제외)
+ * @returns {Object} X 플랫폼 제한 정보
+ */
+function getXLimits(userProfile, originalLength = 0) {
+  const isPremium = userProfile.twitterPremium === '구독';
+  const premiumLimit = isPremium ? Math.min(originalLength, 25000) : 230; // 원본 글자수를 넘지 않음
+  return {
+    maxLength: premiumLimit,
+    recommendedLength: premiumLimit,
+    hashtagLimit: 2
+  };
+}
 
 
 /**
@@ -96,17 +112,41 @@ exports.convertToSNS = wrap(async (req) => {
 
     const userData = userDoc.data();
     const userRole = userData.role || 'local_blogger';
+    const userPlan = userData.plan || userData.subscription;
     
     // 관리자는 모든 제한 무시
     const isAdmin = userData.role === 'admin' || userData.isAdmin === true;
     
     if (!isAdmin) {
-      // SNS 애드온 활성화 확인 (결제 또는 게이미피케이션 조건)
-      const hasAddonAccess = userData.snsAddon?.isActive || userData.gamification?.snsUnlocked;
+      // SNS 접근 권한 확인 (오피니언 리더, 애드온 구매, 게이미피케이션)
+      const hasAddonAccess = userPlan === '오피니언 리더' || userData.snsAddon?.isActive || userData.gamification?.snsUnlocked;
       
-      // 임시: 모든 사용자에게 접근 허용 (테스트용)
-      if (!hasAddonAccess && false) { // false로 설정하여 항상 통과
-        throw new HttpsError('permission-denied', 'SNS 변환 기능을 사용하려면 애드온을 구매하거나 조건을 달성해주세요.');
+      if (!hasAddonAccess) {
+        throw new HttpsError('permission-denied', 'SNS 변환 기능을 사용하려면 오피니언 리더 플랜을 이용하거나 애드온을 구매해주세요.');
+      }
+
+      // 사용량 제한 확인
+      const getSNSMonthlyLimit = (plan) => {
+        switch (plan) {
+          case '오피니언 리더':
+            return 60; // 기본 플랜 원고 생성량과 동일
+          case '리전 인플루언서':
+            return 20; // 기본 플랜 원고 생성량과 동일  
+          case '로컬 블로거':
+            return 8; // 기본 플랜 원고 생성량과 동일
+          default:
+            return 30; // SNS 애드온 기본값
+        }
+      };
+
+      const monthlyLimit = getSNSMonthlyLimit(userPlan);
+      const now = new Date();
+      const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const monthlyUsage = userData.snsAddon?.monthlyUsage || {};
+      const currentMonthUsage = monthlyUsage[currentMonthKey] || 0;
+
+      if (currentMonthUsage >= monthlyLimit) {
+        throw new HttpsError('resource-exhausted', `이번 달 SNS 변환 한도(${monthlyLimit}회)를 모두 사용했습니다.`);
       }
     }
 
@@ -147,8 +187,12 @@ exports.convertToSNS = wrap(async (req) => {
     // 각 플랫폼별로 병렬 처리로 변환 (재시도 로직 포함)
     console.log(`🚀 ${platforms.length}개 플랫폼 병렬 변환 시작`);
     
+    // 원본 글자수 계산 (공백 제외)
+    const originalLength = countWithoutSpace(originalContent);
+    
     const platformPromises = platforms.map(async (platform) => {
-      const platformConfig = SNS_LIMITS[platform];
+      // X(트위터)는 사용자 프리미엄 구독 여부에 따라 동적 제한 적용
+      const platformConfig = platform === 'x' ? getXLimits(userData, originalLength) : SNS_LIMITS[platform];
       const targetLength = Math.floor(platformConfig.maxLength * 0.8);
       
       console.log(`🔄 ${platform} 변환 시작 - 모델: ${selectedModel}`);
@@ -183,7 +227,7 @@ exports.convertToSNS = wrap(async (req) => {
           }
 
           // 결과 파싱
-          const parsedResult = parseConvertedContent(convertedText, platform);
+          const parsedResult = parseConvertedContent(convertedText, platform, platformConfig);
           
           // 간소화된 검증 (속도 우선)
           const hasContent = parsedResult.content && parsedResult.content.trim().length > 20;
@@ -264,6 +308,19 @@ exports.convertToSNS = wrap(async (req) => {
 
     await db.collection('sns_conversions').add(conversionData);
 
+    // 5. 관리자가 아닌 경우 사용량 차감
+    if (!isAdmin) {
+      const now = new Date();
+      const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      
+      await db.collection('users').doc(uid).update({
+        [`snsAddon.monthlyUsage.${currentMonthKey}`]: admin.firestore.FieldValue.increment(1),
+        'snsAddon.lastUsedAt': admin.firestore.FieldValue.serverTimestamp()
+      });
+
+      console.log('📊 SNS 변환 사용량 차감 완료:', { uid, monthKey: currentMonthKey });
+    }
+
     console.log('✅ 모든 SNS 플랫폼 변환 완료:', { postId: postIdStr, platformCount: platforms.length, isAdmin });
 
     return ok({
@@ -299,15 +356,41 @@ exports.getSNSUsage = wrap(async (req) => {
 
     const userData = userDoc.data();
     const isAdmin = userData.role === 'admin' || userData.isAdmin === true;
+    const userPlan = userData.plan || userData.subscription;
     
-    // SNS 접근 권한 확인 (결제 또는 게이미피케이션)
-    const hasAddonAccess = isAdmin || userData.snsAddon?.isActive || userData.gamification?.snsUnlocked;
+    // 플랜별 SNS 월 제한량 결정
+    const getSNSMonthlyLimit = (plan) => {
+      switch (plan) {
+        case '오피니언 리더':
+          return 60; // 기본 플랜 원고 생성량과 동일
+        case '리전 인플루언서':
+          return 20; // 기본 플랜 원고 생성량과 동일  
+        case '로컬 블로거':
+          return 8; // 기본 플랜 원고 생성량과 동일
+        default:
+          return 30; // SNS 애드온 기본값 (애드온 구매 시)
+      }
+    };
+
+    // SNS 접근 권한 확인
+    const hasAddonAccess = isAdmin || userData.snsAddon?.isActive || userData.gamification?.snsUnlocked || userPlan === '오피니언 리더';
+    const monthlyLimit = getSNSMonthlyLimit(userPlan);
+    
+    // 현재 월 사용량 계산
+    const now = new Date();
+    const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const monthlyUsage = userData.snsAddon?.monthlyUsage || {};
+    const currentMonthUsage = monthlyUsage[currentMonthKey] || 0;
     
     return ok({
-      isActive: true, // 임시: 모든 사용자 허용
+      isActive: hasAddonAccess,
+      monthlyLimit: monthlyLimit,
+      currentMonthUsage: currentMonthUsage,
+      remaining: Math.max(0, monthlyLimit - currentMonthUsage),
       accessMethod: isAdmin ? 'admin' : 
+                   userPlan === '오피니언 리더' ? 'plan_included' :
                    userData.snsAddon?.isActive ? 'paid' : 
-                   userData.gamification?.snsUnlocked ? 'gamification' : 'test'
+                   userData.gamification?.snsUnlocked ? 'gamification' : 'none'
     });
 
   } catch (error) {
@@ -327,6 +410,20 @@ exports.purchaseSNSAddon = wrap(async (req) => {
   }
 
   try {
+    // 사용자 정보 조회하여 플랜 확인
+    const userDoc = await db.collection('users').doc(uid).get();
+    const userData = userDoc.data();
+    
+    if (!userData) {
+      throw new HttpsError('not-found', '사용자 정보를 찾을 수 없습니다.');
+    }
+    
+    const userPlan = userData.plan || userData.subscription;
+    
+    // 오피니언 리더 플랜은 SNS 원고가 이미 포함되어 있으므로 구매 불가
+    if (userPlan === '오피니언 리더') {
+      throw new HttpsError('failed-precondition', '오피니언 리더 플랜은 이미 SNS 원고 무료 생성이 포함되어 있습니다. 추가 구매가 불필요합니다.');
+    }
     const now = new Date();
     const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
 
@@ -622,7 +719,7 @@ function calculateQualityScore(content, actualLength, targetLength, hashtagCount
 /**
  * 변환된 내용 파싱 (완전히 새로 작성)
  */
-function parseConvertedContent(rawContent, platform) {
+function parseConvertedContent(rawContent, platform, platformConfig = null) {
   try {
     console.log(`🔍 ${platform} 파싱 시작:`, {
       rawContentLength: rawContent?.length || 0,
@@ -655,7 +752,7 @@ function parseConvertedContent(rawContent, platform) {
     hashtags = validateHashtags(hashtags, platform);
 
     // 길이 제한 적용
-    content = enforceLength(content, platform);
+    content = enforceLength(content, platform, platformConfig);
 
     console.log(`✅ ${platform} 파싱 완료:`, {
       contentLength: countWithoutSpace(content),
@@ -815,8 +912,8 @@ function generateDefaultHashtags(platform) {
 /**
  * 길이 제한 적용
  */
-function enforceLength(content, platform) {
-  const maxLength = SNS_LIMITS[platform].maxLength;
+function enforceLength(content, platform, platformConfig = null) {
+  const maxLength = platformConfig ? platformConfig.maxLength : SNS_LIMITS[platform].maxLength;
   const actualLength = countWithoutSpace(content);
   
   if (actualLength <= maxLength) return content;

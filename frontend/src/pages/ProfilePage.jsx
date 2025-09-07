@@ -167,10 +167,8 @@ export default function ProfilePage() {
     (async () => {
       try {
         setLoading(true);
-        console.log('프로필 로드 시작...');
         
         const res = await callGetProfile();
-        console.log('Functions 응답:', res);
         
         if (!mounted) return;
 
@@ -185,7 +183,6 @@ export default function ProfilePage() {
           profileData = res.data.profile || res.data;
         }
 
-        console.log('추출된 프로필 데이터:', profileData);
 
         setProfile({
           name: profileData.name || '',

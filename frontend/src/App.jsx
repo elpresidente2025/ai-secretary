@@ -27,7 +27,6 @@ function App() {
         timeoutPromise
       ]);
       
-      console.log('🔍 시스템 상태 확인:', status.status);
       setSystemStatus(status);
     } catch (error) {
       console.error('❌ 시스템 상태 확인 실패:', error);
@@ -49,7 +48,6 @@ function App() {
       
       // 5분 이내에 확인했다면 스킵
       if (lastCheck && (now - parseInt(lastCheck)) < 300000) {
-        console.log('⚡ 최근 시스템 상태 확인됨 - 스킵');
         setSystemStatus({ status: 'active' });
         setStatusLoading(false);
         return;

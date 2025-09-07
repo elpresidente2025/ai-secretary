@@ -61,13 +61,11 @@ export const AuthProvider = ({ children }) => {
   // 🔥 Firestore에서 사용자 프로필 정보 가져오기
   const fetchUserProfile = async (uid) => {
     try {
-      console.log('🔍 Firestore에서 사용자 프로필 조회 중...', uid);
       const userDocRef = doc(db, 'users', uid);
       const userDocSnap = await getDoc(userDocRef);
       
       if (userDocSnap.exists()) {
         const userData = userDocSnap.data();
-        console.log('✅ Firestore 사용자 데이터:', userData);
         return userData;
       } else {
         console.log('⚠️ Firestore에서 사용자 문서를 찾을 수 없음:', uid);
@@ -84,7 +82,6 @@ export const AuthProvider = ({ children }) => {
     
     // onAuthStateChanged는 구독을 해제하는 함수를 반환합니다.
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      console.log('🔥 Auth 상태 변경:', currentUser?.uid, '첫 로드:', isFirstLoad);
       
       try {
         if (currentUser) {
@@ -96,7 +93,6 @@ export const AuthProvider = ({ children }) => {
           }
           
           // 임시로 Firestore 연결 없이 Firebase Auth만 사용
-          console.log('⚡ 빠른 로딩을 위해 Firestore 스킵');
           
           const combinedUser = {
             // Firebase Auth 기본 정보만
@@ -114,21 +110,18 @@ export const AuthProvider = ({ children }) => {
             _firebaseUser: currentUser
           };
           
-          console.log('👤 기본 사용자 정보:', combinedUser);
           setUser(combinedUser);
           
           // Firestore 프로필 정보를 즉시 백그라운드에서 로드 (첫 로드 시만)
           if (isFirstLoad) {
             (async () => {
               try {
-                console.log('🔍 Firestore 프로필 백그라운드 로드 중...');
                 const userProfile = await fetchUserProfile(currentUser.uid);
                 if (userProfile) {
                   setUser(prev => ({
                     ...prev,
                     ...userProfile
                   }));
-                  console.log('✅ Firestore 프로필 로드 완료');
                 }
               } catch (error) {
                 console.warn('⚠️ Firestore 프로필 로드 실패:', error);
@@ -599,7 +592,16 @@ export const AuthProvider = ({ children }) => {
       // 실제로는 네이버 OAuth를 구현해야 하지만, 
       // 현재는 시뮬레이션을 위해 Firebase Functions를 통해 처리
       const naverLogin = httpsCallable(functions, 'naverLogin');
-      const result = await naverLogin();
+      
+      // 타임아웃 설정 (10초)
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('네이버 로그인 시간 초과')), 10000)
+      );
+      
+      const result = await Promise.race([
+        naverLogin(),
+        timeoutPromise
+      ]);
       
       if (!result.data.success) {
         // 가입 정보가 없는 경우
@@ -639,6 +641,11 @@ export const AuthProvider = ({ children }) => {
       
     } catch (err) {
       console.error('❌ 네이버 로그인 실패:', err);
+      console.error('❌ 에러 상세:', {
+        message: err.message,
+        code: err.code,
+        stack: err.stack
+      });
       
       let errorMessage = '네이버 로그인에 실패했습니다.';
       
@@ -647,18 +654,28 @@ export const AuthProvider = ({ children }) => {
         throw err;
       }
       
-      switch (err.code) {
-        case 'auth/network-request-failed':
-          errorMessage = '네트워크 오류입니다. 다시 시도해주세요.';
-          break;
-        case 'auth/cancelled-popup-request':
-          errorMessage = '네이버 로그인이 취소되었습니다.';
-          break;
-        case 'auth/popup-blocked':
-          errorMessage = '팝업이 차단되었습니다. 팝업 차단을 해제해주세요.';
-          break;
-        default:
-          errorMessage = err.message || '네이버 로그인에 실패했습니다.';
+      if (err.message === '네이버 로그인 시간 초과') {
+        errorMessage = '네이버 로그인 요청이 시간 초과되었습니다. 다시 시도해주세요.';
+      } else {
+        switch (err.code) {
+          case 'auth/network-request-failed':
+            errorMessage = '네트워크 오류입니다. 다시 시도해주세요.';
+            break;
+          case 'auth/cancelled-popup-request':
+            errorMessage = '네이버 로그인이 취소되었습니다.';
+            break;
+          case 'auth/popup-blocked':
+            errorMessage = '팝업이 차단되었습니다. 팝업 차단을 해제해주세요.';
+            break;
+          case 'functions/deadline-exceeded':
+            errorMessage = '네이버 로그인 요청이 시간 초과되었습니다. 다시 시도해주세요.';
+            break;
+          case 'functions/unavailable':
+            errorMessage = '네이버 로그인 서비스에 일시적인 문제가 있습니다. 잠시 후 다시 시도해주세요.';
+            break;
+          default:
+            errorMessage = err.message || '네이버 로그인에 실패했습니다.';
+        }
       }
       
       setError(errorMessage);

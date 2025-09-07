@@ -55,7 +55,8 @@
       "Read(E:\\e\\ai-secretary/**)",
       "Read(E:\\e\\ai-secretary/**)",
       "Read(E:\\e\\ai-secretary/**)",
-      "Bash(npm start)"
+      "Bash(npm start)",
+      "Bash(git rm:*)"
     ],
     "deny": [],
     "ask": [],

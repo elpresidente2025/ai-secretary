@@ -88,7 +88,7 @@ const Billing = () => {
     {
       name: '오피니언 리더',
       price: 330000, // 부가세 10% 포함
-      features: ['월 90회 원고 생성+SNS 원고 무료 생성'],
+      features: ['월 60회 원고 생성+SNS 원고 무료 생성', '60회 모두 달성 시 익월 30회 추가 제공'],
       color: '#006261',
       recommended: false
     }
@@ -363,20 +363,29 @@ const Billing = () => {
                         variant="contained"
                         fullWidth
                         size="large"
+                        onClick={() => {
+                          if (currentPlan === '오피니언 리더') {
+                            alert('오피니언 리더 플랜은 이미 SNS 원고 무료 생성이 포함되어 있습니다.');
+                          } else {
+                            alert('SNS 원고 추가 생성 서비스는 준비 중입니다. 곧 출시 예정입니다!');
+                          }
+                        }}
                         sx={{ 
                           bgcolor: '#e89f2f',
                           color: 'white',
                           py: 3,
                           flexDirection: 'column',
                           gap: 1,
-                          '&:hover': { bgcolor: '#d18a26' }
+                          '&:hover': { 
+                            bgcolor: '#d18a26'
+                          }
                         }}
                       >
                         <Typography variant="h6" sx={{ fontWeight: 'bold', textAlign: 'center' }}>
                           SNS 원고<br />추가 생성
                         </Typography>
                         <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                          22,000원/월
+                          {currentPlan === '오피니언 리더' ? '이미 포함됨' : '22,000원/월'}
                         </Typography>
                       </Button>
                     </Grid>
@@ -449,7 +458,7 @@ const Billing = () => {
                               <CheckCircle sx={{ fontSize: 16, color: '#e89f2f' }} />
                             </ListItemIcon>
                             <ListItemText 
-                              primary="월 30회 SNS 원고 변환" 
+                              primary="사용자 플랜에 따른 SNS 원고 변환" 
                               primaryTypographyProps={{ variant: 'body2' }}
                             />
                           </ListItem>

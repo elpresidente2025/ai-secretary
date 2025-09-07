@@ -124,7 +124,7 @@ const GeneratePage = () => {
   // --- 헨들러 함수 (사용자 이벤트 처리) ---
 
   /** 원고 생성 버튼 클릭 시 실행되는 함수 */
-  const handleGenerate = async (useBonus = false) => {
+  const handleGenerate = async () => {
     // 1. 폼 데이터 유효성 검사 (예: 주제가 비어있는지)
     const validation = validateForm();
     if (!validation.isValid) {
@@ -133,22 +133,12 @@ const GeneratePage = () => {
       return;
     }
 
-    // 2. 보너스 사용 시 추가 확인
-    if (useBonus && !bonusStats.hasBonus) {
-      setSnackbar({ open: true, message: '사용 가능한 보너스가 없습니다.', severity: 'error' });
-      return;
-    }
+    // 2. 유효하면 API 호출
+    const result = await generate(formData);
 
-    // 3. 유효하면 API 호출
-    const result = await generate(formData, useBonus);
-
-    // 4. API 결과에 따라 성공 또는 실패 스낵바를 띄움
+    // 3. API 결과에 따라 성공 또는 실패 스낵바를 띄움
     if (result.success) {
       setSnackbar({ open: true, message: result.message, severity: 'success' });
-      // 보너스 사용 시 보너스 상태 새로고침
-      if (useBonus) {
-        fetchBonusStats();
-      }
     } else {
       setSnackbar({ open: true, message: result.error, severity: 'error' });
     }
@@ -268,7 +258,6 @@ const GeneratePage = () => {
           maxAttempts={maxAttempts}
           drafts={drafts}
           isMobile={isMobile}
-          bonusStats={bonusStats}
         />
 
         {/* 초안 그리드 (Lazy Loading 적용) */}

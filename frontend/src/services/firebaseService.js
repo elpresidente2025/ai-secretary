@@ -107,20 +107,29 @@ export const logError = async (error, context = '', metadata = {}) => {
  */
 export const getSystemStatus = async () => {
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15초 타임아웃
+    
     const response = await fetch('https://asia-northeast3-ai-secretary-6e9c8.cloudfunctions.net/getSystemStatus', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({})
+      body: JSON.stringify({}),
+      signal: controller.signal
     });
     
+    clearTimeout(timeoutId);
+    
     const result = await response.json();
-    console.log('✅ getSystemStatus HTTP 호출 성공:', result);
     
     return result;
   } catch (error) {
-    console.error('시스템 상태 확인 실패:', error);
+    if (error.name === 'AbortError') {
+      console.error('❌ 시스템 상태 확인 실패: 타임아웃');
+      throw new Error('타임아웃');
+    }
+    console.error('❌ 시스템 상태 확인 실패:', error);
     return {
       success: false,
       status: 'unknown',

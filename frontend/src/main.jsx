@@ -96,6 +96,5 @@ root.render(
 // React 마운트 완료 후 즉시 로딩 스피너 숨기기
 const loadingContainer = document.getElementById('loading-container');
 if (loadingContainer) {
-  console.log('🎯 React 마운트 완료 - 로딩 스피너 즉시 제거');
   loadingContainer.classList.add('hidden');
 }
