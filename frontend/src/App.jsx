@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Box } from '@mui/material';
+import SynthwaveBackdrop from './components/SynthwaveBackdrop.jsx';
 import { useAuth } from './hooks/useAuth';
 import { getSystemStatus } from './services/firebaseService';
 import MaintenancePage from './components/MaintenancePage';
@@ -105,18 +106,8 @@ function App() {
     return (
       <Box sx={{ 
         height: '100vh',
-        bgcolor: '#141414',
-        background: `
-          #141414,
-          repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(255,255,255,0.08) 2px, rgba(255,255,255,0.08) 4px),
-          repeating-linear-gradient(-45deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px),
-          repeating-linear-gradient(0deg, transparent, transparent 8px, rgba(255,255,255,0.04) 8px, rgba(255,255,255,0.04) 16px),
-          repeating-linear-gradient(90deg, transparent, transparent 8px, rgba(0,0,0,0.08) 8px, rgba(0,0,0,0.08) 16px),
-          radial-gradient(circle at 15% 85%, rgba(255,255,255,0.06) 0%, transparent 40%),
-          radial-gradient(circle at 85% 15%, rgba(255,255,255,0.06) 0%, transparent 40%),
-          linear-gradient(135deg, #181818 0%, #141414 25%, #101010 50%, #141414 75%, #181818 100%)
-        `,
-        backgroundSize: '16px 16px, 16px 16px, 32px 32px, 32px 32px, 150px 150px, 150px 150px, 100% 100%'
+        bgcolor: 'transparent',
+        background: 'none'
       }}>
         <LoadingOverlay 
           open={true} 
@@ -142,24 +133,16 @@ function App() {
   }
 
   return (
-    <Box sx={{ 
-      minHeight: '100vh', 
-      bgcolor: '#141414',
-      background: `
-        #141414,
-        repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(255,255,255,0.08) 2px, rgba(255,255,255,0.08) 4px),
-        repeating-linear-gradient(-45deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px),
-        repeating-linear-gradient(0deg, transparent, transparent 8px, rgba(255,255,255,0.04) 8px, rgba(255,255,255,0.04) 16px),
-        repeating-linear-gradient(90deg, transparent, transparent 8px, rgba(0,0,0,0.08) 8px, rgba(0,0,0,0.08) 16px),
-        radial-gradient(circle at 15% 85%, rgba(255,255,255,0.06) 0%, transparent 40%),
-        radial-gradient(circle at 85% 15%, rgba(255,255,255,0.06) 0%, transparent 40%),
-        linear-gradient(135deg, #181818 0%, #141414 25%, #101010 50%, #141414 75%, #181818 100%)
-      `,
-      backgroundSize: '16px 16px, 16px 16px, 32px 32px, 32px 32px, 150px 150px, 150px 150px, 100% 100%',
-      backgroundAttachment: 'fixed'
-    }}>
-      {/* Suspense 제거 - lazy loading 없으므로 불필요 */}
-      <Outlet />
+    <Box sx={{ position: 'relative', minHeight: '100vh', bgcolor: 'transparent' }}>
+      {/* 배경 레이어: 헤더/푸터/콘텐츠 아래, 기본 배경 위 */}
+      <Box sx={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none' }}>
+        <SynthwaveBackdrop />
+      </Box>
+
+      {/* 상위 콘텐츠 레이어 */}
+      <Box sx={{ position: 'relative', zIndex: 1 }}>
+        <Outlet />
+      </Box>
     </Box>
   );
 }

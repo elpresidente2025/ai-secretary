@@ -333,19 +333,7 @@ const Dashboard = () => {
         maxWidth="xl" 
         sx={{ 
           py: 4, 
-          px: { xs: 2, md: 4 },
-          // 고품질 카본 파이버 질감
-          background: `
-            #141414,
-            repeating-linear-gradient(45deg, transparent 0px, transparent 2px, rgba(255,255,255,0.15) 2px, rgba(255,255,255,0.15) 4px),
-            repeating-linear-gradient(-45deg, transparent 0px, transparent 2px, rgba(0,0,0,0.3) 2px, rgba(0,0,0,0.3) 4px),
-            repeating-linear-gradient(0deg, transparent 0px, transparent 8px, rgba(255,255,255,0.08) 8px, rgba(255,255,255,0.08) 16px),
-            repeating-linear-gradient(90deg, transparent 0px, transparent 8px, rgba(0,0,0,0.15) 8px, rgba(0,0,0,0.15) 16px),
-            radial-gradient(circle at 25% 75%, rgba(255,255,255,0.12) 0%, transparent 40%),
-            radial-gradient(circle at 75% 25%, rgba(255,255,255,0.12) 0%, transparent 40%)
-          `,
-          backgroundSize: '16px 16px, 16px 16px, 32px 32px, 32px 32px, 200px 200px, 200px 200px',
-          backgroundAttachment: 'fixed'
+          px: { xs: 2, md: 4 }
         }}
       >
         {/* 공지사항 배너 - 최상단에 위치 */}

@@ -11,6 +11,17 @@ export default {
   ],
   theme: {
     extend: {
+      borderRadius: {
+        // 직각에 가까운 소프트 라운드
+        none: "0px",
+        sm: "3px",
+        DEFAULT: "4px",
+        md: "4px",
+        lg: "6px",     // rounded-lg
+        xl: "8px",     // rounded-xl
+        "2xl": "10px",
+        "3xl": "12px",
+      },
       keyframes: {
         "accordion-down": { from: { height: 0 }, to: { height: "var(--radix-accordion-content-height)" } },
         "accordion-up": { from: { height: "var(--radix-accordion-content-height)" }, to: { height: 0 } },

@@ -7,12 +7,12 @@ const theme = createTheme({
       main: '#013c95',
     },
     background: {
-      default: '#141414',
+      default: '#ffffff',
       paper: '#f5f5f5',
     },
     text: {
-      primary: '#ffffff',
-      secondary: 'rgba(255, 255, 255, 0.7)',
+      primary: '#000000',
+      secondary: 'rgba(0, 0, 0, 0.7)',
     },
   },
   // 2. 브레이크포인트 설정 (가이드 2절)
@@ -98,20 +98,28 @@ const theme = createTheme({
     MuiPaper: {
       styleOverrides: {
         root: {
-          backgroundColor: '#f5f5f5',
+          // 리퀴드 글래스 효과
+          backgroundColor: 'rgba(255, 255, 255, 0.08)',
           color: '#000000',
-          borderRadius: '0px',
-          border: '1px solid #333',
-          boxShadow: '0 0 0 1px rgba(0,0,0,0.1)',
+          borderRadius: '6px',
+          border: '1px solid rgba(255, 255, 255, 0.18)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.1)',
         },
       },
     },
     MuiCard: {
       styleOverrides: {
         root: {
-          borderRadius: '0px',
-          border: '1px solid #333',
-          boxShadow: '0 0 0 1px rgba(0,0,0,0.1)',
+          // 리퀴드 글래스 효과
+          backgroundColor: 'rgba(255, 255, 255, 0.08)',
+          color: '#000000',
+          borderRadius: '6px',
+          border: '1px solid rgba(255, 255, 255, 0.18)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.1)',
         },
       },
     },

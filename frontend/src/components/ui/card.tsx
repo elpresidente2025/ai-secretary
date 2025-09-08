@@ -7,7 +7,10 @@ function Card({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card"
       className={cn(
-        "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm",
+        // 리퀴드 글래스 스타일: 투명도 + 블러 + 은은한 링
+        "text-card-foreground flex flex-col gap-6 rounded-xl border-transparent py-6",
+        "supports-[backdrop-filter]:bg-white/10 bg-white/5 backdrop-blur-xl",
+        "ring-1 ring-inset ring-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.15)]",
         className
       )}
       {...props}

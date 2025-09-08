@@ -1,4 +1,4 @@
-// frontend/src/components/loading/LoadingSkeleton.jsx
+// frontend/src/components/loading/LoadingSkeletonV2.jsx
 import React from 'react';
 import { 
   Table, 
@@ -12,9 +12,6 @@ import {
   CardContent
 } from '@mui/material';
 import BaseSkeleton from './BaseSkeleton';
-import { Skeleton as MUISkeleton } from '@mui/material';
-// 하위 호환을 위한 별칭: 과거 코드가 Skeleton 식별자를 참조해도 동작하도록
-const Skeleton = MUISkeleton || BaseSkeleton;
 
 // 기본 스켈레톤
 export const BasicSkeleton = ({ 
@@ -49,7 +46,7 @@ export const TableSkeleton = ({
           <TableRow>
             {Array.from({ length: columns }).map((_, i) => (
               <TableCell key={i} sx={{ color: 'black' }}>
-              {headers[i] || <BaseSkeleton variant="text" width="80%" />}
+                {headers[i] || <BaseSkeleton variant="text" width="80%" />}
               </TableCell>
             ))}
           </TableRow>
@@ -139,3 +136,4 @@ const LoadingSkeleton = ({
 };
 
 export default LoadingSkeleton;
+
