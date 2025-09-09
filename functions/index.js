@@ -30,25 +30,6 @@ const naverLoginHandler = require('./handlers/naver-login');
 const { testElectionScraping, checkCacheStatus, refreshCache } = require('./handlers/test-scraper');
 const { debugElection } = require('./handlers/debug-election');
 
-// 기본 함수 설정 (메모리와 타임아웃 최적화)
-const defaultConfig = {
-  cors: true,
-  memory: '512MiB',
-  timeoutSeconds: 120
-};
-
-const fastConfig = {
-  cors: true,
-  memory: '256MiB',
-  timeoutSeconds: 60
-};
-
-const heavyConfig = {
-  cors: true,
-  memory: '1GiB',
-  timeoutSeconds: 540
-};
-
 // 게시물 관련 함수들 (이미 wrap으로 onCall이 적용됨)
 exports.getUserPosts = postsHandler.getUserPosts;
 exports.getPost = postsHandler.getPost;
@@ -169,7 +150,7 @@ exports.getErrorLogs = onRequest({
     
     console.log('🔥 getErrorLogs 시작');
     
-    const { admin, db } = require('./utils/firebaseAdmin');
+    const { db } = require('./utils/firebaseAdmin');
     
     // 요청 파라미터 파싱
     const reqData = req.body || {};
@@ -311,7 +292,7 @@ exports.getUsers = onRequest({
     console.log('🔥 getUsers 시작');
     
     // 실제 Firestore에서 사용자 데이터 가져오기
-    const { admin, db } = require('./utils/firebaseAdmin');
+    const { db } = require('./utils/firebaseAdmin');
     
     const reqData = req.body || {};
     const limit = reqData.limit || 100;
@@ -320,7 +301,7 @@ exports.getUsers = onRequest({
     
     console.log('📊 사용자 목록 조회 파라미터:', { limit, orderBy, orderDirection });
     
-    let query = db.collection('users')
+    const query = db.collection('users')
       .orderBy(orderBy, orderDirection)
       .limit(Math.min(limit, 200)); // 최대 200명까지 제한
     
@@ -458,7 +439,7 @@ exports.fixDuplicateDistricts = onRequest({
     
     // 수정 모드인 경우 실제 수정 수행
     const shouldFix = req.body?.fix === true;
-    let fixResults = [];
+    const fixResults = [];
     
     if (shouldFix && duplicates.length > 0) {
       console.log('🔧 선착순 원칙으로 중복 선거구 수정 시작');
@@ -559,7 +540,7 @@ exports.getSystemStatus = onRequest({
     
     console.log('🔥 getSystemStatus 시작');
     
-    const { admin, db } = require('./utils/firebaseAdmin');
+    const { db } = require('./utils/firebaseAdmin');
     
     // Firestore에서 시스템 상태 조회
     const systemStatusDoc = await db.collection('system_status').doc('current').get();
@@ -674,7 +655,11 @@ exports.regeneratePost = postsHandler.generatePosts;
 exports.saveSelectedPost = postsHandler.saveSelectedPost;
 exports.savePost = postsHandler.saveSelectedPost; // 프론트엔드에서 savePost로 호출하므로 추가
 
-exports.getUserMetadata = onCall(fastConfig, (req) => {
+exports.getUserMetadata = onCall({
+  cors: true,
+  memory: '256MiB',
+  timeoutSeconds: 60
+},(req) => {
   throw new HttpsError('unimplemented', '가챠뽑기 시스템으로 재구현 예정입니다.');
 });
 

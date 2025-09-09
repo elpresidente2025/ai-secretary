@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Box } from '@mui/material';
-import SynthwaveBackdrop from './components/SynthwaveBackdrop.jsx';
+import GeometricCityBackdrop from './components/GeometricCityBackdrop'; // 새로 만든 2D 배경 컴포넌트 import
 import { useAuth } from './hooks/useAuth';
 import { getSystemStatus } from './services/firebaseService';
 import MaintenancePage from './components/MaintenancePage';
@@ -133,11 +133,9 @@ function App() {
   }
 
   return (
-    <Box sx={{ position: 'relative', minHeight: '100vh', bgcolor: 'transparent' }}>
-      {/* 배경 레이어: 헤더/푸터/콘텐츠 아래, 기본 배경 위 */}
-      <Box sx={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none' }}>
-        <SynthwaveBackdrop />
-      </Box>
+    <Box sx={{ position: 'relative', minHeight: '100vh' }}>
+      {/* 배경 레이어: 최종 2D 재해석 버전으로 교체 */}
+      <GeometricCityBackdrop />
 
       {/* 상위 콘텐츠 레이어 */}
       <Box sx={{ position: 'relative', zIndex: 1 }}>
