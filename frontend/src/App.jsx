@@ -235,6 +235,72 @@ function App() {
               />
             </svg>
           );
+
+          // 중간선 추가 (중앙선과 첫 번째 선 사이, 그리고 각 선들 사이)
+          if (i === 1) {
+            // 중앙선(50%)과 첫 번째 우측선 사이
+            const midBottomOffset = bottomOffset / 2;
+            const midStartX = 50 + (midBottomOffset * 0.05);
+            const midBottomX = 50 + (midBottomOffset * 0.3);
+            
+            verticalLines.push(
+              <svg
+                key={`right-mid-center-${i}`}
+                style={{
+                  position: 'fixed',
+                  top: 'calc(50vh + 14px)',
+                  left: 0,
+                  width: '100vw',
+                  height: 'calc(50vh - 14px)',
+                  zIndex: -1,
+                  pointerEvents: 'none'
+                }}
+              >
+                <line
+                  x1={`${midStartX}%`}
+                  y1="0"
+                  x2={`${midBottomX}%`}
+                  y2="100%"
+                  stroke="#00ffff"
+                  strokeWidth="1"
+                />
+              </svg>
+            );
+          } else {
+            // 현재 선과 이전 선 사이
+            let prevBottomOffset = 0;
+            for (let j = 1; j < i; j++) {
+              prevBottomOffset += baseSpacing * Math.pow(spacingRatio, j - 1);
+            }
+            
+            const midBottomOffset = (prevBottomOffset + bottomOffset) / 2;
+            const midStartX = 50 + (midBottomOffset * 0.05);
+            const midBottomX = 50 + (midBottomOffset * 0.3);
+            
+            verticalLines.push(
+              <svg
+                key={`right-mid-${i}`}
+                style={{
+                  position: 'fixed',
+                  top: 'calc(50vh + 14px)',
+                  left: 0,
+                  width: '100vw',
+                  height: 'calc(50vh - 14px)',
+                  zIndex: -1,
+                  pointerEvents: 'none'
+                }}
+              >
+                <line
+                  x1={`${midStartX}%`}
+                  y1="0"
+                  x2={`${midBottomX}%`}
+                  y2="100%"
+                  stroke="#00ffff"
+                  strokeWidth="1"
+                />
+              </svg>
+            );
+          }
         }
         
         // 좌측 선들 - 지평선 원근법
@@ -273,6 +339,72 @@ function App() {
               />
             </svg>
           );
+
+          // 중간선 추가 (중앙선과 첫 번째 선 사이, 그리고 각 선들 사이)
+          if (i === 1) {
+            // 중앙선(50%)과 첫 번째 좌측선 사이
+            const midBottomOffset = bottomOffset / 2;
+            const midStartX = 50 - (midBottomOffset * 0.05);
+            const midBottomX = 50 - (midBottomOffset * 0.3);
+            
+            verticalLines.push(
+              <svg
+                key={`left-mid-center-${i}`}
+                style={{
+                  position: 'fixed',
+                  top: 'calc(50vh + 14px)',
+                  left: 0,
+                  width: '100vw',
+                  height: 'calc(50vh - 14px)',
+                  zIndex: -1,
+                  pointerEvents: 'none'
+                }}
+              >
+                <line
+                  x1={`${midStartX}%`}
+                  y1="0"
+                  x2={`${midBottomX}%`}
+                  y2="100%"
+                  stroke="#00ffff"
+                  strokeWidth="1"
+                />
+              </svg>
+            );
+          } else {
+            // 현재 선과 이전 선 사이
+            let prevBottomOffset = 0;
+            for (let j = 1; j < i; j++) {
+              prevBottomOffset += baseSpacing * Math.pow(spacingRatio, j - 1);
+            }
+            
+            const midBottomOffset = (prevBottomOffset + bottomOffset) / 2;
+            const midStartX = 50 - (midBottomOffset * 0.05);
+            const midBottomX = 50 - (midBottomOffset * 0.3);
+            
+            verticalLines.push(
+              <svg
+                key={`left-mid-${i}`}
+                style={{
+                  position: 'fixed',
+                  top: 'calc(50vh + 14px)',
+                  left: 0,
+                  width: '100vw',
+                  height: 'calc(50vh - 14px)',
+                  zIndex: -1,
+                  pointerEvents: 'none'
+                }}
+              >
+                <line
+                  x1={`${midStartX}%`}
+                  y1="0"
+                  x2={`${midBottomX}%`}
+                  y2="100%"
+                  stroke="#00ffff"
+                  strokeWidth="1"
+                />
+              </svg>
+            );
+          }
         }
         
         return verticalLines;
