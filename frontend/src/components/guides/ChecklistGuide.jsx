@@ -7,10 +7,12 @@ import {
   ListItemIcon,
   ListItemText,
   Alert,
+  useTheme
 } from '@mui/material';
 import { CheckCircleOutline } from '@mui/icons-material';
 
 const ChecklistGuide = () => {
+  const theme = useTheme();
   const required = [
     '날짜, 장소, 인명 등 사실관계',
     '내 정치 성향 및 공약과의 일치성',
@@ -21,7 +23,8 @@ const ChecklistGuide = () => {
   const warnings = [
     { situation: '통계나 수치가 포함된 경우', action: '출처 재확인' },
     { situation: '다른 정치인 언급 시', action: '사실관계 점검' },
-    { situation: '정책 내용 포함 시', action: '최신 정보인지 확인' }
+    { situation: '정책 내용 포함 시', action: '최신 정보인지 확인' },
+    { situation: '생성된 원고 사용 시', action: '반드시 선거법에 맞게 검토 후 사용. 과도한 자기홍보, 허위사실, 비방 표현 금지' }
   ];
 
   return (
@@ -48,7 +51,11 @@ const ChecklistGuide = () => {
       </List>
       
       <Box sx={{ mt: 3 }}>
-        <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: '#d22730' }}>
+        <Typography variant="h6" sx={{ 
+          fontWeight: 600, 
+          mb: 2, 
+          color: theme.palette.mode === 'dark' ? '#f48fb1' : '#d22730' 
+        }}>
           특별 주의사항
         </Typography>
         {warnings.map((warning, index) => (

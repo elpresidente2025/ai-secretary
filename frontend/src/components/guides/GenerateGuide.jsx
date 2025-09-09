@@ -6,10 +6,12 @@ import {
   ListItem,
   ListItemIcon,
   ListItemText,
+  useTheme
 } from '@mui/material';
 import { CheckCircleOutline, Edit } from '@mui/icons-material';
 
 const GenerateGuide = () => {
+  const theme = useTheme();
   const steps = [
     {
       title: '1. 주제 입력하기',
@@ -114,7 +116,10 @@ const GenerateGuide = () => {
               {step.features.map((feature, fIndex) => (
                 <ListItem key={fIndex} sx={{ py: 0.5 }}>
                   <ListItemIcon sx={{ minWidth: 24 }}>
-                    <CheckCircleOutline sx={{ fontSize: 16, color: '#ff9800' }} />
+                    <CheckCircleOutline sx={{ 
+                fontSize: 16, 
+                color: theme.palette.mode === 'dark' ? '#ffab40' : '#ff9800' 
+              }} />
                   </ListItemIcon>
                   <ListItemText primary={feature} primaryTypographyProps={{ variant: 'body2' }} />
                 </ListItem>
@@ -125,14 +130,29 @@ const GenerateGuide = () => {
       ))}
 
       {/* 주의사항 섹션 */}
-      <Box sx={{ mt: 4, p: 3, bgcolor: '#fff3e0', borderRadius: 2, border: '1px solid #ffb74d' }}>
-        <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: '#e65100', display: 'flex', alignItems: 'center' }}>
+      <Box sx={{ 
+        mt: 4, 
+        p: 3, 
+        bgcolor: theme.palette.mode === 'dark' ? 'rgba(255, 152, 0, 0.1)' : '#fff3e0', 
+        borderRadius: 2, 
+        border: theme.palette.mode === 'dark' ? '1px solid rgba(255, 152, 0, 0.3)' : '1px solid #ffb74d' 
+      }}>
+        <Typography variant="h6" sx={{ 
+          fontWeight: 600, 
+          mb: 2, 
+          color: theme.palette.mode === 'dark' ? '#ffab40' : '#e65100', 
+          display: 'flex', 
+          alignItems: 'center' 
+        }}>
           ⚠️ 블로그 발행 시 주의사항
         </Typography>
         <List dense>
           <ListItem sx={{ py: 0.5 }}>
             <ListItemIcon sx={{ minWidth: 24 }}>
-              <CheckCircleOutline sx={{ fontSize: 16, color: '#ff9800' }} />
+              <CheckCircleOutline sx={{ 
+                fontSize: 16, 
+                color: theme.palette.mode === 'dark' ? '#ffab40' : '#ff9800' 
+              }} />
             </ListItemIcon>
             <ListItemText 
               primary="하루 3회 초과 발행 시 네이버 블로그에서 스팸 블로그로 분류될 수 있습니다" 
@@ -141,7 +161,10 @@ const GenerateGuide = () => {
           </ListItem>
           <ListItem sx={{ py: 0.5 }}>
             <ListItemIcon sx={{ minWidth: 24 }}>
-              <CheckCircleOutline sx={{ fontSize: 16, color: '#ff9800' }} />
+              <CheckCircleOutline sx={{ 
+                fontSize: 16, 
+                color: theme.palette.mode === 'dark' ? '#ffab40' : '#ff9800' 
+              }} />
             </ListItemIcon>
             <ListItemText 
               primary="생성된 원고는 반드시 사용자가 최종 검수 및 수정 후 발행하세요" 
@@ -150,7 +173,10 @@ const GenerateGuide = () => {
           </ListItem>
           <ListItem sx={{ py: 0.5 }}>
             <ListItemIcon sx={{ minWidth: 24 }}>
-              <CheckCircleOutline sx={{ fontSize: 16, color: '#ff9800' }} />
+              <CheckCircleOutline sx={{ 
+                fontSize: 16, 
+                color: theme.palette.mode === 'dark' ? '#ffab40' : '#ff9800' 
+              }} />
             </ListItemIcon>
             <ListItemText 
               primary="적절한 간격(최소 3시간 이상 권장)을 두고 발행하여 자연스러운 블로그 운영을 유지하세요" 

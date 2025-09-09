@@ -27,7 +27,8 @@ import {
   DialogContent,
   DialogActions,
   FormControlLabel,
-  Checkbox
+  Checkbox,
+  useTheme
 } from '@mui/material';
 import { Add, Remove, AutoAwesome, DeleteForever, Warning } from '@mui/icons-material';
 import { httpsCallable } from 'firebase/functions';
@@ -42,6 +43,7 @@ import ProfileGuide from '../components/guides/ProfileGuide';
 
 export default function ProfilePage() {
   const { user, logout } = useAuth();
+  const theme = useTheme();
   
   // httpsCallable 메모이즈
   const callGetProfile = useMemo(() => httpsCallable(functions, 'getUserProfile'), []);
@@ -493,7 +495,9 @@ export default function ProfilePage() {
           }
         }}
       >
-        <Typography variant="h4" gutterBottom sx={{ color: 'white' }}>
+        <Typography variant="h4" gutterBottom sx={{ 
+          color: theme.palette.mode === 'dark' ? 'white' : 'black' 
+        }}>
           프로필 설정
         </Typography>
 
@@ -699,7 +703,10 @@ export default function ProfilePage() {
               <Grid item xs={12}>
                 <Box sx={{ mb: 3 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                    <Typography variant="h6" sx={{ color: '#55207D', fontWeight: 600 }}>
+                    <Typography variant="h6" sx={{ 
+                      color: theme.palette.mode === 'dark' ? '#e1bee7' : '#55207D', 
+                      fontWeight: 600 
+                    }}>
                       🏛️ 소속 위원회
                     </Typography>
                     <Tooltip title="위원회 추가">
@@ -860,7 +867,10 @@ export default function ProfilePage() {
               {/* 1. 자기소개 섹션 */}
               <Box sx={{ mb: 4 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                  <Typography variant="h6" sx={{ color: '#003A87', fontWeight: 600 }}>
+                  <Typography variant="h6" sx={{ 
+                    color: theme.palette.mode === 'dark' ? '#81d4fa' : '#003A87', 
+                    fontWeight: 600 
+                  }}>
                     👤 자기소개
                   </Typography>
                   <Tooltip title="자기소개 항목 추가">
@@ -956,7 +966,10 @@ export default function ProfilePage() {
               {/* 2. 추가 정보 섹션 (카드형 배치) */}
               <Box sx={{ mb: 4 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                  <Typography variant="h6" sx={{ color: '#55207D', fontWeight: 600 }}>
+                  <Typography variant="h6" sx={{ 
+                    color: theme.palette.mode === 'dark' ? '#e1bee7' : '#55207D', 
+                    fontWeight: 600 
+                  }}>
                     📋 추가 정보
                   </Typography>
                   <Tooltip title="추가 정보 항목 추가">

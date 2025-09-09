@@ -25,14 +25,18 @@ import {
   Logout,
   CreditCard,
   AdminPanelSettings,
-  MenuBook
+  MenuBook,
+  DarkMode,
+  LightMode
 } from '@mui/icons-material';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { getUserDisplayTitle, getUserRegionInfo, getUserStatusIcon } from '../utils/userUtils';
+import { useThemeMode } from '../contexts/ThemeContext';
 
 const DashboardLayout = ({ children }) => {
   const { user, logout } = useAuth();
+  const { isDarkMode, toggleTheme } = useThemeMode();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
@@ -103,6 +107,12 @@ const DashboardLayout = ({ children }) => {
             </ListItemButton>
           </ListItem>
         ))}
+        <ListItem disablePadding>
+          <ListItemButton onClick={toggleTheme}>
+            <ListItemIcon>{isDarkMode ? <LightMode /> : <DarkMode />}</ListItemIcon>
+            <ListItemText primary={isDarkMode ? "라이트 모드" : "다크 모드"} />
+          </ListItemButton>
+        </ListItem>
         <ListItem disablePadding>
           <ListItemButton onClick={handleLogout}>
             <ListItemIcon><Logout /></ListItemIcon>
@@ -179,6 +189,15 @@ const DashboardLayout = ({ children }) => {
                 ))}
               </Box>
 
+              {/* 다크모드 토글 버튼 */}
+              <IconButton 
+                color="inherit" 
+                onClick={toggleTheme}
+                sx={{ color: 'white', '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' }, mr: 1 }}
+              >
+                {isDarkMode ? <LightMode /> : <DarkMode />}
+              </IconButton>
+
               <Button
                 color="inherit"
                 startIcon={<Logout />}
@@ -190,11 +209,20 @@ const DashboardLayout = ({ children }) => {
             </>
           )}
 
-          {/* 모바일: 햄버거 */}
+          {/* 모바일: 다크모드 토글 + 햄버거 */}
           {isMobile && (
-            <IconButton color="inherit" onClick={handleDrawerToggle} edge="end">
-              <MenuIcon />
-            </IconButton>
+            <>
+              <IconButton 
+                color="inherit" 
+                onClick={toggleTheme}
+                sx={{ color: 'white', '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' }, mr: 1 }}
+              >
+                {isDarkMode ? <LightMode /> : <DarkMode />}
+              </IconButton>
+              <IconButton color="inherit" onClick={handleDrawerToggle} edge="end">
+                <MenuIcon />
+              </IconButton>
+            </>
           )}
         </Toolbar>
       </AppBar>
@@ -210,7 +238,6 @@ const DashboardLayout = ({ children }) => {
         PaperProps={{
           sx: {
             bgcolor: 'rgba(255, 255, 255, 0.65)',
-            backdropFilter: 'blur(10px)',
             color: 'black',
             zIndex: (theme) => theme.zIndex.modal + 100
           }

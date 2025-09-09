@@ -10,10 +10,12 @@ import {
   Grid,
   Card,
   CardContent,
+  useTheme
 } from '@mui/material';
 import { CheckCircleOutline, Person, Warning } from '@mui/icons-material';
 
 const ProfileGuide = () => {
+  const theme = useTheme();
   const basicInfo = [
     '이름: 실명으로 정확히 입력',
     '직책: 현재 맡고 있는 정치적 직책',
@@ -132,7 +134,11 @@ const ProfileGuide = () => {
       </Box>
 
       <Box sx={{ mt: 3 }}>
-        <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: '#d22730' }}>
+        <Typography variant="h6" sx={{ 
+          fontWeight: 600, 
+          mb: 2, 
+          color: theme.palette.mode === 'dark' ? '#f48fb1' : '#d22730' 
+        }}>
           주의사항
         </Typography>
         {warnings.map((warning, index) => (

@@ -19,7 +19,8 @@ import {
   AccordionSummary,
   AccordionDetails,
   TextField,
-  InputAdornment
+  InputAdornment,
+  useTheme
 } from '@mui/material';
 import {
   Edit,
@@ -45,6 +46,7 @@ import ProfileGuide from '../components/guides/ProfileGuide';
 const GuidelinesPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedAccordion, setExpandedAccordion] = useState('generate');
+  const theme = useTheme();
 
   const handleAccordionChange = (panel) => (event, isExpanded) => {
     setExpandedAccordion(isExpanded ? panel : false);
@@ -108,7 +110,11 @@ const GuidelinesPage = () => {
       <Container maxWidth="xl">
         {/* 페이지 헤더 */}
         <Box sx={{ mb: 4 }}>
-          <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1, color: 'white' }}>
+          <Typography variant="h4" sx={{ 
+            fontWeight: 'bold', 
+            mb: 1, 
+            color: theme.palette.mode === 'dark' ? 'white' : 'black'
+          }}>
             전자두뇌비서관 사용 가이드
           </Typography>
           <Typography variant="body1" color="text.secondary">
@@ -147,12 +153,20 @@ const GuidelinesPage = () => {
               key={guide.id}
               expanded={expandedAccordion === guide.id}
               onChange={handleAccordionChange(guide.id)}
-              sx={{ mb: 2, border: '1px solid #ddd', borderRadius: '8px !important' }}
+              sx={{ 
+                mb: 2, 
+                border: theme.palette.mode === 'dark' 
+                  ? '1px solid rgba(255, 255, 255, 0.1)' 
+                  : '1px solid #ddd', 
+                borderRadius: '8px !important' 
+              }}
             >
               <AccordionSummary
                 expandIcon={<ExpandMore />}
                 sx={{ 
-                  bgcolor: '#f8f9fa',
+                  bgcolor: theme.palette.mode === 'dark' 
+                    ? 'rgba(255, 255, 255, 0.05)' 
+                    : '#f8f9fa',
                   borderRadius: expandedAccordion === guide.id ? '8px 8px 0 0' : '8px'
                 }}
               >
@@ -182,25 +196,6 @@ const GuidelinesPage = () => {
             </Typography>
           </Paper>
         )}
-        
-        {/* 추가 도움말 */}
-        <Paper sx={{ p: 3, mt: 4, bgcolor: '#f8f9fa' }}>
-          <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, display: 'flex', alignItems: 'center' }}>
-            <Warning sx={{ mr: 1, color: '#ff9800' }} />
-            사용 시 유의사항
-          </Typography>
-          <Alert severity="info" sx={{ mb: 2 }}>
-            <Typography variant="body2">
-              <strong>선거법 준수:</strong> 생성된 원고는 반드시 선거법에 맞게 검토 후 사용하세요. 
-              과도한 자기홍보, 허위사실, 비방 표현은 금지됩니다.
-            </Typography>
-          </Alert>
-          <Alert severity="success">
-            <Typography variant="body2">
-              <strong>사이트 주소:</strong> 언제든지 <strong>cyberbrain.kr</strong>에서 접속하실 수 있습니다.
-            </Typography>
-          </Alert>
-        </Paper>
         
         <Box sx={{ height: 20 }} />
       </Container>

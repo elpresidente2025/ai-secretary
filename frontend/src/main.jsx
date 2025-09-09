@@ -4,7 +4,9 @@ import ReactDOM from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { AuthProvider } from './hooks/useAuth.jsx';
 import { ThemeProvider } from '@mui/material/styles';
-import theme from './theme';
+import { CssBaseline } from '@mui/material';
+import createCustomTheme from './theme';
+import { ThemeModeProvider, useThemeMode } from './contexts/ThemeContext.jsx';
 import App from './App.jsx';
 import ErrorPage from './pages/ErrorPage.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
@@ -81,15 +83,28 @@ const router = createBrowserRouter([
   },
 ]);
 
-// React 앱 렌더링
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(
-  <React.StrictMode>
+// 테마를 사용하는 앱 컴포넌트
+const ThemedApp = () => {
+  const { isDarkMode } = useThemeMode();
+  const theme = createCustomTheme(isDarkMode);
+
+  return (
     <ThemeProvider theme={theme}>
+      <CssBaseline />
       <AuthProvider>
         <RouterProvider router={router} />
       </AuthProvider>
     </ThemeProvider>
+  );
+};
+
+// React 앱 렌더링
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(
+  <React.StrictMode>
+    <ThemeModeProvider>
+      <ThemedApp />
+    </ThemeModeProvider>
   </React.StrictMode>
 );
 

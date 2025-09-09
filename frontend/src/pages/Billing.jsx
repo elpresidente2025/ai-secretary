@@ -18,6 +18,7 @@ import {
   ListItemText,
   Alert,
   LinearProgress,
+  useTheme,
   Avatar,
   Dialog,
   DialogTitle,
@@ -49,6 +50,7 @@ import { functions } from '../services/firebase';
 
 const Billing = () => {
   const { user, refreshUserProfile } = useAuth();
+  const theme = useTheme();
   const [currentPlan, setCurrentPlan] = useState(user?.plan || user?.subscription || '리전 인플루언서');
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
   const [membershipDialogOpen, setMembershipDialogOpen] = useState(false);
@@ -145,7 +147,11 @@ const Billing = () => {
       <Container maxWidth="lg">
         {/* 페이지 헤더 */}
         <Box sx={{ mb: 4 }}>
-          <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1, color: 'white' }}>
+          <Typography variant="h4" sx={{ 
+            fontWeight: 'bold', 
+            mb: 1, 
+            color: theme.palette.mode === 'dark' ? 'white' : 'black' 
+          }}>
             인증 및 결제 관리
           </Typography>
           <Typography variant="body1" color="text.secondary">

@@ -11,8 +11,7 @@ const CeramicCard = ({
 }) => {
   const ceramicCardStyle = {
     // 애플 리퀴드 글래스 질감
-    background: 'rgba(255, 255, 255, 0.05)',
-    backdropFilter: 'blur(1px) saturate(1.8)',
+    background: 'transparent',
     
     // 리퀴드 글래스 테두리 + 그림자
     border: '1px solid rgba(255, 255, 255, 0.2)',
@@ -40,48 +39,6 @@ const CeramicCard = ({
       borderColor: 'rgba(0, 0, 0, 0.12)'
     },
     
-    // 글로시 효과를 위한 오버레이 준비
-    '&::before': {
-      content: '""',
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      background: `
-        radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.4) 0%, transparent 50%),
-        linear-gradient(135deg, 
-          rgba(255, 255, 255, 0.2) 0%, 
-          transparent 30%, 
-          transparent 70%, 
-          rgba(0, 0, 0, 0.05) 100%
-        )
-      `,
-      pointerEvents: 'none',
-      zIndex: 1,
-      borderRadius: 'inherit',
-    },
-    
-    // 세라믹 크랙 텍스처
-    '&::after': {
-      content: '""',
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundImage: `
-        radial-gradient(circle at 20% 80%, transparent 70%, rgba(0, 0, 0, ${crackIntensity * 0.1}) 71%, transparent 72%),
-        radial-gradient(circle at 80% 20%, transparent 70%, rgba(0, 0, 0, ${crackIntensity * 0.1}) 71%, transparent 72%),
-        radial-gradient(circle at 40% 40%, transparent 70%, rgba(0, 0, 0, ${crackIntensity * 0.08}) 71%, transparent 72%),
-        linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, ${crackIntensity * 0.05}) 50%, transparent 100%),
-        linear-gradient(0deg, transparent 0%, rgba(0, 0, 0, ${crackIntensity * 0.05}) 50%, transparent 100%)
-      `,
-      pointerEvents: 'none',
-      zIndex: 0,
-      borderRadius: 'inherit',
-      opacity: 0.6,
-    },
     
     // 자식 요소들이 오버레이 위에 표시되도록
     '& > *': {

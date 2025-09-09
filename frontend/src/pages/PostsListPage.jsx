@@ -18,6 +18,7 @@ import {
   Alert,
   Dialog,
   DialogTitle,
+  useTheme,
   DialogContent,
   DialogActions,
   Button,
@@ -74,6 +75,7 @@ function countWithoutSpace(str) {
 
 export default function PostsListPage() {
   const { user, loading: authLoading } = useAuth();
+  const theme = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -278,8 +280,15 @@ export default function PostsListPage() {
       <Container maxWidth="xl" sx={{ mt: 2, px: { xs: 1, sm: 2 } }}>
         {/* 페이지 헤더 */}
         <Box sx={{ mb: 4 }}>
-          <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1, color: 'white', display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Assignment sx={{ color: 'white' }} />
+          <Typography variant="h4" sx={{ 
+            fontWeight: 'bold', 
+            mb: 1, 
+            color: theme.palette.mode === 'dark' ? 'white' : 'black', 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 1 
+          }}>
+            <Assignment sx={{ color: theme.palette.mode === 'dark' ? 'white' : 'black' }} />
             내 원고 목록
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>

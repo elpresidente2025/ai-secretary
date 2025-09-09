@@ -365,11 +365,11 @@ const Dashboard = () => {
         
         {/* 인사말 + 플랜 카드 */}
         <Paper 
-          elevation={2} 
+          elevation={0} 
           sx={{ 
             p: 3, 
             mb: 3, 
-            bgcolor: '#f5f5f5'
+            bgcolor: 'transparent'
           }}
         >
           {/* 모바일 버전 - 수직 스택 */}
@@ -686,7 +686,7 @@ const Dashboard = () => {
           /* 모바일 - 수직 스택 */
           <Box>
             {/* 공지사항 카드 - 항상 표시 */}
-            <Paper elevation={1} sx={{ mb: 3 }}>
+            <Paper elevation={0} sx={{ mb: 3, bgcolor: 'transparent' }}>
               <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
                 <Typography variant="h6" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center' }}>
                   <Notifications sx={{ mr: 1, color: '#55207D' }} />
@@ -774,7 +774,7 @@ const Dashboard = () => {
 
 
             {/* 최근 생성한 글 */}
-            <Paper elevation={1} sx={{ mb: 3 }}>
+            <Paper elevation={0} sx={{ mb: 3, bgcolor: 'transparent' }}>
               <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
                 <Typography variant="h6" sx={{ fontWeight: 600 }}>
                   최근 생성한 글
@@ -824,7 +824,7 @@ const Dashboard = () => {
           <Grid container spacing={3}>
             {/* 좌측: 최근 생성한 글 */}
             <Grid item xs={12} md={6} xl={4}>
-              <Paper elevation={1} sx={{ height: 'fit-content' }}>
+              <Paper elevation={0} sx={{ height: 'fit-content', bgcolor: 'transparent' }}>
                 <Box sx={{ p: 3, borderBottom: '1px solid', borderColor: 'divider' }}>
                   <Typography variant="h6" sx={{ fontWeight: 600 }}>
                     최근 생성한 글
@@ -873,7 +873,7 @@ const Dashboard = () => {
                 display: { xs: 'none', xl: 'block' } // 2K 미만에서는 숨김
               }}
             >
-              <Paper elevation={1} sx={{ height: 'fit-content' }}>
+              <Paper elevation={0} sx={{ height: 'fit-content', bgcolor: 'transparent' }}>
                 <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
                   <Typography variant="h6" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center' }}>
                     <Notifications sx={{ mr: 1, color: '#55207D' }} />
@@ -963,7 +963,7 @@ const Dashboard = () => {
 
                 {/* 2K 미만에서만 표시되는 공지사항 */}
                 <Box sx={{ display: { xs: 'block', xl: 'none' } }}>
-                  <Paper elevation={1}>
+                  <Paper elevation={0} sx={{ bgcolor: 'transparent' }}>
                     <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
                       <Typography variant="h6" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center' }}>
                         <Notifications sx={{ mr: 1, color: '#55207D' }} />

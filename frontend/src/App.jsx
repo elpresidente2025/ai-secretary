@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Box } from '@mui/material';
-import GeometricCityBackdrop from './components/GeometricCityBackdrop'; // 새로 만든 2D 배경 컴포넌트 import
 import { useAuth } from './hooks/useAuth';
 import { getSystemStatus } from './services/firebaseService';
 import MaintenancePage from './components/MaintenancePage';
@@ -134,13 +133,151 @@ function App() {
 
   return (
     <Box sx={{ position: 'relative', minHeight: '100vh' }}>
-      {/* 배경 레이어: 최종 2D 재해석 버전으로 교체 */}
-      <GeometricCityBackdrop />
-
-      {/* 상위 콘텐츠 레이어 */}
-      <Box sx={{ position: 'relative', zIndex: 1 }}>
-        <Outlet />
-      </Box>
+      {/* Synthwave background image for top 50% */}
+      <Box
+        sx={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: '50vh',
+          backgroundImage: 'url(/background/synthwave_city.png)',
+          backgroundRepeat: 'no-repeat',
+          backgroundPosition: 'top center',
+          backgroundSize: 'cover',
+          zIndex: -1,
+        }}
+      />
+      {/* 시안색 가로선들 - 피보나치 수열 간격 (처음 3개 제외) */}
+      {(() => {
+        const fibonacci = [3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610];
+        let cumulativeOffset = 15;
+        const lines = [];
+        
+        fibonacci.forEach((fib, index) => {
+          lines.push(
+            <Box
+              key={index}
+              sx={{
+                position: 'fixed',
+                top: `calc(50vh + ${cumulativeOffset}px)`,
+                left: 0,
+                right: 0,
+                height: '1px',
+                backgroundColor: '#00ffff',
+                zIndex: -1,
+              }}
+            />
+          );
+          cumulativeOffset += fib;
+        });
+        
+        return lines;
+      })()}
+      
+      {/* 시안색 세로선들 - 지평선 원근감 그리드 (소실점: 상단 45%) */}
+      {(() => {
+        const verticalLines = [];
+        const baseSpacing = 300; // 화면 하단에서의 간격
+        const spacingRatio = 0.7; // 간격 감소 비율
+        const vanishingPointY = 45; // 소실점 Y: 상단에서 45%
+        const vanishingPointX = 50; // 소실점 X: 중앙
+        
+        // 중앙선 (수직 유지) - 첫 번째 가로선에서 1px 위에서 시작
+        verticalLines.push(
+          <Box
+            key="center"
+            sx={{
+              position: 'fixed',
+              top: 'calc(50vh + 14px)', // 첫 번째 가로선(15px)에서 1px 위
+              left: '50vw',
+              bottom: 0,
+              width: '1px',
+              backgroundColor: '#00ffff',
+              zIndex: -1,
+            }}
+          />
+        );
+        
+        // 우측 선들 - 지평선 원근법
+        for (let i = 1; i <= 10; i++) {
+          let bottomOffset = 0;
+          for (let j = 1; j <= i; j++) {
+            bottomOffset += baseSpacing * Math.pow(spacingRatio, j - 1);
+          }
+          
+          // 시작점 X 위치 (각 선의 실제 위치에서 시작)
+          const startX = 50 + (bottomOffset * 0.05); // 시작점은 실제 세로선 위치
+          // 화면 하단에서의 X 위치 (원근감으로 더 벌어짐)
+          const bottomX = 50 + (bottomOffset * 0.3); // 간격을 vw로 변환
+          
+          // SVG로 정확한 선 그리기
+          verticalLines.push(
+            <svg
+              key={`right-${i}`}
+              style={{
+                position: 'fixed',
+                top: 'calc(50vh + 14px)', // 첫 번째 가로선 1px 위에서 시작
+                left: 0,
+                width: '100vw',
+                height: 'calc(50vh - 14px)', // 첫 번째 가로선부터 화면 끝까지
+                zIndex: -1,
+                pointerEvents: 'none'
+              }}
+            >
+              <line
+                x1={`${startX}%`}
+                y1="0"
+                x2={`${bottomX}%`}
+                y2="100%"
+                stroke="#00ffff"
+                strokeWidth="1"
+              />
+            </svg>
+          );
+        }
+        
+        // 좌측 선들 - 지평선 원근법
+        for (let i = 1; i <= 10; i++) {
+          let bottomOffset = 0;
+          for (let j = 1; j <= i; j++) {
+            bottomOffset += baseSpacing * Math.pow(spacingRatio, j - 1);
+          }
+          
+          // 시작점 X 위치 (각 선의 실제 위치에서 시작)
+          const startX = 50 - (bottomOffset * 0.05); // 시작점은 실제 세로선 위치
+          // 화면 하단에서의 X 위치 (원근감으로 더 벌어짐)
+          const bottomX = 50 - (bottomOffset * 0.3); // 간격을 vw로 변환
+          
+          // SVG로 정확한 선 그리기
+          verticalLines.push(
+            <svg
+              key={`left-${i}`}
+              style={{
+                position: 'fixed',
+                top: 'calc(50vh + 14px)', // 첫 번째 가로선 1px 위에서 시작
+                left: 0,
+                width: '100vw',
+                height: 'calc(50vh - 14px)', // 첫 번째 가로선부터 화면 끝까지
+                zIndex: -1,
+                pointerEvents: 'none'
+              }}
+            >
+              <line
+                x1={`${startX}%`}
+                y1="0"
+                x2={`${bottomX}%`}
+                y2="100%"
+                stroke="#00ffff"
+                strokeWidth="1"
+              />
+            </svg>
+          );
+        }
+        
+        return verticalLines;
+      })()}
+      <Outlet />
     </Box>
   );
 }

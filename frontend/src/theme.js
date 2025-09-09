@@ -1,18 +1,19 @@
 import { createTheme } from '@mui/material/styles';
 
-const theme = createTheme({
-  // 1. 색상(Color) 설정 - 원래 깔끔한 디자인
+const createCustomTheme = (isDarkMode) => createTheme({
+  // 1. 색상(Color) 설정 - 라이트/다크 모드 대응
   palette: {
+    mode: isDarkMode ? 'dark' : 'light',
     primary: {
-      main: '#013c95',
+      main: isDarkMode ? '#4FC3F7' : '#013c95',
     },
     background: {
-      default: '#ffffff',
-      paper: '#f5f5f5',
+      default: isDarkMode ? '#0a0a0a' : '#ffffff',
+      paper: isDarkMode ? '#1a1a1a' : '#f5f5f5',
     },
     text: {
-      primary: '#000000',
-      secondary: 'rgba(0, 0, 0, 0.7)',
+      primary: isDarkMode ? '#ffffff' : '#000000',
+      secondary: isDarkMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.7)',
     },
   },
   // 2. 브레이크포인트 설정 (가이드 2절)
@@ -98,41 +99,53 @@ const theme = createTheme({
     MuiPaper: {
       styleOverrides: {
         root: {
-          // 리퀴드 글래스 효과
-          backgroundColor: 'rgba(255, 255, 255, 0.08)',
-          color: '#000000',
+          // 리퀴드 글래스 효과 - 다크모드 대응
+          backgroundColor: isDarkMode 
+            ? 'rgba(255, 255, 255, 0.05)' 
+            : 'rgba(255, 255, 255, 0.08)',
+          color: isDarkMode ? '#ffffff' : '#000000',
           borderRadius: '6px',
-          border: '1px solid rgba(255, 255, 255, 0.18)',
+          border: isDarkMode 
+            ? '1px solid rgba(255, 255, 255, 0.1)' 
+            : '1px solid rgba(255, 255, 255, 0.18)',
           backdropFilter: 'blur(16px)',
           WebkitBackdropFilter: 'blur(16px)',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.1)',
+          boxShadow: isDarkMode
+            ? '0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)'
+            : '0 8px 32px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.1)',
         },
       },
     },
     MuiCard: {
       styleOverrides: {
         root: {
-          // 리퀴드 글래스 효과
-          backgroundColor: 'rgba(255, 255, 255, 0.08)',
-          color: '#000000',
+          // 리퀴드 글래스 효과 - 다크모드 대응
+          backgroundColor: isDarkMode 
+            ? 'rgba(255, 255, 255, 0.05)' 
+            : 'rgba(255, 255, 255, 0.08)',
+          color: isDarkMode ? '#ffffff' : '#000000',
           borderRadius: '6px',
-          border: '1px solid rgba(255, 255, 255, 0.18)',
+          border: isDarkMode 
+            ? '1px solid rgba(255, 255, 255, 0.1)' 
+            : '1px solid rgba(255, 255, 255, 0.18)',
           backdropFilter: 'blur(16px)',
           WebkitBackdropFilter: 'blur(16px)',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.1)',
+          boxShadow: isDarkMode
+            ? '0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)'
+            : '0 8px 32px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.1)',
         },
       },
     },
     MuiTypography: {
       styleOverrides: {
         root: ({ ownerState }) => ({
-          // Paper 내부의 Typography는 검은색
+          // Paper 내부의 Typography 색상 - 다크모드 대응
           '.MuiPaper-root &': {
-            color: '#000000',
+            color: isDarkMode ? '#ffffff' : '#000000',
           },
-          // Alert 내부의 Typography는 검은색
+          // Alert 내부의 Typography 색상 - 다크모드 대응
           '.MuiAlert-root &': {
-            color: '#000000',
+            color: isDarkMode ? '#ffffff' : '#000000',
           },
         }),
       },
@@ -149,10 +162,10 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           '& .MuiOutlinedInput-input': {
-            color: '#000000',
+            color: isDarkMode ? '#ffffff' : '#000000',
           },
           '& .MuiSelect-select': {
-            color: '#000000',
+            color: isDarkMode ? '#ffffff' : '#000000',
           },
         },
       },
@@ -161,7 +174,7 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           '& .MuiOutlinedInput-input': {
-            color: '#000000',
+            color: isDarkMode ? '#ffffff' : '#000000',
           },
         },
       },
@@ -169,16 +182,16 @@ const theme = createTheme({
     MuiMenuItem: {
       styleOverrides: {
         root: {
-          color: '#000000',
+          color: isDarkMode ? '#ffffff' : '#000000',
         },
       },
     },
     MuiInputLabel: {
       styleOverrides: {
         root: {
-          color: '#000000 !important',
+          color: isDarkMode ? '#ffffff !important' : '#000000 !important',
           '&.Mui-focused': {
-            color: '#000000 !important',
+            color: isDarkMode ? '#ffffff !important' : '#000000 !important',
           },
         },
       },
@@ -187,17 +200,17 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           '& .MuiInputBase-root': {
-            color: '#000000',
+            color: isDarkMode ? '#ffffff' : '#000000',
           },
           '& .MuiOutlinedInput-root': {
             '& fieldset': {
-              borderColor: '#000000',
+              borderColor: isDarkMode ? '#ffffff' : '#000000',
             },
             '&:hover fieldset': {
-              borderColor: '#000000',
+              borderColor: isDarkMode ? '#ffffff' : '#000000',
             },
             '&.Mui-focused fieldset': {
-              borderColor: '#000000',
+              borderColor: isDarkMode ? '#ffffff' : '#000000',
             },
           },
         },
@@ -206,4 +219,4 @@ const theme = createTheme({
   },
 });
 
-export default theme;
+export default createCustomTheme;

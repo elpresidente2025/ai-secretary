@@ -9,7 +9,8 @@ import {
   Box,
   Typography,
   Snackbar,
-  Alert
+  Alert,
+  useTheme
 } from '@mui/material';
 import { ContentCopy, DeleteOutline } from '@mui/icons-material';
 
@@ -73,6 +74,7 @@ export default function PostViewerModal({
   showDeleteButton = true 
 }) {
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
+  const theme = useTheme();
 
   const handleCopy = () => {
     try {
@@ -114,11 +116,11 @@ export default function PostViewerModal({
               lineHeight: 1.7,
               maxHeight: '70vh',
               overflow: 'auto',
-              bgcolor: 'grey.50',
+              bgcolor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'grey.50',
               p: 2,
               borderRadius: 1,
               border: '1px solid',
-              borderColor: 'grey.200',
+              borderColor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'grey.200',
             }}
           >
             {/* 제목을 텍스트박스 안에 포함 */}

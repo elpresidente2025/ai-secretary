@@ -281,8 +281,10 @@ const PublishingProgress = () => {
     return (
       <Card 
         onMouseEnter={() => setCurrentGlowColor(getRandomGlowColor())}
+        elevation={0}
         sx={{ 
           height: '100%',
+          bgcolor: 'transparent',
           cursor: 'pointer',
           transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           '&:hover': {
@@ -327,8 +329,10 @@ const PublishingProgress = () => {
     return (
       <Card
         onMouseEnter={() => setCurrentGlowColor(getRandomGlowColor())}
+        elevation={0}
         sx={{ 
           height: '100%',
+          bgcolor: 'transparent',
           cursor: 'pointer',
           transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           '&:hover': {
@@ -431,8 +435,10 @@ const PublishingProgress = () => {
   return (
     <Card
       onMouseEnter={() => setCurrentGlowColor(getRandomGlowColor())}
+      elevation={0}
       sx={{ 
         height: '100%', 
+        bgcolor: 'transparent',
         position: 'relative',
         cursor: 'pointer',
         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
