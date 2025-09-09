@@ -203,14 +203,19 @@ const DashboardLayout = ({ children }) => {
         anchor="right" 
         open={drawerOpen} 
         onClose={handleDrawerToggle} 
-        ModalProps={{ keepMounted: true }}
+        ModalProps={{ 
+          keepMounted: true,
+          sx: { zIndex: (theme) => theme.zIndex.modal + 100 }
+        }}
         PaperProps={{
           sx: {
             bgcolor: 'rgba(255, 255, 255, 0.65)',
             backdropFilter: 'blur(10px)',
-            color: 'black'
+            color: 'black',
+            zIndex: (theme) => theme.zIndex.modal + 100
           }
         }}
+        sx={{ zIndex: (theme) => theme.zIndex.modal + 100 }}
       >
         {drawer}
       </Drawer>

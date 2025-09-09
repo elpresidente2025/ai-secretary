@@ -21,12 +21,19 @@ const BackdropContainer = styled.div`
   inset: 0;
   z-index: 0;
   overflow: hidden;
-  background: 
-    url('/background/synthwave_city.png') no-repeat top center,
-    linear-gradient(to bottom, #ffffff, ${CONFIG.bgColor});
-  background-size: auto 50%, 100% 100%;
-  background-position: top center, center;
+  background: linear-gradient(to bottom, #ffffff, ${CONFIG.bgColor});
   pointer-events: none; // 콘텐츠 클릭 방해 방지
+`;
+
+const SynthwaveImage = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 50vh;
+  background: url('/background/synthwave_city.png') no-repeat top center;
+  background-size: cover;
+  z-index: 1;
 `;
 
 const CitySVG = styled.svg`
@@ -41,10 +48,10 @@ const CitySVG = styled.svg`
 
 const GridSVG = styled.svg`
   position: absolute;
-  top: 50%;
+  top: 50vh;
   left: 0;
-  width: 100%;
-  height: 50%;
+  width: 100vw;
+  height: 50vh;
   transform-origin: top center;
   transition: transform 0.1s linear;
   z-index: 1;
@@ -78,8 +85,10 @@ export default function WireframeCityBackdrop() {
   // 개빡센 무한 그리드 생성
   const generateGridLines = () => {
     const lines = [];
-    const gridSizeX = 300; // 가로 간격
-    const gridSizeY = 150; // 세로 간격 (2:1 비율)
+    // 모바일에서는 더 큰 그리드 사용
+    const isMobile = window.innerWidth <= 768;
+    const gridSizeX = isMobile ? 200 : 300; // 모바일에서는 더 작은 간격
+    const gridSizeY = isMobile ? 100 : 150; // 모바일에서는 더 작은 간격 (2:1 비율 유지)
     const range = 15000; // 존나 크게 만들어서 절대 면적 끝이 안 보이게
     
     // 세로줄 생성 (존나게 많이)
@@ -119,6 +128,7 @@ export default function WireframeCityBackdrop() {
 
   return (
     <BackdropContainer>
+      <SynthwaveImage />
       <GridSVG 
         viewBox="-7500 0 15000 7500" 
         style={gridStyle}
