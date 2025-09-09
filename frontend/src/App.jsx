@@ -163,7 +163,7 @@ function App() {
                 top: `calc(50vh + ${cumulativeOffset}px)`,
                 left: 0,
                 right: 0,
-                height: '1px',
+                height: (index === 2 || index === 3 || index === 5 || index === 7) ? '0.8px' : '1px', // 3,4,6,8번째 선은 0.8px
                 backgroundColor: '#00ffff',
                 zIndex: -1,
               }}
@@ -192,7 +192,7 @@ function App() {
               top: 'calc(50vh + 14px)', // 첫 번째 가로선(15px)에서 1px 위
               left: '50vw',
               bottom: 0,
-              width: '1px',
+              width: '0.8px',
               backgroundColor: '#00ffff',
               zIndex: -1,
             }}
@@ -231,7 +231,7 @@ function App() {
                 x2={`${bottomX}%`}
                 y2="100%"
                 stroke="#00ffff"
-                strokeWidth="1"
+                strokeWidth="0.5"
               />
             </svg>
           );
@@ -262,7 +262,7 @@ function App() {
                   x2={`${midBottomX}%`}
                   y2="100%"
                   stroke="#00ffff"
-                  strokeWidth="1"
+                  strokeWidth="0.5"
                 />
               </svg>
             );
@@ -296,7 +296,7 @@ function App() {
                   x2={`${midBottomX}%`}
                   y2="100%"
                   stroke="#00ffff"
-                  strokeWidth="1"
+                  strokeWidth="0.5"
                 />
               </svg>
             );
@@ -335,7 +335,7 @@ function App() {
                 x2={`${bottomX}%`}
                 y2="100%"
                 stroke="#00ffff"
-                strokeWidth="1"
+                strokeWidth="0.5"
               />
             </svg>
           );
@@ -366,7 +366,7 @@ function App() {
                   x2={`${midBottomX}%`}
                   y2="100%"
                   stroke="#00ffff"
-                  strokeWidth="1"
+                  strokeWidth="0.5"
                 />
               </svg>
             );
@@ -400,7 +400,7 @@ function App() {
                   x2={`${midBottomX}%`}
                   y2="100%"
                   stroke="#00ffff"
-                  strokeWidth="1"
+                  strokeWidth="0.5"
                 />
               </svg>
             );
