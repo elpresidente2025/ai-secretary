@@ -32,8 +32,8 @@ setPersistence(auth, browserLocalPersistence).catch((error) => {
 
 // Functions 인스턴스: Hosting 자동 설정(/__/functions) 경유 사용
 // onCall 함수는 SDK를 통해 호출하면 CORS/프리플라이트를 안전하게 처리합니다.
-// 배포 리전(asia-northeast3)에 맞춰 Functions 인스턴스를 생성합니다.
-export const functions = getFunctions(app, 'asia-northeast3');
+// 리전 미지정시 Firebase Hosting 프록시(/__/functions/)를 통해 호출됩니다.
+export const functions = getFunctions(app);
 
 // Analytics
 export const analytics = getAnalytics(app);

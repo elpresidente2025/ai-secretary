@@ -90,9 +90,30 @@ export const useNaverLogin = () => {
         });
         
         if (queryAccessToken) {
-          // Query 파라미터에서 토큰 발견 → Functions callable SDK 사용
-          const naverLoginFunction = httpsCallable(functions, 'naverLogin');
-          const result = await naverLoginFunction({ accessToken: queryAccessToken });
+          // Query 파라미터에서 토큰 발견 → Functions 호출
+          let result;
+          
+          try {
+            console.log('🌐 Trying hosting proxy path (query token)');
+            const response = await fetch('/__/functions/naverLogin', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ data: { accessToken: queryAccessToken } })
+            });
+            
+            if (response.ok) {
+              const data = await response.json();
+              result = { data: data.result };
+            } else {
+              throw new Error('Hosting proxy failed');
+            }
+          } catch (proxyError) {
+            console.log('📡 Hosting proxy failed, using SDK fallback (query token)');
+            const naverLoginFunction = httpsCallable(functions, 'naverLogin');
+            result = await naverLoginFunction({ accessToken: queryAccessToken });
+          }
           
           if (result.data && result.data.registrationRequired) {
             navigate('/register', { state: { naverUserData: result.data.naverUserData } });
@@ -113,8 +134,29 @@ export const useNaverLogin = () => {
 
         // Authorization Code 플로우: code만 있는 경우 Functions로 교환 위임
         if (code) {
-          const naverLoginFunction = httpsCallable(functions, 'naverLogin');
-          const result = await naverLoginFunction({ code, state: queryState || state });
+          let result;
+          
+          try {
+            console.log('🌐 Trying hosting proxy path (code)');
+            const response = await fetch('/__/functions/naverLogin', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ data: { code, state: queryState || state } })
+            });
+            
+            if (response.ok) {
+              const data = await response.json();
+              result = { data: data.result };
+            } else {
+              throw new Error('Hosting proxy failed');
+            }
+          } catch (proxyError) {
+            console.log('📡 Hosting proxy failed, using SDK fallback (code)');
+            const naverLoginFunction = httpsCallable(functions, 'naverLogin');
+            result = await naverLoginFunction({ code, state: queryState || state });
+          }
 
           if (result.data && result.data.registrationRequired) {
             navigate('/register', { state: { naverUserData: result.data.naverUserData } });
@@ -137,8 +179,31 @@ export const useNaverLogin = () => {
       
       // URL에서 추출한 액세스 토큰으로 처리
       console.log('🔥 Firebase Function 호출 시작 (토큰 방식)');
-      const naverLoginFunction = httpsCallable(functions, 'naverLogin');
-      const result = await naverLoginFunction({ accessToken });
+      
+      // Firebase Hosting 프록시 경로를 우선으로 시도, 실패시 SDK 사용
+      let result;
+      
+      try {
+        console.log('🌐 Trying hosting proxy path first');
+        const response = await fetch('/__/functions/naverLogin', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ data: { accessToken } })
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          result = { data: data.result };
+        } else {
+          throw new Error('Hosting proxy failed');
+        }
+      } catch (proxyError) {
+        console.log('📡 Hosting proxy failed, using SDK fallback');
+        const naverLoginFunction = httpsCallable(functions, 'naverLogin');
+        result = await naverLoginFunction({ accessToken });
+      }
       
       if (result.data && result.data.registrationRequired) {
         navigate('/register', { state: { naverUserData: result.data.naverUserData } });
