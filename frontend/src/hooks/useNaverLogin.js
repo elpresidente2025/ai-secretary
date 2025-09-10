@@ -4,6 +4,49 @@ import { httpsCallable } from 'firebase/functions';
 import { useNavigate } from 'react-router-dom';
 import { auth, functions } from '../services/firebase';
 
+// Firebase Hosting 프록시를 통한 네이버 로그인 호출
+const callNaverLoginViaProxy = (data) => {
+  return new Promise((resolve, reject) => {
+    // iframe 생성
+    const iframe = document.createElement('iframe');
+    iframe.src = 'https://ai-secretary-6e9c8.web.app/proxy/naver-login.html';
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+
+    const handleMessage = (event) => {
+      if (event.origin !== 'https://ai-secretary-6e9c8.web.app') {
+        return;
+      }
+
+      if (event.data.type === 'proxy-ready') {
+        // 프록시 준비 완료, 데이터 전송
+        iframe.contentWindow.postMessage(data, 'https://ai-secretary-6e9c8.web.app');
+      } else if (event.data.type === 'naver-login-result') {
+        // 결과 수신
+        window.removeEventListener('message', handleMessage);
+        document.body.removeChild(iframe);
+
+        if (event.data.success) {
+          resolve({ data: event.data.data.result });
+        } else {
+          reject(new Error(event.data.error));
+        }
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+
+    // 타임아웃 설정
+    setTimeout(() => {
+      window.removeEventListener('message', handleMessage);
+      if (iframe.parentNode) {
+        document.body.removeChild(iframe);
+      }
+      reject(new Error('Proxy timeout'));
+    }, 10000);
+  });
+};
+
 export const useNaverLogin = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -91,21 +134,8 @@ export const useNaverLogin = () => {
         
         if (queryAccessToken) {
           // Query 파라미터에서 토큰 발견 → Functions 호출
-          console.log('📡 Using direct HTTP request (query token)');
-          const response = await fetch('https://asia-northeast3-ai-secretary-6e9c8.cloudfunctions.net/naverLoginHTTP', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ accessToken: queryAccessToken })
-          });
-          
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-          }
-          
-          const data = await response.json();
-          const result = { data: data.result };
+          console.log('🌉 Using Firebase Hosting proxy (query token)');
+          const result = await callNaverLoginViaProxy({ accessToken: queryAccessToken });
           
           if (result.data && result.data.registrationRequired) {
             navigate('/register', { state: { naverUserData: result.data.naverUserData } });
@@ -126,21 +156,8 @@ export const useNaverLogin = () => {
 
         // Authorization Code 플로우: code만 있는 경우 Functions로 교환 위임
         if (code) {
-          console.log('📡 Using direct HTTP request (code)');
-          const response = await fetch('https://asia-northeast3-ai-secretary-6e9c8.cloudfunctions.net/naverLoginHTTP', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ code, state: queryState || state })
-          });
-          
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-          }
-          
-          const data = await response.json();
-          const result = { data: data.result };
+          console.log('🌉 Using Firebase Hosting proxy (code)');
+          const result = await callNaverLoginViaProxy({ code, state: queryState || state });
 
           if (result.data && result.data.registrationRequired) {
             navigate('/register', { state: { naverUserData: result.data.naverUserData } });
@@ -164,22 +181,9 @@ export const useNaverLogin = () => {
       // URL에서 추출한 액세스 토큰으로 처리
       console.log('🔥 Firebase Function 호출 시작 (토큰 방식)');
       
-      // onRequest로 변경된 naverLogin 함수 호출
-      console.log('📡 Using direct HTTP request to naverLogin (onRequest)');
-      const response = await fetch('https://asia-northeast3-ai-secretary-6e9c8.cloudfunctions.net/naverLoginHTTP', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ accessToken })
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      const result = { data: data.result };
+      // Firebase Hosting 프록시를 통한 호출
+      console.log('🌉 Using Firebase Hosting proxy for CORS bypass');
+      const result = await callNaverLoginViaProxy({ accessToken });
       
       if (result.data && result.data.registrationRequired) {
         navigate('/register', { state: { naverUserData: result.data.naverUserData } });
