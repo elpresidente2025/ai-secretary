@@ -5,7 +5,7 @@
 
 'use strict';
 
-const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https');
 const { admin, db } = require('../utils/firebaseAdmin');
 const fetch = require('node-fetch');
 
@@ -39,7 +39,7 @@ async function getNaverUserInfo(accessToken) {
   }
 }
 
-// 네이버 로그인 처리 (회원가입 유도 정책)
+// 기존 onCall 함수 유지
 const naverLogin = onCall({
   region: 'asia-northeast3',
   cors: [
@@ -50,11 +50,32 @@ const naverLogin = onCall({
   memory: '256MiB',
   timeoutSeconds: 60
 }, async (request) => {
+  // 기존 onCall 로직은 단순히 유지
   try {
-    console.log('➡ naverLogin v2 함수 시작');
+    return { success: false, message: "Use naverLoginHTTP instead" };
+  } catch (error) {
+    throw new HttpsError('internal', error.message);
+  }
+});
+
+// 네이버 로그인 처리 (회원가입 유도 정책) - onRequest로 변경하여 CORS 완전 제어
+const naverLoginHTTP = onRequest({
+  region: 'asia-northeast3',
+  cors: [
+    'https://cyberbrain.kr',
+    'https://ai-secretary-6e9c8.web.app',
+    'https://ai-secretary-6e9c8.firebaseapp.com'
+  ],
+  memory: '256MiB',
+  timeoutSeconds: 60
+}, async (request, response) => {
+  try {
+    console.log('➡ naverLogin v2 함수 시작 (onRequest)');
     let stage = 'init';
 
-    const { accessToken, naverUserInfo, code, state } = request.data || {};
+    // POST 요청 데이터 파싱
+    const requestData = request.body?.data || request.body || {};
+    const { accessToken, naverUserInfo, code, state } = requestData;
     let naverUserData;
 
     if (naverUserInfo) {
@@ -113,17 +134,19 @@ const naverLogin = onCall({
 
     // 이메일 없으면 회원가입 유도
     if (!naverUserData.email) {
-      return {
-        success: true,
-        registrationRequired: true,
-        message: '네이버 계정 이메일이 없어 회원가입이 필요합니다.',
-        naverUserData: {
-          id: naverUserData.id,
-          email: null,
-          name: naverUserData.name || naverUserData.nickname || '네이버 사용자',
-          profile_image: naverUserData.profile_image || null
+      return response.status(200).json({
+        result: {
+          success: true,
+          registrationRequired: true,
+          message: '네이버 계정 이메일이 없어 회원가입이 필요합니다.',
+          naverUserData: {
+            id: naverUserData.id,
+            email: null,
+            name: naverUserData.name || naverUserData.nickname || '네이버 사용자',
+            profile_image: naverUserData.profile_image || null
+          }
         }
-      };
+      });
     }
 
     // 기존 가입 여부 확인
@@ -137,17 +160,19 @@ const naverLogin = onCall({
     if (userQuery.empty) {
       stage = 'registration_required';
       console.log('📝 회원가입 필요(네이버):', naverUserData.email);
-      return {
-        success: true,
-        registrationRequired: true,
-        message: '추가 정보 입력을 위해 회원가입이 필요합니다.',
-        naverUserData: {
-          id: naverUserData.id,
-          email: naverUserData.email,
-          name: naverUserData.name || naverUserData.nickname || '네이버 사용자',
-          profile_image: naverUserData.profile_image || null
+      return response.status(200).json({
+        result: {
+          success: true,
+          registrationRequired: true,
+          message: '추가 정보 입력을 위해 회원가입이 필요합니다.',
+          naverUserData: {
+            id: naverUserData.id,
+            email: naverUserData.email,
+            name: naverUserData.name || naverUserData.nickname || '네이버 사용자',
+            profile_image: naverUserData.profile_image || null
+          }
         }
-      };
+      });
     }
 
     // 기가입: 로그인 처리
@@ -168,28 +193,34 @@ const naverLogin = onCall({
       provider: 'naver'
     });
 
-    return {
-      success: true,
-      registrationRequired: false,
-      customToken,
-      user: {
-        uid: userDoc.id,
-        email: userData.email,
-        displayName: userData.name || userData.displayName,
-        photoURL: userData.profileImage || naverUserData.profile_image,
-        provider: 'naver'
+    return response.status(200).json({
+      result: {
+        success: true,
+        registrationRequired: false,
+        customToken,
+        user: {
+          uid: userDoc.id,
+          email: userData.email,
+          displayName: userData.name || userData.displayName,
+          photoURL: userData.profileImage || naverUserData.profile_image,
+          provider: 'naver'
+        }
       }
-    };
+    });
 
   } catch (error) {
     console.error('naverLogin 처리 오류:', error);
-    if (error instanceof HttpsError) {
-      throw error;
-    }
-    throw new HttpsError('internal', 'NAVER_LOGIN_INTERNAL', { message: error.message, stack: (error && error.stack) || null });
+    return response.status(500).json({
+      error: {
+        code: 'internal',
+        message: 'NAVER_LOGIN_INTERNAL',
+        details: { message: error.message, stack: (error && error.stack) || null }
+      }
+    });
   }
 });
 
 module.exports = {
-  naverLogin
+  naverLogin, // 기존 onCall 함수 유지
+  naverLoginHTTP // 새로운 onRequest 함수 추가
 };

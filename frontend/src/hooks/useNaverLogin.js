@@ -91,9 +91,21 @@ export const useNaverLogin = () => {
         
         if (queryAccessToken) {
           // Query 파라미터에서 토큰 발견 → Functions 호출
-          console.log('📡 Using Firebase SDK with correct region (query token)');
-          const naverLoginFunction = httpsCallable(functions, 'naverLogin');
-          const result = await naverLoginFunction({ accessToken: queryAccessToken });
+          console.log('📡 Using direct HTTP request (query token)');
+          const response = await fetch('https://asia-northeast3-ai-secretary-6e9c8.cloudfunctions.net/naverLoginHTTP', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ accessToken: queryAccessToken })
+          });
+          
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+          
+          const data = await response.json();
+          const result = { data: data.result };
           
           if (result.data && result.data.registrationRequired) {
             navigate('/register', { state: { naverUserData: result.data.naverUserData } });
@@ -114,9 +126,21 @@ export const useNaverLogin = () => {
 
         // Authorization Code 플로우: code만 있는 경우 Functions로 교환 위임
         if (code) {
-          console.log('📡 Using Firebase SDK with correct region (code)');
-          const naverLoginFunction = httpsCallable(functions, 'naverLogin');
-          const result = await naverLoginFunction({ code, state: queryState || state });
+          console.log('📡 Using direct HTTP request (code)');
+          const response = await fetch('https://asia-northeast3-ai-secretary-6e9c8.cloudfunctions.net/naverLoginHTTP', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ code, state: queryState || state })
+          });
+          
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+          
+          const data = await response.json();
+          const result = { data: data.result };
 
           if (result.data && result.data.registrationRequired) {
             navigate('/register', { state: { naverUserData: result.data.naverUserData } });
@@ -140,10 +164,22 @@ export const useNaverLogin = () => {
       // URL에서 추출한 액세스 토큰으로 처리
       console.log('🔥 Firebase Function 호출 시작 (토큰 방식)');
       
-      // Firebase SDK로 직접 호출 (리전 정확히 설정됨)
-      console.log('📡 Using Firebase SDK with correct region (asia-northeast3)');
-      const naverLoginFunction = httpsCallable(functions, 'naverLogin');
-      const result = await naverLoginFunction({ accessToken });
+      // onRequest로 변경된 naverLogin 함수 호출
+      console.log('📡 Using direct HTTP request to naverLogin (onRequest)');
+      const response = await fetch('https://asia-northeast3-ai-secretary-6e9c8.cloudfunctions.net/naverLoginHTTP', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ accessToken })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      const result = { data: data.result };
       
       if (result.data && result.data.registrationRequired) {
         navigate('/register', { state: { naverUserData: result.data.naverUserData } });
