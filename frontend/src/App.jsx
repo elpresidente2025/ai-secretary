@@ -13,13 +13,13 @@ function App() {
   const [statusLoading, setStatusLoading] = useState(true);
   const location = useLocation();
 
-  // 시스템 상태 확인 (타임아웃 1.5초로 단축)
+  // 시스템 상태 확인 (타임아웃 10초로 조정)
   const checkSystemStatus = useCallback(async () => {
     setStatusLoading(true);
     try {
-      // 1.5초 타임아웃 설정 (더 빠른 응답)
+      // 10초 타임아웃 설정 (Firebase Functions 응답 시간 고려)
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('타임아웃')), 1500)
+        setTimeout(() => reject(new Error('타임아웃')), 10000)
       );
       
       const status = await Promise.race([
