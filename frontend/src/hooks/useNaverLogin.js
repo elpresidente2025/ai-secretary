@@ -90,13 +90,9 @@ export const useNaverLogin = () => {
         });
         
         if (queryAccessToken) {
-          // Query 파라미터에서 토큰 발견 → 동일 출처 callable 엔드포인트로 직접 호출
-          const resp = await fetch('/__/functions/callable/naverLogin', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ data: { accessToken: queryAccessToken } })
-          });
-          const result = await resp.json();
+          // Query 파라미터에서 토큰 발견 → Functions callable SDK 사용
+          const naverLoginFunction = httpsCallable(functions, 'naverLogin');
+          const result = await naverLoginFunction({ accessToken: queryAccessToken });
           
           if (result.data && result.data.registrationRequired) {
             navigate('/register', { state: { naverUserData: result.data.naverUserData } });
@@ -117,12 +113,8 @@ export const useNaverLogin = () => {
 
         // Authorization Code 플로우: code만 있는 경우 Functions로 교환 위임
         if (code) {
-          const resp = await fetch('/__/functions/callable/naverLogin', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ data: { code, state: queryState || state } })
-          });
-          const result = await resp.json();
+          const naverLoginFunction = httpsCallable(functions, 'naverLogin');
+          const result = await naverLoginFunction({ code, state: queryState || state });
 
           if (result.data && result.data.registrationRequired) {
             navigate('/register', { state: { naverUserData: result.data.naverUserData } });
@@ -145,12 +137,8 @@ export const useNaverLogin = () => {
       
       // URL에서 추출한 액세스 토큰으로 처리
       console.log('🔥 Firebase Function 호출 시작 (토큰 방식)');
-      const resp = await fetch('/__/functions/callable/naverLogin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data: { accessToken } })
-      });
-      const result = await resp.json();
+      const naverLoginFunction = httpsCallable(functions, 'naverLogin');
+      const result = await naverLoginFunction({ accessToken });
       
       if (result.data && result.data.registrationRequired) {
         navigate('/register', { state: { naverUserData: result.data.naverUserData } });
