@@ -9,9 +9,9 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { admin, db } = require('../utils/firebaseAdmin');
 const fetch = require('node-fetch');
 
-// 네이버 OAuth 설정 (환경변수 우선)
-const NAVER_CLIENT_ID = process.env.NAVER_CLIENT_ID || '_E0OZLvkgp61fV7MFtND';
-const NAVER_CLIENT_SECRET = process.env.NAVER_CLIENT_SECRET || 'GZStmR1dwa';
+// 네이버 OAuth 설정 (환경변수 필수)
+const NAVER_CLIENT_ID = process.env.NAVER_CLIENT_ID;
+const NAVER_CLIENT_SECRET = process.env.NAVER_CLIENT_SECRET;
 
 // 네이버 사용자 정보 조회
 async function getNaverUserInfo(accessToken) {
@@ -70,6 +70,9 @@ const naverLogin = onCall({
       stage = 'exchange_code_for_token';
       console.log('➡ Authorization Code 플로우: 토큰 교환 시도');
       try {
+        if (!NAVER_CLIENT_ID || !NAVER_CLIENT_SECRET) {
+          throw new Error('NAVER 환경변수(NAVER_CLIENT_ID/SECRET) 미설정');
+        }
         const params = new URLSearchParams();
         params.append('grant_type', 'authorization_code');
         params.append('client_id', NAVER_CLIENT_ID);
