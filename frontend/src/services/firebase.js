@@ -30,10 +30,10 @@ setPersistence(auth, browserLocalPersistence).catch((error) => {
   console.error('Firebase Auth persistence 설정 실패:', error);
 });
 
-// Functions 인스턴스: Hosting 자동 설정(/__/functions) 경유 사용
-// onCall 함수는 SDK를 통해 호출하면 CORS/프리플라이트를 안전하게 처리합니다.
-// 리전 미지정시 Firebase Hosting 프록시(/__/functions/)를 통해 호출됩니다.
-export const functions = getFunctions(app);
+// Functions 인스턴스: 정확한 리전 지정 필수
+// cyberbrain.kr은 Firebase Hosting이 아니므로 직접 리전 지정 필요
+// asia-northeast3에 배포된 Functions와 정확히 매칭
+export const functions = getFunctions(app, 'asia-northeast3');
 
 // Analytics
 export const analytics = getAnalytics(app);
