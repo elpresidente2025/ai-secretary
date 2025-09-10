@@ -20,8 +20,7 @@ import {
   AutoAwesome
 } from '@mui/icons-material';
 import { useAuth } from '../../hooks/useAuth';
-import { httpsCallable } from 'firebase/functions';
-import { functions } from '../../services/firebase';
+import { callFunctionWithNaverAuth } from '../../services/firebaseService';
 
 // 7-세그먼트 숫자 컴포넌트 (3자리 고정)
 const SevenSegmentNumber = ({ number, color, size = 'small' }) => {
@@ -137,8 +136,6 @@ const PublishingProgress = () => {
     };
   }, []);
 
-  const callGetPublishingStats = httpsCallable(functions, 'getPublishingStats');
-
   useEffect(() => {
     let mounted = true;
     
@@ -164,14 +161,10 @@ const PublishingProgress = () => {
     
     try {
       setLoading(true);
-      const response = await callGetPublishingStats();
+      const response = await callFunctionWithNaverAuth('getPublishingStats');
       
-      // 백엔드 응답 구조 확인 및 안전한 데이터 처리
-      // Firebase Functions는 { data: { success: true, data: {...} } } 구조로 응답
-      const responseData = response.data || {};
-      
-      // responseData가 { success: true, data: {...} } 형태라면 data를 추출
-      let statsData = responseData.data || responseData;
+      // callFunctionWithNaverAuth는 이미 response.data를 반환하므로 직접 사용
+      let statsData = response.data || response;
       
       // currentMonth가 없거나 올바르지 않은 경우 기본값 설정
       if (!statsData.currentMonth || typeof statsData.currentMonth !== 'object') {

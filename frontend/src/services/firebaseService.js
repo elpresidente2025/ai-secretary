@@ -3,6 +3,46 @@ import { httpsCallable } from 'firebase/functions';
 import { functions, auth } from './firebase';
 
 /**
+ * 네이버 사용자를 위한 Firebase Functions 호출 (onCall 방식)
+ */
+export const callFunctionWithNaverAuth = async (functionName, data = {}) => {
+  // 네이버 사용자 정보 확인
+  const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+  
+  console.log('🔍 callFunctionWithNaverAuth 호출:', {
+    functionName,
+    currentUser: currentUser ? {
+      uid: currentUser.uid,
+      provider: currentUser.provider,
+      displayName: currentUser.displayName
+    } : null,
+    originalData: { ...data }
+  });
+  
+  // 네이버 사용자의 경우 데이터에 인증 정보 추가
+  if (currentUser?.provider === 'naver' && currentUser?.uid) {
+    data.__naverAuth = {
+      uid: currentUser.uid,
+      provider: 'naver'
+    };
+    console.log('✅ 네이버 인증 데이터 추가됨:', data.__naverAuth);
+  } else {
+    console.log('⚠️ 네이버 사용자가 아니거나 필수 정보 누락:', {
+      hasCurrentUser: !!currentUser,
+      provider: currentUser?.provider,
+      hasUid: !!currentUser?.uid
+    });
+  }
+  
+  // 기존 onCall 방식으로 호출
+  const callable = httpsCallable(functions, functionName);
+  const result = await callable(data);
+  
+  console.log(`✅ callFunctionWithNaverAuth ${functionName} 성공:`, result.data);
+  return result.data;
+};
+
+/**
  * Firebase Functions 호출 래퍼 (토큰 갱신 포함)
  * @param {string} functionName - 호출할 함수명
  * @param {object} data - 전달할 데이터

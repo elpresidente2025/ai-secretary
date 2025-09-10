@@ -31,8 +31,7 @@ import {
   useTheme
 } from '@mui/material';
 import { Add, Remove, AutoAwesome, DeleteForever, Warning } from '@mui/icons-material';
-import { httpsCallable } from 'firebase/functions';
-import { functions } from '../services/firebase';
+import { callFunctionWithNaverAuth } from '../services/firebaseService';
 import DashboardLayout from '../components/DashboardLayout';
 import UserInfoForm from '../components/UserInfoForm';
 import { LoadingSpinner, LoadingButton } from '../components/loading';
@@ -45,10 +44,7 @@ export default function ProfilePage() {
   const { user, logout } = useAuth();
   const theme = useTheme();
   
-  // httpsCallable 메모이즈
-  const callGetProfile = useMemo(() => httpsCallable(functions, 'getUserProfile'), []);
-  const callUpdateProfile = useMemo(() => httpsCallable(functions, 'updateProfile'), []);
-  const callDeleteUserAccount = useMemo(() => httpsCallable(functions, 'deleteUserAccount'), []);
+  // 상태 관리
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -97,7 +93,7 @@ export default function ProfilePage() {
     setDeleting(true);
     try {
       console.log('회원탈퇴 시작...');
-      await callDeleteUserAccount();
+      await callFunctionWithNaverAuth('deleteUserAccount');
       
       setSnack({
         open: true,
@@ -170,20 +166,12 @@ export default function ProfilePage() {
       try {
         setLoading(true);
         
-        const res = await callGetProfile();
+        const res = await callFunctionWithNaverAuth('getUserProfile');
         
         if (!mounted) return;
 
-        // 응답 형식에 따른 데이터 추출
-        let profileData = {};
-        
-        if (res?.data?.success && res?.data?.data) {
-          profileData = res.data.data;
-        } else if (res?.data?.profile) {
-          profileData = res.data.profile;
-        } else if (res?.data) {
-          profileData = res.data.profile || res.data;
-        }
+        // callFunctionWithNaverAuth는 이미 .data를 반환하므로 직접 사용
+        let profileData = res?.profile || res || {};
 
 
         setProfile({
@@ -260,7 +248,7 @@ export default function ProfilePage() {
     return () => {
       mounted = false;
     };
-  }, [callGetProfile]);
+  }, []);
 
   // UserInfoForm 컴포넌트에서 오는 변경사항 처리
   const handleUserInfoChange = (name, value) => {
@@ -382,16 +370,14 @@ export default function ProfilePage() {
       
       console.log('전송할 데이터 (전체):', JSON.stringify(payload, null, 2));
       
-      const res = await callUpdateProfile(payload);
+      const res = await callFunctionWithNaverAuth('updateProfile', payload);
       console.log('updateProfile 응답:', res);
       
-      // 실제 성공 여부 확인 후 팝업 표시
-      if (res && res.data) {
+      // callFunctionWithNaverAuth는 이미 .data를 반환하므로 직접 사용
+      if (res) {
         let message = '프로필이 저장되었습니다.';
-        if (res.data.message) {
-          message = res.data.message;
-        } else if (res.data.data && res.data.data.message) {
-          message = res.data.data.message;
+        if (res.message) {
+          message = res.message;
         }
         
         setSnack({ open: true, message, severity: 'success' });

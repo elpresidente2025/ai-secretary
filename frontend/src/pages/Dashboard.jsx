@@ -48,6 +48,7 @@ import { useAuth } from '../hooks/useAuth';
 import { getUserFullTitle, getUserDisplayTitle, getUserRegionInfo, getUserStatusIcon } from '../utils/userUtils';
 import { functions } from '../services/firebase';
 import { httpsCallable } from 'firebase/functions';
+import { callFunctionWithNaverAuth } from '../services/firebaseService';
 import HelpButton from '../components/HelpButton';
 import DashboardGuide from '../components/guides/DashboardGuide';
 
@@ -106,24 +107,20 @@ const Dashboard = () => {
     setError(null);
 
     try {
-      // 사용량 정보와 포스트 목록을 별도로 호출
-      const getDashboardDataFn = httpsCallable(functions, 'getDashboardData');
-      const getUserPostsFn = httpsCallable(functions, 'getUserPosts');
-      
+      // 사용량 정보와 포스트 목록을 별도로 호출 (네이버 인증 지원)
       // 병렬로 두 함수 호출
-      const [dashboardResponse, postsResponse] = await Promise.all([
-        getDashboardDataFn(),
-        getUserPostsFn()
+      const [dashboardData, postsData] = await Promise.all([
+        callFunctionWithNaverAuth('getDashboardData'),
+        callFunctionWithNaverAuth('getUserPosts')
       ]);
       
-      const dashboardData = dashboardResponse.data;
-      const postsData = postsResponse.data?.posts || [];
+      const postsArray = postsData?.posts || [];
       
       // 사용량 정보 설정
       setUsage(dashboardData.usage || { postsGenerated: 0, monthlyLimit: 50 });
       
       // 히스토리 페이지와 동일한 포스트 목록 사용 (최신순으로 정렬)
-      const sortedPosts = postsData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      const sortedPosts = postsArray.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
       setRecentPosts(sortedPosts);
       
     } catch (err) {
@@ -167,11 +164,10 @@ const Dashboard = () => {
       if (!user?.uid) return;
 
       try {
-        const getActiveNoticesFn = httpsCallable(functions, 'getActiveNotices');
-        const noticesResponse = await getActiveNoticesFn();
+        const noticesResponse = await callFunctionWithNaverAuth('getActiveNotices');
         
         // 올바른 경로로 공지사항 데이터 추출
-        const noticesData = noticesResponse.data?.notices || [];
+        const noticesData = noticesResponse?.notices || [];
         setNotices(noticesData);
         
       } catch (noticeError) {

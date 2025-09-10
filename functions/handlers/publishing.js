@@ -1,15 +1,12 @@
 const admin = require('firebase-admin');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
-const wrap = require('../common/wrap').wrap;
+const { wrap } = require('../common/wrap');
+const { auth } = require('../common/auth');
 
 // 원고 발행 등록
 const publishPost = wrap(async (request) => {
+  const { uid } = await auth(request);
   const { postId, publishUrl } = request.data;
-  const uid = request.auth?.uid;
-
-  if (!uid) {
-    throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
-  }
 
   if (!postId || !publishUrl) {
     throw new HttpsError('invalid-argument', '원고 ID와 발행 URL이 필요합니다.');
@@ -155,11 +152,7 @@ const publishPost = wrap(async (request) => {
 
 // 발행 통계 조회
 const getPublishingStats = wrap(async (request) => {
-  const uid = request.auth?.uid;
-
-  if (!uid) {
-    throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
-  }
+  const { uid } = await auth(request);
 
   try {
     const db = admin.firestore();
