@@ -61,14 +61,19 @@ const naverLogin = onCall({
 // 네이버 로그인 처리 (회원가입 유도 정책) - onRequest로 변경하여 CORS 완전 제어
 const naverLoginHTTP = onRequest({
   region: 'asia-northeast3',
-  cors: [
-    'https://cyberbrain.kr',
-    'https://ai-secretary-6e9c8.web.app',
-    'https://ai-secretary-6e9c8.firebaseapp.com'
-  ],
+  cors: true, // 우선 모든 origin 허용으로 테스트
   memory: '256MiB',
   timeoutSeconds: 60
 }, async (request, response) => {
+  // 수동 CORS 헤더 설정
+  response.set('Access-Control-Allow-Origin', 'https://cyberbrain.kr');
+  response.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  response.set('Access-Control-Allow-Headers', 'Content-Type');
+  
+  // OPTIONS 요청 처리 (프리플라이트)
+  if (request.method === 'OPTIONS') {
+    return response.status(204).end();
+  }
   try {
     console.log('➡ naverLogin v2 함수 시작 (onRequest)');
     let stage = 'init';
