@@ -42,7 +42,11 @@ async function getNaverUserInfo(accessToken) {
 // 네이버 로그인 처리 (회원가입 유도 정책)
 const naverLogin = onCall({
   region: 'asia-northeast3',
-  cors: true,
+  cors: [
+    'https://cyberbrain.kr',
+    'https://ai-secretary-6e9c8.web.app',
+    'https://ai-secretary-6e9c8.firebaseapp.com'
+  ],
   memory: '256MiB',
   timeoutSeconds: 60
 }, async (request) => {
