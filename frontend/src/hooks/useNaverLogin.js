@@ -4,14 +4,20 @@ import { httpsCallable } from 'firebase/functions';
 import { useNavigate } from 'react-router-dom';
 import { auth, functions } from '../services/firebase';
 
-// Firebase Hosting 프록시를 통한 네이버 로그인 호출
+// Firebase Hosting 프록시를 통한 네이버 로그인 호출 (Popup 방식)
 const callNaverLoginViaProxy = (data) => {
   return new Promise((resolve, reject) => {
-    // iframe 생성
-    const iframe = document.createElement('iframe');
-    iframe.src = 'https://ai-secretary-6e9c8.web.app/proxy/naver-login.html';
-    iframe.style.display = 'none';
-    document.body.appendChild(iframe);
+    // 작은 팝업 창 열기
+    const popup = window.open(
+      'https://ai-secretary-6e9c8.web.app/proxy/naver-login.html',
+      'naverLoginProxy',
+      'width=400,height=300,scrollbars=yes,resizable=yes'
+    );
+
+    if (!popup) {
+      reject(new Error('팝업이 차단되었습니다. 팝업 차단을 해제해주세요.'));
+      return;
+    }
 
     const handleMessage = (event) => {
       if (event.origin !== 'https://ai-secretary-6e9c8.web.app') {
@@ -20,11 +26,11 @@ const callNaverLoginViaProxy = (data) => {
 
       if (event.data.type === 'proxy-ready') {
         // 프록시 준비 완료, 데이터 전송
-        iframe.contentWindow.postMessage(data, 'https://ai-secretary-6e9c8.web.app');
+        popup.postMessage(data, 'https://ai-secretary-6e9c8.web.app');
       } else if (event.data.type === 'naver-login-result') {
         // 결과 수신
         window.removeEventListener('message', handleMessage);
-        document.body.removeChild(iframe);
+        popup.close();
 
         if (event.data.success) {
           resolve({ data: event.data.data.result });
@@ -36,14 +42,24 @@ const callNaverLoginViaProxy = (data) => {
 
     window.addEventListener('message', handleMessage);
 
+    // 팝업이 닫힌 경우 처리
+    const checkClosed = setInterval(() => {
+      if (popup.closed) {
+        clearInterval(checkClosed);
+        window.removeEventListener('message', handleMessage);
+        reject(new Error('사용자가 팝업을 닫았습니다.'));
+      }
+    }, 1000);
+
     // 타임아웃 설정
     setTimeout(() => {
+      clearInterval(checkClosed);
       window.removeEventListener('message', handleMessage);
-      if (iframe.parentNode) {
-        document.body.removeChild(iframe);
+      if (!popup.closed) {
+        popup.close();
       }
       reject(new Error('Proxy timeout'));
-    }, 10000);
+    }, 30000); // 30초로 연장
   });
 };
 
