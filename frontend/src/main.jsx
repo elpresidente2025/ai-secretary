@@ -27,6 +27,7 @@ import Billing from './pages/Billing.jsx';
 import GuidelinesPage from './pages/GuidelinesPage.jsx';
 import PaymentSuccess from './pages/PaymentSuccess.jsx';
 import PaymentFail from './pages/PaymentFail.jsx';
+import NaverCallback from './pages/auth/NaverCallback.jsx';
 
 // 🎯 프리로드 함수들 (사용자 의도 감지 시 사용)
 export const preloadGenerate = () => import('./pages/GeneratePage.jsx');
@@ -78,6 +79,10 @@ const router = createBrowserRouter([
       {
         path: 'payment/fail',
         element: <ProtectedRoute><PaymentFail /></ProtectedRoute>,
+      },
+      {
+        path: 'auth/naver/callback',
+        element: <NaverCallback />,
       },
     ],
   },

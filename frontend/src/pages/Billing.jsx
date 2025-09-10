@@ -169,31 +169,33 @@ const Billing = () => {
           <Grid container spacing={3}>
             <Grid item xs={12} lg={4}>
               <Paper sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
-              <Typography variant="h6" sx={{ mb: 1, display: 'flex', alignItems: 'center', fontSize: '1rem' }}>
+              <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', fontSize: '1rem' }}>
                 <CreditCard sx={{ mr: 1 }} />
                 현재 플랜 및 인증 상태
               </Typography>
               
-              <Card sx={{ bgcolor: '#f5f5f5', mb: 1, flex: 1 }}>
-                <CardContent>
-                  <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#55207d' }}>
-                    {currentPlan}
-                  </Typography>
-                  <Typography variant="h6" sx={{ mb: 1 }}>
-                    {plans.find(p => p.name === currentPlan)?.price.toLocaleString()}원/월 (VAT 포함)
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    다음 결제일: 2025년 2월 15일
-                  </Typography>
-                </CardContent>
+              <Card sx={{ bgcolor: '#f5f5f5', mb: 3, p: 2 }}>
+                <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#55207d', mb: 1 }}>
+                  {currentPlan}
+                </Typography>
+                <Typography variant="h6" sx={{ mb: 1 }}>
+                  {plans.find(p => p.name === currentPlan)?.price.toLocaleString()}원/월 (VAT 포함)
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  다음 결제일: {(() => {
+                    const now = new Date();
+                    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+                    return `${nextMonth.getFullYear()}년 ${String(nextMonth.getMonth() + 1).padStart(2, '0')}월 1일`;
+                  })()}
+                </Typography>
               </Card>
 
-              <Box sx={{ mt: 1, mb: 1, flex: 1 }}>
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
                   이번 달 사용량
                 </Typography>
                 <Box sx={{ mb: 1 }}>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                     원고 생성: 15/20회
                   </Typography>
                   <LinearProgress 

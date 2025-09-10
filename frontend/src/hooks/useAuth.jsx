@@ -1,4 +1,4 @@
-import React, { useState, useEffect, createContext, useContext } from 'react';
+﻿import React, { useState, useEffect, createContext, useContext } from 'react';
 import {
   getAuth,
   onAuthStateChanged,
@@ -22,15 +22,16 @@ import {
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { app, functions } from '../services/firebase';
+import { useNaverLogin } from './useNaverLogin';
 
-// AuthContext 생성
+// AuthContext ?앹꽦
 const AuthContext = createContext();
 
-// 다른 컴포넌트에서 쉽게 사용할 수 있도록 export
+// ?ㅻⅨ 而댄룷?뚰듃?먯꽌 ?쎄쾶 ?ъ슜?????덈룄濡?export
 export const useAuth = () => {
   const context = useContext(AuthContext);
   
-  // ✅ 젠스파크 수정: useAuth 훅에 컨텍스트 검증 추가
+  // ???좎뒪?뚰겕 ?섏젙: useAuth ?낆뿉 而⑦뀓?ㅽ듃 寃利?異붽?
   if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
@@ -38,27 +39,27 @@ export const useAuth = () => {
   return context;
 };
 
-// AuthProvider 컴포넌트
+// AuthProvider 而댄룷?뚰듃
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true); // 초기값 true로 시작
+  const [loading, setLoading] = useState(true); // 珥덇린媛?true濡??쒖옉
   const [error, setError] = useState(null);
   const auth = getAuth(app);
   const db = getFirestore(app);
   
-  // 강제 타임아웃으로 무한 로딩 방지 (5초로 복원 - 탭 전환 고려)
+  // 媛뺤젣 ??꾩븘?껋쑝濡?臾댄븳 濡쒕뵫 諛⑹? (5珥덈줈 蹂듭썝 - ???꾪솚 怨좊젮)
   React.useEffect(() => {
     const timeout = setTimeout(() => {
       if (loading) {
-        console.warn('⚠️ Auth 로딩 타임아웃 - 강제 완료');
+        console.warn('?좑툘 Auth 濡쒕뵫 ??꾩븘??- 媛뺤젣 ?꾨즺');
         setLoading(false);
       }
-    }, 5000); // 5초로 복원 (탭 전환 시 충분한 시간 제공)
+    }, 5000); // 5珥덈줈 蹂듭썝 (???꾪솚 ??異⑸텇???쒓컙 ?쒓났)
     
     return () => clearTimeout(timeout);
   }, [loading]);
 
-  // 🔥 Firestore에서 사용자 프로필 정보 가져오기
+  // ?뵦 Firestore?먯꽌 ?ъ슜???꾨줈???뺣낫 媛?몄삤湲?
   const fetchUserProfile = async (uid) => {
     try {
       const userDocRef = doc(db, 'users', uid);
@@ -68,11 +69,11 @@ export const AuthProvider = ({ children }) => {
         const userData = userDocSnap.data();
         return userData;
       } else {
-        console.log('⚠️ Firestore에서 사용자 문서를 찾을 수 없음:', uid);
+        console.log('?좑툘 Firestore?먯꽌 ?ъ슜??臾몄꽌瑜?李얠쓣 ???놁쓬:', uid);
         return null;
       }
     } catch (error) {
-      console.error('❌ Firestore 사용자 조회 실패:', error);
+      console.error('??Firestore ?ъ슜??議고쉶 ?ㅽ뙣:', error);
       return null;
     }
   };
@@ -80,39 +81,39 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     let isFirstLoad = true;
     
-    // onAuthStateChanged는 구독을 해제하는 함수를 반환합니다.
+    // onAuthStateChanged??援щ룆???댁젣?섎뒗 ?⑥닔瑜?諛섑솚?⑸땲??
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       
       try {
         if (currentUser) {
-          // 첫 로드가 아니고 이미 사용자가 설정되어 있다면 스킵 (탭 전환 시)
+          // 泥?濡쒕뱶媛 ?꾨땲怨??대? ?ъ슜?먭? ?ㅼ젙?섏뼱 ?덈떎硫??ㅽ궢 (???꾪솚 ??
           if (!isFirstLoad && user?.uid === currentUser.uid) {
-            console.log('⚡ 탭 전환 감지 - Auth 재처리 스킵');
+            console.log('?????꾪솚 媛먯? - Auth ?ъ쿂由??ㅽ궢');
             setLoading(false);
             return;
           }
           
-          // 임시로 Firestore 연결 없이 Firebase Auth만 사용
+          // ?꾩떆濡?Firestore ?곌껐 ?놁씠 Firebase Auth留??ъ슜
           
           const combinedUser = {
-            // Firebase Auth 기본 정보만
+            // Firebase Auth 湲곕낯 ?뺣낫留?
             uid: currentUser.uid,
             email: currentUser.email,
             displayName: currentUser.displayName,
             emailVerified: currentUser.emailVerified,
             
-            // 기본값들
+            // 湲곕낯媛믩뱾
             isActive: true,
             role: null,
             isAdmin: false,
             
-            // 원본 Firebase User 객체도 보관 (필요시)
+            // ?먮낯 Firebase User 媛앹껜??蹂닿? (?꾩슂??
             _firebaseUser: currentUser
           };
           
           setUser(combinedUser);
           
-          // Firestore 프로필 정보를 즉시 백그라운드에서 로드 (첫 로드 시만)
+          // Firestore ?꾨줈???뺣낫瑜?利됱떆 諛깃렇?쇱슫?쒖뿉??濡쒕뱶 (泥?濡쒕뱶 ?쒕쭔)
           if (isFirstLoad) {
             (async () => {
               try {
@@ -124,117 +125,117 @@ export const AuthProvider = ({ children }) => {
                   }));
                 }
               } catch (error) {
-                console.warn('⚠️ Firestore 프로필 로드 실패:', error);
+                console.warn('?좑툘 Firestore ?꾨줈??濡쒕뱶 ?ㅽ뙣:', error);
               }
             })();
           }
           
         } else {
-          console.log('🚫 로그아웃됨');
+          console.log('로그아웃됨');
           setUser(null);
         }
       } catch (error) {
-        console.error('❌ Auth 상태 처리 중 오류:', error);
+        console.error('??Auth ?곹깭 泥섎━ 以??ㅻ쪟:', error);
         setUser(null);
       } finally {
-        // 성공하든 실패하든 로딩은 완료
+        // ?깃났?섎뱺 ?ㅽ뙣?섎뱺 濡쒕뵫? ?꾨즺
         setLoading(false);
         isFirstLoad = false;
       }
     });
 
-    // 컴포넌트가 언마운트될 때 구독을 해제하여 메모리 누수를 방지합니다.
+    // 而댄룷?뚰듃媛 ?몃쭏?댄듃????援щ룆???댁젣?섏뿬 硫붾え由??꾩닔瑜?諛⑹??⑸땲??
     return unsubscribe;
   }, [auth, db]);
 
   const login = async (email, password) => {
-    setError(null); // 이전 오류 초기화
+    setError(null); // ?댁쟾 ?ㅻ쪟 珥덇린??
     try {
-      console.log('🔐 로그인 시도:', email);
+      console.log('?뵍 濡쒓렇???쒕룄:', email);
       
-      // 네트워크 오류 재시도 로직 (최대 3회)
+      // ?ㅽ듃?뚰겕 ?ㅻ쪟 ?ъ떆??濡쒖쭅 (理쒕? 3??
       let lastError = null;
       let userCredential = null;
       
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
-          console.log(`🔄 로그인 시도 ${attempt}/3`);
+          console.log(`?봽 濡쒓렇???쒕룄 ${attempt}/3`);
           userCredential = await signInWithEmailAndPassword(auth, email, password);
-          console.log(`✅ 로그인 성공 (${attempt}번째 시도)`);
-          break; // 성공하면 루프 종료
+          console.log(`??濡쒓렇???깃났 (${attempt}踰덉㎏ ?쒕룄)`);
+          break; // ?깃났?섎㈃ 猷⑦봽 醫낅즺
         } catch (err) {
           lastError = err;
-          console.warn(`❌ 로그인 시도 ${attempt} 실패:`, err.code);
+          console.warn(`??濡쒓렇???쒕룄 ${attempt} ?ㅽ뙣:`, err.code);
           
-          // 네트워크 오류가 아니면 즉시 중단
+          // ?ㅽ듃?뚰겕 ?ㅻ쪟媛 ?꾨땲硫?利됱떆 以묐떒
           if (err.code !== 'auth/network-request-failed') {
             throw err;
           }
           
-          // 마지막 시도가 아니면 1초 대기 후 재시도
+          // 留덉?留??쒕룄媛 ?꾨땲硫?1珥??湲????ъ떆??
           if (attempt < 3) {
-            console.log('⏳ 1초 후 재시도...');
+            console.log('??1珥????ъ떆??..');
             await new Promise(resolve => setTimeout(resolve, 1000));
           }
         }
       }
       
-      // 모든 시도가 실패한 경우
+      // 紐⑤뱺 ?쒕룄媛 ?ㅽ뙣??寃쎌슦
       if (!userCredential) {
-        throw lastError || new Error('로그인 재시도 실패');
+        throw lastError || new Error('濡쒓렇???ъ떆???ㅽ뙣');
       }
       
-      // 로그인 성공 후 Firestore에서 프로필 정보 가져오기
+      // 濡쒓렇???깃났 ??Firestore?먯꽌 ?꾨줈???뺣낫 媛?몄삤湲?
       const userProfile = await fetchUserProfile(userCredential.user.uid);
       
       const combinedUser = {
-        // Firebase Auth 기본 정보
+        // Firebase Auth 湲곕낯 ?뺣낫
         uid: userCredential.user.uid,
         email: userCredential.user.email,
         displayName: userCredential.user.displayName,
         emailVerified: userCredential.user.emailVerified,
         
-        // Firestore 프로필 정보 (있다면)
+        // Firestore ?꾨줈???뺣낫 (?덈떎硫?
         ...userProfile,
         
-        // 원본 Firebase User 객체도 보관 (필요시)
+        // ?먮낯 Firebase User 媛앹껜??蹂닿? (?꾩슂??
         _firebaseUser: userCredential.user
       };
       
       setUser(combinedUser);
-      console.log('✅ 로그인 성공:', combinedUser);
+      console.log('??濡쒓렇???깃났:', combinedUser);
       return combinedUser;
     } catch (err) {
-      // Firebase에서 발생한 오류를 잡아냅니다.
-      console.error('❌ 로그인 실패:', err);
-      // 오류 메시지를 상태에 저장하고,
+      // Firebase?먯꽌 諛쒖깮???ㅻ쪟瑜??≪븘?낅땲??
+      console.error('??濡쒓렇???ㅽ뙣:', err);
+      // ?ㅻ쪟 硫붿떆吏瑜??곹깭????ν븯怨?
       setError(err.message);
-      // 🔥 가장 중요한 부분: 잡은 오류를 다시 던져서 HomePage가 알 수 있도록 합니다.
+      // ?뵦 媛??以묒슂??遺遺? ?≪? ?ㅻ쪟瑜??ㅼ떆 ?섏졇??HomePage媛 ?????덈룄濡??⑸땲??
       throw err;
     }
   };
 
-  // Google 로그인 함수 추가
+  // Google 濡쒓렇???⑥닔 異붽?
   const signInWithGoogle = async () => {
     setError(null);
     try {
-      console.log('🔐 Google 로그인 시도');
+      console.log('?뵍 Google 濡쒓렇???쒕룄');
       const provider = new GoogleAuthProvider();
       
-      // 추가 스코프 요청 (이메일, 프로필)
+      // 異붽? ?ㅼ퐫???붿껌 (?대찓?? ?꾨줈??
       provider.addScope('email');
       provider.addScope('profile');
       
-      // CORS 정책 문제로 인해 모든 환경에서 리다이렉트 방식 사용
-      console.log('🔄 리다이렉트 방식으로 Google 로그인 진행');
+      // CORS ?뺤콉 臾몄젣濡??명빐 紐⑤뱺 ?섍꼍?먯꽌 由щ떎?대젆??諛⑹떇 ?ъ슜
+      console.log('?봽 由щ떎?대젆??諛⑹떇?쇰줈 Google 濡쒓렇??吏꾪뻾');
       await signInWithRedirect(auth, provider);
-      return; // 리다이렉트 후 결과는 페이지 로드 시 처리됨
+      return; // 由щ떎?대젆????寃곌낵???섏씠吏 濡쒕뱶 ??泥섎━??
       
       if (result) {
         const user = result.user;
-        console.log('✅ Google 로그인 성공:', user.email);
+        console.log('??Google 濡쒓렇???깃났:', user.email);
         
-        // Firestore에서 기존 프로필 정보 가져오기
+        // Firestore?먯꽌 湲곗〈 ?꾨줈???뺣낫 媛?몄삤湲?
         const userProfile = await fetchUserProfile(user.uid);
         
         const combinedUser = {
@@ -244,45 +245,45 @@ export const AuthProvider = ({ children }) => {
           photoURL: user.photoURL,
           emailVerified: user.emailVerified,
           
-          // Google 로그인 특별 정보
+          // Google 濡쒓렇???밸퀎 ?뺣낫
           isGoogleUser: true,
           
-          // Firestore 프로필 정보
+          // Firestore ?꾨줈???뺣낫
           ...userProfile,
           
-          // 원본 Firebase User 객체
+          // ?먮낯 Firebase User 媛앹껜
           _firebaseUser: user
         };
         
         setUser(combinedUser);
         
-        // 신규 Google 사용자면 프로필 설정 페이지로 안내
+        // ?좉퇋 Google ?ъ슜?먮㈃ ?꾨줈???ㅼ젙 ?섏씠吏濡??덈궡
         if (!userProfile || !userProfile.isActive) {
-          console.log('🆕 신규 Google 사용자 - 프로필 설정 필요');
+          console.log('?넅 ?좉퇋 Google ?ъ슜??- ?꾨줈???ㅼ젙 ?꾩슂');
         }
         
         return combinedUser;
       }
     } catch (err) {
-      console.error('❌ Google 로그인 실패:', err);
+      console.error('??Google 濡쒓렇???ㅽ뙣:', err);
       
-      let errorMessage = 'Google 로그인에 실패했습니다.';
+      let errorMessage = 'Google 濡쒓렇?몄뿉 ?ㅽ뙣?덉뒿?덈떎.';
       
       switch (err.code) {
         case 'auth/popup-closed-by-user':
-          errorMessage = 'Google 로그인 창이 닫혔습니다.';
+          errorMessage = 'Google 濡쒓렇??李쎌씠 ?ロ삍?듬땲??';
           break;
         case 'auth/popup-blocked':
-          errorMessage = '팝업이 차단되었습니다. 팝업 차단을 해제해주세요.';
+          errorMessage = '?앹뾽??李⑤떒?섏뿀?듬땲?? ?앹뾽 李⑤떒???댁젣?댁＜?몄슂.';
           break;
         case 'auth/cancelled-popup-request':
-          errorMessage = 'Google 로그인이 취소되었습니다.';
+          errorMessage = 'Google 濡쒓렇?몄씠 痍⑥냼?섏뿀?듬땲??';
           break;
         case 'auth/network-request-failed':
-          errorMessage = '네트워크 오류입니다. 다시 시도해주세요.';
+          errorMessage = '?ㅽ듃?뚰겕 ?ㅻ쪟?낅땲?? ?ㅼ떆 ?쒕룄?댁＜?몄슂.';
           break;
         default:
-          errorMessage = `Google 로그인 실패: ${err.message}`;
+          errorMessage = `Google 濡쒓렇???ㅽ뙣: ${err.message}`;
       }
       
       setError(errorMessage);
@@ -290,16 +291,16 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // 리다이렉트 결과 처리 (모든 Google 로그인용)
+  // 由щ떎?대젆??寃곌낵 泥섎━ (紐⑤뱺 Google 濡쒓렇?몄슜)
   useEffect(() => {
     const handleRedirectResult = async () => {
       try {
         const result = await getRedirectResult(auth);
         if (result) {
           const user = result.user;
-          console.log('✅ Google 리다이렉트 로그인 성공:', user.email);
+          console.log('??Google 由щ떎?대젆??濡쒓렇???깃났:', user.email);
           
-          // Firestore에서 기존 프로필 정보 가져오기
+          // Firestore?먯꽌 湲곗〈 ?꾨줈???뺣낫 媛?몄삤湲?
           const userProfile = await fetchUserProfile(user.uid);
           
           const combinedUser = {
@@ -309,27 +310,27 @@ export const AuthProvider = ({ children }) => {
             photoURL: user.photoURL,
             emailVerified: user.emailVerified,
             
-            // Google 로그인 특별 정보
+            // Google 濡쒓렇???밸퀎 ?뺣낫
             isGoogleUser: true,
             
-            // Firestore 프로필 정보
+            // Firestore ?꾨줈???뺣낫
             ...userProfile,
             
-            // 원본 Firebase User 객체
+            // ?먮낯 Firebase User 媛앹껜
             _firebaseUser: user
           };
           
           setUser(combinedUser);
           
-          // 신규 Google 사용자면 프로필 설정 페이지로 안내
+          // ?좉퇋 Google ?ъ슜?먮㈃ ?꾨줈???ㅼ젙 ?섏씠吏濡??덈궡
           if (!userProfile || !userProfile.isActive) {
-            console.log('🆕 신규 Google 사용자 - 프로필 설정 필요');
-            // 프로필 설정 페이지로 리다이렉트할 수도 있음
+            console.log('?넅 ?좉퇋 Google ?ъ슜??- ?꾨줈???ㅼ젙 ?꾩슂');
+            // ?꾨줈???ㅼ젙 ?섏씠吏濡?由щ떎?대젆?명븷 ?섎룄 ?덉쓬
           }
         }
       } catch (error) {
-        console.error('❌ Google 리다이렉트 처리 실패:', error);
-        setError(error.message || 'Google 로그인 처리 중 오류가 발생했습니다.');
+        console.error('??Google 由щ떎?대젆??泥섎━ ?ㅽ뙣:', error);
+        setError(error.message || 'Google 濡쒓렇??泥섎━ 以??ㅻ쪟媛 諛쒖깮?덉뒿?덈떎.');
       }
     };
     
@@ -339,46 +340,46 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     setError(null);
     try {
-      console.log('🚪 로그아웃 시도');
+      console.log('?슞 濡쒓렇?꾩썐 ?쒕룄');
       
-      // Firebase Auth 로그아웃
+      // Firebase Auth 濡쒓렇?꾩썐
       await signOut(auth);
       
-      // 상태 초기화
+      // ?곹깭 珥덇린??
       setUser(null);
       setLoading(false);
       
-      // 브라우저 스토리지 완전 정리
+      // 釉뚮씪?곗? ?ㅽ넗由ъ? ?꾩쟾 ?뺣━
       try {
         localStorage.clear();
         sessionStorage.clear();
         
-        // IndexedDB 정리 (Firebase용)
+        // IndexedDB ?뺣━ (Firebase??
         if ('indexedDB' in window) {
           const deleteDB = (dbName) => {
             const deleteReq = indexedDB.deleteDatabase(dbName);
-            deleteReq.onerror = () => console.log('IndexedDB 삭제 실패:', dbName);
-            deleteReq.onsuccess = () => console.log('IndexedDB 삭제 성공:', dbName);
+            deleteReq.onerror = () => console.log('IndexedDB ??젣 ?ㅽ뙣:', dbName);
+            deleteReq.onsuccess = () => console.log('IndexedDB ??젣 ?깃났:', dbName);
           };
           deleteDB('firebaseLocalStorageDb');
           deleteDB('firebase-heartbeat-database');
           deleteDB('firebase-installations-database');
         }
         
-        console.log('🧹 브라우저 스토리지 정리 완료');
+        console.log('?㏏ 釉뚮씪?곗? ?ㅽ넗由ъ? ?뺣━ ?꾨즺');
       } catch (storageError) {
-        console.warn('⚠️ 스토리지 정리 중 일부 오류:', storageError);
+        console.warn('?좑툘 ?ㅽ넗由ъ? ?뺣━ 以??쇰? ?ㅻ쪟:', storageError);
       }
       
-      console.log('✅ 완전한 로그아웃 성공');
+      console.log('???꾩쟾??濡쒓렇?꾩썐 ?깃났');
       
-      // 강제 페이지 새로고침으로 모든 상태 초기화
+      // 媛뺤젣 ?섏씠吏 ?덈줈怨좎묠?쇰줈 紐⑤뱺 ?곹깭 珥덇린??
       setTimeout(() => {
         window.location.href = '/login';
       }, 100);
       
     } catch (err) {
-      console.error('❌ 로그아웃 실패:', err);
+      console.error('??濡쒓렇?꾩썐 ?ㅽ뙣:', err);
       setError(err.message);
       throw err;
     }
@@ -387,24 +388,24 @@ export const AuthProvider = ({ children }) => {
   const register = async ({ email, password, displayName, profileData }) => {
     setError(null);
     try {
-      console.log('📝 회원가입 시도:', email, displayName);
+      console.log('?뱷 ?뚯썝媛???쒕룄:', email, displayName);
       
-      // 1. Firebase Auth에 사용자 생성
+      // 1. Firebase Auth???ъ슜???앹꽦
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
       
-      // 2. 사용자 프로필 업데이트 (displayName 설정)
+      // 2. ?ъ슜???꾨줈???낅뜲?댄듃 (displayName ?ㅼ젙)
       await updateProfile(user, {
         displayName: displayName
       });
       
-      // 3. Firebase Functions를 통해 프로필 데이터 저장 및 선거구 체크
+      // 3. Firebase Functions瑜??듯빐 ?꾨줈???곗씠?????諛??좉굅援?泥댄겕
       const registerWithDistrictCheck = httpsCallable(functions, 'registerWithDistrictCheck');
       await registerWithDistrictCheck({ profileData });
       
-      console.log('✅ 회원가입 성공:', user.uid);
+      console.log('???뚯썝媛???깃났:', user.uid);
       
-      // 4. 새로운 사용자 정보로 상태 업데이트
+      // 4. ?덈줈???ъ슜???뺣낫濡??곹깭 ?낅뜲?댄듃
       const combinedUser = {
         uid: user.uid,
         email: user.email,
@@ -418,16 +419,16 @@ export const AuthProvider = ({ children }) => {
       return combinedUser;
       
     } catch (err) {
-      console.error('❌ 회원가입 실패:', err);
+      console.error('???뚯썝媛???ㅽ뙣:', err);
       setError(err.message);
       throw err;
     }
   };
 
-  // 🔥 사용자 프로필 새로고침 함수 (필요시 호출)
+  // ?뵦 ?ъ슜???꾨줈???덈줈怨좎묠 ?⑥닔 (?꾩슂???몄텧)
   const refreshUserProfile = async () => {
     if (user?.uid) {
-      console.log('🔄 사용자 프로필 새로고침');
+      console.log('?봽 ?ъ슜???꾨줈???덈줈怨좎묠');
       const userProfile = await fetchUserProfile(user.uid);
       if (userProfile) {
         setUser(prev => ({ ...prev, ...userProfile }));
@@ -435,14 +436,14 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // 🔗 Google 계정 연결 함수
+  // ?뵕 Google 怨꾩젙 ?곌껐 ?⑥닔
   const linkGoogleAccount = async () => {
     setError(null);
     try {
-      console.log('🔗 Google 계정 연결 시도');
+      console.log('?뵕 Google 怨꾩젙 ?곌껐 ?쒕룄');
       
       if (!user) {
-        throw new Error('로그인이 필요합니다.');
+        throw new Error('濡쒓렇?몄씠 ?꾩슂?⑸땲??');
       }
 
       const provider = new GoogleAuthProvider();
@@ -450,9 +451,9 @@ export const AuthProvider = ({ children }) => {
       provider.addScope('profile');
 
       const result = await linkWithPopup(auth.currentUser, provider);
-      console.log('✅ Google 계정 연결 성공:', result.user.email);
+      console.log('??Google 怨꾩젙 ?곌껐 ?깃났:', result.user.email);
       
-      // 사용자 정보 업데이트
+      // ?ъ슜???뺣낫 ?낅뜲?댄듃
       const updatedUser = {
         ...user,
         photoURL: result.user.photoURL,
@@ -464,25 +465,25 @@ export const AuthProvider = ({ children }) => {
       return updatedUser;
       
     } catch (err) {
-      console.error('❌ Google 계정 연결 실패:', err);
+      console.error('??Google 怨꾩젙 ?곌껐 ?ㅽ뙣:', err);
       
-      let errorMessage = 'Google 계정 연결에 실패했습니다.';
+      let errorMessage = 'Google 怨꾩젙 ?곌껐???ㅽ뙣?덉뒿?덈떎.';
       
       switch (err.code) {
         case 'auth/provider-already-linked':
-          errorMessage = '이미 Google 계정이 연결되어 있습니다.';
+          errorMessage = '?대? Google 怨꾩젙???곌껐?섏뼱 ?덉뒿?덈떎.';
           break;
         case 'auth/credential-already-in-use':
-          errorMessage = '이 Google 계정은 다른 사용자가 사용중입니다.';
+          errorMessage = '??Google 怨꾩젙? ?ㅻⅨ ?ъ슜?먭? ?ъ슜以묒엯?덈떎.';
           break;
         case 'auth/popup-blocked':
-          errorMessage = '팝업이 차단되었습니다. 팝업 차단을 해제해주세요.';
+          errorMessage = '?앹뾽??李⑤떒?섏뿀?듬땲?? ?앹뾽 李⑤떒???댁젣?댁＜?몄슂.';
           break;
         case 'auth/popup-closed-by-user':
-          errorMessage = '연결이 취소되었습니다.';
+          errorMessage = '?곌껐??痍⑥냼?섏뿀?듬땲??';
           break;
         default:
-          errorMessage = `Google 계정 연결 실패: ${err.message}`;
+          errorMessage = `Google 怨꾩젙 ?곌껐 ?ㅽ뙣: ${err.message}`;
       }
       
       setError(errorMessage);
@@ -490,21 +491,21 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // 🔗 이메일/비밀번호 계정 연결 함수
+  // ?뵕 ?대찓??鍮꾨?踰덊샇 怨꾩젙 ?곌껐 ?⑥닔
   const linkEmailAccount = async (email, password) => {
     setError(null);
     try {
-      console.log('🔗 이메일 계정 연결 시도:', email);
+      console.log('?뵕 ?대찓??怨꾩젙 ?곌껐 ?쒕룄:', email);
       
       if (!user) {
-        throw new Error('로그인이 필요합니다.');
+        throw new Error('濡쒓렇?몄씠 ?꾩슂?⑸땲??');
       }
 
       const credential = EmailAuthProvider.credential(email, password);
       const result = await linkWithCredential(auth.currentUser, credential);
-      console.log('✅ 이메일 계정 연결 성공:', result.user.email);
+      console.log('???대찓??怨꾩젙 ?곌껐 ?깃났:', result.user.email);
       
-      // 사용자 정보 업데이트
+      // ?ъ슜???뺣낫 ?낅뜲?댄듃
       const updatedUser = {
         ...user,
         email: result.user.email,
@@ -516,25 +517,25 @@ export const AuthProvider = ({ children }) => {
       return updatedUser;
       
     } catch (err) {
-      console.error('❌ 이메일 계정 연결 실패:', err);
+      console.error('???대찓??怨꾩젙 ?곌껐 ?ㅽ뙣:', err);
       
-      let errorMessage = '이메일 계정 연결에 실패했습니다.';
+      let errorMessage = '?대찓??怨꾩젙 ?곌껐???ㅽ뙣?덉뒿?덈떎.';
       
       switch (err.code) {
         case 'auth/provider-already-linked':
-          errorMessage = '이미 이메일 계정이 연결되어 있습니다.';
+          errorMessage = '?대? ?대찓??怨꾩젙???곌껐?섏뼱 ?덉뒿?덈떎.';
           break;
         case 'auth/credential-already-in-use':
-          errorMessage = '이 이메일은 다른 사용자가 사용중입니다.';
+          errorMessage = '???대찓?쇱? ?ㅻⅨ ?ъ슜?먭? ?ъ슜以묒엯?덈떎.';
           break;
         case 'auth/invalid-email':
-          errorMessage = '유효하지 않은 이메일 주소입니다.';
+          errorMessage = '?좏슚?섏? ?딆? ?대찓??二쇱냼?낅땲??';
           break;
         case 'auth/weak-password':
-          errorMessage = '비밀번호가 너무 약합니다.';
+          errorMessage = '鍮꾨?踰덊샇媛 ?덈Т ?쏀빀?덈떎.';
           break;
         default:
-          errorMessage = `이메일 계정 연결 실패: ${err.message}`;
+          errorMessage = `?대찓??怨꾩젙 ?곌껐 ?ㅽ뙣: ${err.message}`;
       }
       
       setError(errorMessage);
@@ -542,20 +543,20 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // 🔓 계정 연결 해제 함수
+  // ?뵑 怨꾩젙 ?곌껐 ?댁젣 ?⑥닔
   const unlinkAccount = async (providerId) => {
     setError(null);
     try {
-      console.log('🔓 계정 연결 해제 시도:', providerId);
+      console.log('?뵑 怨꾩젙 ?곌껐 ?댁젣 ?쒕룄:', providerId);
       
       if (!user) {
-        throw new Error('로그인이 필요합니다.');
+        throw new Error('濡쒓렇?몄씠 ?꾩슂?⑸땲??');
       }
 
       const result = await unlink(auth.currentUser, providerId);
-      console.log('✅ 계정 연결 해제 성공:', providerId);
+      console.log('??怨꾩젙 ?곌껐 ?댁젣 ?깃났:', providerId);
       
-      // 사용자 정보 업데이트
+      // ?ъ슜???뺣낫 ?낅뜲?댄듃
       const updatedUser = {
         ...user,
         linkedAccounts: (user.linkedAccounts || []).filter(id => id !== providerId),
@@ -566,16 +567,16 @@ export const AuthProvider = ({ children }) => {
       return updatedUser;
       
     } catch (err) {
-      console.error('❌ 계정 연결 해제 실패:', err);
+      console.error('??怨꾩젙 ?곌껐 ?댁젣 ?ㅽ뙣:', err);
       
-      let errorMessage = '계정 연결 해제에 실패했습니다.';
+      let errorMessage = '怨꾩젙 ?곌껐 ?댁젣???ㅽ뙣?덉뒿?덈떎.';
       
       switch (err.code) {
         case 'auth/no-such-provider':
-          errorMessage = '연결된 계정이 없습니다.';
+          errorMessage = '?곌껐??怨꾩젙???놁뒿?덈떎.';
           break;
         default:
-          errorMessage = `계정 연결 해제 실패: ${err.message}`;
+          errorMessage = `怨꾩젙 ?곌껐 ?댁젣 ?ㅽ뙣: ${err.message}`;
       }
       
       setError(errorMessage);
@@ -583,122 +584,25 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // 네이버 로그인 함수
-  const signInWithNaver = async () => {
-    setError(null);
-    try {
-      console.log('🔐 네이버 로그인 시도');
-      
-      // 실제로는 네이버 OAuth를 구현해야 하지만, 
-      // 현재는 시뮬레이션을 위해 Firebase Functions를 통해 처리
-      const naverLogin = httpsCallable(functions, 'naverLogin');
-      
-      // 타임아웃 설정 (10초)
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('네이버 로그인 시간 초과')), 10000)
-      );
-      
-      const result = await Promise.race([
-        naverLogin(),
-        timeoutPromise
-      ]);
-      
-      if (!result.data.success) {
-        // 가입 정보가 없는 경우
-        if (result.data.error === 'USER_NOT_FOUND') {
-          const error = new Error('가입 정보가 없습니다. 회원가입 페이지로 이동합니다.');
-          error.code = 'auth/user-not-found';
-          error.isNaverUser = true;
-          error.naverUserData = result.data.naverUserData; // 네이버 사용자 데이터 포함
-          throw error;
-        }
-        
-        throw new Error(result.data.error || '네이버 로그인에 실패했습니다.');
-      }
-      
-      // 로그인 성공
-      const userData = result.data.user;
-      const combinedUser = {
-        uid: userData.uid,
-        email: userData.email,
-        displayName: userData.displayName,
-        photoURL: userData.photoURL,
-        emailVerified: true,
-        
-        // 네이버 로그인 특별 정보
-        isNaverUser: true,
-        
-        // Firestore 프로필 정보
-        ...userData,
-        
-        // 원본 데이터
-        _naverData: userData
-      };
-      
-      setUser(combinedUser);
-      console.log('✅ 네이버 로그인 성공:', combinedUser);
-      return combinedUser;
-      
-    } catch (err) {
-      console.error('❌ 네이버 로그인 실패:', err);
-      console.error('❌ 에러 상세:', {
-        message: err.message,
-        code: err.code,
-        stack: err.stack
-      });
-      
-      let errorMessage = '네이버 로그인에 실패했습니다.';
-      
-      if (err.code === 'auth/user-not-found' && err.isNaverUser) {
-        // 이 에러는 상위에서 처리하도록 그대로 throw
-        throw err;
-      }
-      
-      if (err.message === '네이버 로그인 시간 초과') {
-        errorMessage = '네이버 로그인 요청이 시간 초과되었습니다. 다시 시도해주세요.';
-      } else {
-        switch (err.code) {
-          case 'auth/network-request-failed':
-            errorMessage = '네트워크 오류입니다. 다시 시도해주세요.';
-            break;
-          case 'auth/cancelled-popup-request':
-            errorMessage = '네이버 로그인이 취소되었습니다.';
-            break;
-          case 'auth/popup-blocked':
-            errorMessage = '팝업이 차단되었습니다. 팝업 차단을 해제해주세요.';
-            break;
-          case 'functions/deadline-exceeded':
-            errorMessage = '네이버 로그인 요청이 시간 초과되었습니다. 다시 시도해주세요.';
-            break;
-          case 'functions/unavailable':
-            errorMessage = '네이버 로그인 서비스에 일시적인 문제가 있습니다. 잠시 후 다시 시도해주세요.';
-            break;
-          default:
-            errorMessage = err.message || '네이버 로그인에 실패했습니다.';
-        }
-      }
-      
-      setError(errorMessage);
-      throw err;
-    }
-  };
+  // ?ㅼ씠踰?濡쒓렇???⑥닔 - useNaverLogin ???ъ슜
+  // 네이버 로그인: 컴포넌트에서 useNaverLogin()을 직접 사용하세요.
 
-  // 컨텍스트로 제공할 값들
+  // 而⑦뀓?ㅽ듃濡??쒓났??媛믩뱾
   const value = {
     user,
     loading,
     error,
     login,
-    signInWithGoogle, // 🔥 Google 로그인 함수 추가
-    signInWithNaver, // 🔥 네이버 로그인 함수 추가
+    signInWithGoogle, // ?뵦 Google 濡쒓렇???⑥닔 異붽?
+
     register,
     logout,
-    refreshUserProfile, // 🔥 프로필 새로고침 함수 추가
-    // 🔗 계정 연결 함수들 추가
+    refreshUserProfile, // ?뵦 ?꾨줈???덈줈怨좎묠 ?⑥닔 異붽?
+    // ?뵕 怨꾩젙 ?곌껐 ?⑥닔??異붽?
     linkGoogleAccount,
     linkEmailAccount,
     unlinkAccount,
-    // 편의를 위한 바로 접근 가능한 값들
+    // ?몄쓽瑜??꾪븳 諛붾줈 ?묎렐 媛?ν븳 媛믩뱾
     auth: {
       user: user,
       isAuthenticated: !!user,
@@ -709,7 +613,7 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider value={value}>
-      {/* ✅ 젠스파크 수정: 항상 children을 렌더링하도록 수정 */}
+      {/* ???좎뒪?뚰겕 ?섏젙: ??긽 children???뚮뜑留곹븯?꾨줉 ?섏젙 */}
       {children}
     </AuthContext.Provider>
   );

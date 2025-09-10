@@ -99,7 +99,7 @@ exports.purchaseSNSAddon = snsAddonHandler.purchaseSNSAddon;
 exports.confirmTossPayment = tossPaymentsHandler.confirmTossPayment;
 exports.getUserPayments = tossPaymentsHandler.getUserPayments;
 
-// 네이버 로그인 관련 함수들
+// 네이버 로그인 관련 함수들 (HTTP 함수)
 exports.naverLogin = naverLoginHandler.naverLogin;
 
 // 네이버 연결 끊기 콜백 함수

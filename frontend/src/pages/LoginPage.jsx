@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link as RouterLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { useNaverLogin } from '../hooks/useNaverLogin';
 import {
   Container,
   Typography,
@@ -37,7 +38,8 @@ function LoginPage() {
   
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, signInWithNaver, user } = useAuth();
+  const { login, user } = useAuth();
+  const { loginWithNaver } = useNaverLogin();
 
   useEffect(() => {
     if (user) {
@@ -102,7 +104,7 @@ function LoginPage() {
     setLoading(true);
 
     try {
-      await signInWithNaver();
+      await loginWithNaver();
     } catch (error) {
       console.error('네이버 로그인 오류:', error);
       

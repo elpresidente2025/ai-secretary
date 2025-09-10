@@ -23,7 +23,8 @@ const app = initializeApp(firebaseConfig);
 // Firebase 서비스 초기화
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-export const functions = getFunctions(app, 'asia-northeast3'); // 서울 리전
+// onCall 호출은 Hosting 경유를 기본으로 사용하도록 region 지정 없이 생성
+export const functions = getFunctions(app);
 
 // 개발 환경 설정
 if (import.meta.env.DEV) {
