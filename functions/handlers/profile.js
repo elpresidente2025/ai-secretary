@@ -30,7 +30,7 @@ const { analyzeBioForStyle } = require('../services/style-analysis');
  * 사용자 프로필 조회
  */
 exports.getUserProfile = wrap(async (req) => {
-  const { uid, token } = auth(req);
+  const { uid, token } = await auth(req);
   logInfo('getUserProfile 호출', { userId: uid });
 
   const userDoc = await db.collection('users').doc(uid).get();
@@ -66,7 +66,7 @@ exports.getUserProfile = wrap(async (req) => {
  * 프로필 업데이트 (+ 선거구 유일성 락)
  */
 exports.updateProfile = wrap(async (req) => {
-  const { uid, token } = auth(req);
+  const { uid, token } = await auth(req);
   const profileData = req.data;
   if (!profileData || typeof profileData !== 'object') {
     throw new HttpsError('invalid-argument', '올바른 프로필 데이터를 입력해주세요.');
@@ -183,7 +183,7 @@ exports.updateProfile = wrap(async (req) => {
  * 사용자 플랜 업데이트
  */
 exports.updateUserPlan = wrap(async (req) => {
-  const { uid, token } = auth(req);
+  const { uid, token } = await auth(req);
   const { plan } = req.data || {};
   
   if (!plan || typeof plan !== 'string') {
@@ -237,7 +237,7 @@ exports.checkDistrictAvailability = wrap(async (req) => {
  * 회원가입 + 선거구 중복 검사
  */
 exports.registerWithDistrictCheck = wrap(async (req) => {
-  const { uid, token } = auth(req);
+  const { uid, token } = await auth(req);
   const { profileData } = req.data || {};
   if (!profileData) throw new HttpsError('invalid-argument', '프로필 데이터가 필요합니다.');
 

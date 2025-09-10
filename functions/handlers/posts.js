@@ -246,7 +246,7 @@ const okMessage = (message) => ({ success: true, message });
 
 // 사용자 포스트 목록 조회
 exports.getUserPosts = wrap(async (req) => {
-  const { uid } = auth(req);
+  const { uid } = await auth(req);
   console.log('POST getUserPosts 호출:', { userId: uid });
 
   try {
@@ -280,7 +280,7 @@ exports.getUserPosts = wrap(async (req) => {
 
 // 특정 포스트 조회
 exports.getPost = wrap(async (req) => {
-  const { uid } = auth(req);
+  const { uid } = await auth(req);
   const { postId } = req.data || {};
   console.log('POST getPost 호출:', { userId: uid, postId });
 
@@ -317,7 +317,7 @@ exports.getPost = wrap(async (req) => {
 
 // 포스트 업데이트
 exports.updatePost = wrap(async (req) => {
-  const { uid } = auth(req);
+  const { uid } = await auth(req);
   const { postId, updates } = req.data || {};
   console.log('POST updatePost 호출:', { userId: uid, postId });
 
@@ -359,7 +359,7 @@ exports.updatePost = wrap(async (req) => {
 
 // 포스트 삭제
 exports.deletePost = wrap(async (req) => {
-  const { uid } = auth(req);
+  const { uid } = await auth(req);
   const { postId } = req.data || {};
   console.log('POST deletePost 호출:', { userId: uid, postId });
 
@@ -390,7 +390,7 @@ exports.deletePost = wrap(async (req) => {
 
 // 사용량 제한 체크
 exports.checkUsageLimit = wrap(async (req) => {
-  const { uid } = auth(req);
+  const { uid } = await auth(req);
   console.log('USAGE checkUsageLimit 호출:', { userId: uid });
 
   try {
@@ -1041,7 +1041,7 @@ ${currentStatus === '예비' ? `- **예비 상태 특별 금지사항**: "예비
 
 // saveSelectedPost - 선택된 원고 저장
 exports.saveSelectedPost = wrap(async (req) => {
-  const { uid } = auth(req);
+  const { uid } = await auth(req);
   const data = req.data || {};
   
   console.log('POST saveSelectedPost 호출:', { userId: uid, data });

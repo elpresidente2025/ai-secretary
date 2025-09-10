@@ -11,7 +11,7 @@ const { ok } = require('../common/response');
 const { auth } = require('../common/auth');
 
 exports.getDashboardData = wrap(async (req) => {
-  const { uid } = auth(req);
+  const { uid } = await auth(req);
 
   // 사용량 정보
   const now = new Date();

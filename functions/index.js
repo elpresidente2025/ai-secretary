@@ -24,7 +24,8 @@ const publishingHandler = require('./handlers/publishing');
 const adminUsersHandler = require('./handlers/admin-users');
 const snsAddonHandler = require('./handlers/sns-addon');
 const tossPaymentsHandler = require('./handlers/toss-payments');
-const naverLoginHandler = require('./handlers/naver-login');
+const naverLoginHandler = require('./handlers/naver-login2');
+const usernameHandler = require('./handlers/username');
 
 // 스크래핑 테스트 함수들
 const { testElectionScraping, checkCacheStatus, refreshCache } = require('./handlers/test-scraper');
@@ -101,6 +102,58 @@ exports.getUserPayments = tossPaymentsHandler.getUserPayments;
 
 // 네이버 로그인 관련 함수들 (HTTP 함수)
 exports.naverLogin = naverLoginHandler.naverLogin;
+exports.naverLoginHTTP = naverLoginHandler.naverLoginHTTP;
+exports.naverCompleteRegistration = naverLoginHandler.naverCompleteRegistration;
+exports.checkUsername = usernameHandler.checkUsername;
+exports.claimUsername = usernameHandler.claimUsername;
+
+// 네이버 로그인 테스트 함수 (디버깅용)
+exports.naverTest = require('firebase-functions/v2/https').onRequest({
+  region: 'asia-northeast3',
+  cors: true
+}, async (req, res) => {
+  try {
+    res.set('Access-Control-Allow-Origin', 'https://cyberbrain.kr');
+    res.set('Access-Control-Allow-Methods', 'POST, OPTIONS, GET');
+    res.set('Access-Control-Allow-Headers', 'Content-Type');
+    
+    if (req.method === 'OPTIONS') {
+      return res.status(204).end();
+    }
+    
+    console.log('🧪 네이버 테스트 함수 호출됨');
+    
+    const testData = {
+      timestamp: new Date().toISOString(),
+      environment: {
+        naverClientId: !!process.env.NAVER_CLIENT_ID,
+        naverClientSecret: !!process.env.NAVER_CLIENT_SECRET,
+        nodeVersion: process.version
+      },
+      request: {
+        method: req.method,
+        body: req.body,
+        headers: Object.keys(req.headers)
+      }
+    };
+    
+    console.log('🧪 테스트 데이터:', testData);
+    
+    res.json({ 
+      success: true, 
+      message: '네이버 테스트 함수 정상 동작',
+      data: testData
+    });
+    
+  } catch (error) {
+    console.error('🧪 테스트 함수 오류:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message,
+      stack: error.stack
+    });
+  }
+});
 
 // 네이버 연결 끊기 콜백 함수
 const naverDisconnectHandler = require('./handlers/naver-disconnect');

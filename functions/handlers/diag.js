@@ -7,7 +7,7 @@ const { admin, db } = require('../utils/firebaseAdmin');
 
 // 로그인만 하면 누구나 호출 가능 (관리자 확인용)
 exports.diagWhoami = wrap(async (req) => {
-  const { uid, token } = auth(req);
+  const { uid, token } = await auth(req);
 
   // 함수 런타임이 바라보는 프로젝트/에뮬레이터 환경 확인
   const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT || admin.app().options?.projectId || null;

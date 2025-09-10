@@ -18,7 +18,7 @@ exports.healthCheck = wrap(async () => {
 
 // 프롬프트 테스트
 exports.testPrompt = wrap(async (req) => {
-  const { uid } = auth(req);
+  const { uid } = await auth(req);
   const { prompt } = req.data || {};
   log('DEBUG', 'testPrompt 호출', { userId: uid });
 
@@ -84,7 +84,7 @@ exports.getPolicyTemplate = wrap(async (req) => {
 
 // 정책 테스트
 exports.testPolicy = wrap(async (req) => {
-  const { uid } = auth(req);
+  const { uid } = await auth(req);
   const { policyId, testInput } = req.data || {};
   log('DEBUG', 'testPolicy 호출', { userId: uid, policyId });
 
@@ -111,7 +111,7 @@ exports.testPolicy = wrap(async (req) => {
 
 // 사용자 활동 로그
 exports.logUserActivity = wrap(async (req) => {
-  const { uid } = auth(req);
+  const { uid } = await auth(req);
   const { action, metadata } = req.data || {};
   if (!action) throw new (require('firebase-functions/v2/https').HttpsError)('invalid-argument', '활동 유형을 지정해주세요.');
 
