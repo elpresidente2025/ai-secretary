@@ -8,6 +8,16 @@ const fetch = require('node-fetch');
 const NAVER_CLIENT_ID = defineSecret('NAVER_CLIENT_ID');
 const NAVER_CLIENT_SECRET = defineSecret('NAVER_CLIENT_SECRET');
 
+function getSecretValue(secretObj, envName) {
+  try {
+    if (secretObj && typeof secretObj.value === 'function') {
+      const v = secretObj.value();
+      if (v) return v;
+    }
+  } catch (_err) {}
+  return process.env[envName];
+}
+
 async function getNaverUserInfo(accessToken) {
   const resp = await fetch('https://openapi.naver.com/v1/nid/me', {
     method: 'GET', headers: { Authorization: `Bearer ${accessToken}` }
@@ -40,7 +50,15 @@ const naverLogin = onCall({ region: 'asia-northeast3' }, async () => {
 });
 
 const naverLoginHTTP = onRequest({ region: 'asia-northeast3', cors: true, timeoutSeconds: 60, secrets: [NAVER_CLIENT_ID, NAVER_CLIENT_SECRET] }, async (req, res) => {
-  const allowedOrigins = ['https://cyberbrain.kr', 'https://ai-secretary-6e9c8.web.app', 'https://ai-secretary-6e9c8.firebaseapp.com'];
+  const allowedOrigins = [
+    'https://cyberbrain.kr',
+    'https://www.cyberbrain.kr',
+    'https://ai-secretary-6e9c8.web.app',
+    'https://ai-secretary-6e9c8.firebaseapp.com',
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'http://localhost:3000'
+  ];
   const origin = req.headers.origin;
   if (allowedOrigins.includes(origin)) {
     res.set('Access-Control-Allow-Origin', origin);
@@ -64,11 +82,13 @@ const naverLoginHTTP = onRequest({ region: 'asia-northeast3', cors: true, timeou
       naver = await getNaverUserInfo(accessToken);
     } else if (code) {
       stage = 'exchange_code_for_token';
-      if (!NAVER_CLIENT_ID.value() || !NAVER_CLIENT_SECRET.value()) throw new Error('NAVER env missing: NAVER_CLIENT_ID/SECRET');
+      const clientId = getSecretValue(NAVER_CLIENT_ID, 'NAVER_CLIENT_ID');
+      const clientSecret = getSecretValue(NAVER_CLIENT_SECRET, 'NAVER_CLIENT_SECRET');
+      if (!clientId || !clientSecret) throw new Error('NAVER env missing: NAVER_CLIENT_ID/SECRET');
       const params = new URLSearchParams();
       params.append('grant_type', 'authorization_code');
-      params.append('client_id', NAVER_CLIENT_ID.value());
-      params.append('client_secret', NAVER_CLIENT_SECRET.value());
+      params.append('client_id', clientId);
+      params.append('client_secret', clientSecret);
       params.append('code', code);
       if (state) params.append('state', state);
       const tokenResp = await fetch('https://nid.naver.com/oauth2.0/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() });
@@ -87,58 +107,31 @@ const naverLoginHTTP = onRequest({ region: 'asia-northeast3', cors: true, timeou
     const snap = await db.collection('users').where('naverUserId', '==', naver.id).limit(1).get();
 
     if (snap.empty) {
-      stage = 'auto_registration';
-      const ref = db.collection('users').doc();
-      // 관리자 네이버 ID 목록 (환경에 따라 수정)
-      const adminNaverIds = ['kjk6206']; // 실제 관리자의 네이버 ID로 수정
-      const isAdmin = adminNaverIds.includes(naver.id);
-      
-      const doc = {
-        naverUserId: naver.id,
-        name: naver.name || naver.nickname || 'Naver User',
-        displayName: naver.name || naver.nickname || 'Naver User',
-        profileImage: naver.profile_image || null,
-        gender: naver.gender || null,
-        age: naver.age || null,
-        status: 'pending',
-        position: '', regionMetro: '', regionLocal: '', electoralDistrict: '',
-        provider: 'naver', isNaverUser: true,
-        isAdmin: isAdmin,
-        role: isAdmin ? 'admin' : null,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(), lastLoginAt: admin.firestore.FieldValue.serverTimestamp(),
-        profileComplete: false
-      };
-      
-      if (isAdmin) {
-        console.log(`🔑 관리자 네이버 사용자 감지: ${naver.id}`);
-      }
-      await ref.set(doc);
-      // auto-claim username as naver.id
-      try { await claimUsernameForUid(ref.id, naver.id); } catch (e) { console.warn('username auto-claim failed:', e.message); }
-      
-      // TODO: Firebase Auth 커스텀 토큰 생성 (IAM 권한 필요)
-      // const customToken = await admin.auth().createCustomToken(ref.id, {
-      //   provider: 'naver',
-      //   name: doc.name,
-      //   profileComplete: false
-      // });
-      
+      // 미가입 회원 - 회원가입 필요
+      stage = 'registration_required';
       return res.status(200).json({
         result: {
-          success: true, registrationRequired: false, autoRegistered: true,
-          user: { uid: ref.id, naverUserId: naver.id, displayName: doc.name, photoURL: doc.profileImage, provider: 'naver', profileComplete: false },
-          naver: { id: naver.id, name: naver.name || naver.nickname || null, gender: naver.gender || null, age: naver.age || null, profile_image: naver.profile_image || null },
-          message: 'auto-registered with naver'
-          // customToken: customToken
+          success: true, 
+          registrationRequired: true,
+          user: null,
+          naver: { 
+            id: naver.id, 
+            name: naver.name || naver.nickname || null, 
+            gender: naver.gender || null, 
+            age: naver.age || null, 
+            profile_image: naver.profile_image || null 
+          },
+          message: 'registration required'
         }
       });
     }
 
+    // 기존 회원 - 로그인 성공
     const docSnap = snap.docs[0];
     const userData = docSnap.data();
     
     // 관리자 권한 확인 및 업데이트
-    const adminNaverIds = ['kjk6206']; // 실제 관리자의 네이버 ID로 수정
+    const adminNaverIds = (process.env.ADMIN_NAVER_IDS || 'kjk6206').split(',').map(id => id.trim());
     const shouldBeAdmin = adminNaverIds.includes(naver.id);
     const isCurrentlyAdmin = userData.isAdmin === true;
     
@@ -159,19 +152,27 @@ const naverLoginHTTP = onRequest({ region: 'asia-northeast3', cors: true, timeou
     // backfill username if missing
     try { if (!userData.username) await claimUsernameForUid(docSnap.id, naver.id); } catch (e) { console.warn('username backfill failed:', e.message); }
 
-    // TODO: Firebase Auth 커스텀 토큰 생성 (IAM 권한 필요)
-    // const customToken = await admin.auth().createCustomToken(docSnap.id, {
-    //   provider: 'naver',
-    //   name: userData.name || userData.displayName,
-    //   profileComplete: userData.profileComplete || false
-    // });
-
     return res.status(200).json({
       result: {
-        success: true, registrationRequired: false,
-        user: { uid: docSnap.id, naverUserId: userData.naverUserId, displayName: userData.name || userData.displayName, photoURL: userData.profileImage || naver.profile_image, provider: 'naver', profileComplete: userData.profileComplete || false },
-        naver: { id: naver.id, name: naver.name || naver.nickname || null, gender: naver.gender || null, age: naver.age || null, profile_image: naver.profile_image || null }
-        // customToken: customToken
+        success: true, 
+        registrationRequired: false,
+        user: { 
+          uid: docSnap.id, 
+          naverUserId: userData.naverUserId, 
+          displayName: userData.name || userData.displayName, 
+          photoURL: userData.profileImage || naver.profile_image, 
+          provider: 'naver', 
+          profileComplete: userData.profileComplete || false,
+          isAdmin: shouldBeAdmin || isCurrentlyAdmin
+        },
+        naver: { 
+          id: naver.id, 
+          name: naver.name || naver.nickname || null, 
+          gender: naver.gender || null, 
+          age: naver.age || null, 
+          profile_image: naver.profile_image || null 
+        },
+        message: 'login successful'
       }
     });
   } catch (err) {
@@ -181,7 +182,7 @@ const naverLoginHTTP = onRequest({ region: 'asia-northeast3', cors: true, timeou
 });
 
 const naverCompleteRegistration = onRequest({ region: 'asia-northeast3', cors: true, timeoutSeconds: 60 }, async (req, res) => {
-  const allowedOrigins = ['https://cyberbrain.kr', 'https://ai-secretary-6e9c8.web.app', 'https://ai-secretary-6e9c8.firebaseapp.com'];
+  const allowedOrigins = ['https://cyberbrain.kr', 'https://www.cyberbrain.kr', 'https://ai-secretary-6e9c8.web.app', 'https://ai-secretary-6e9c8.firebaseapp.com'];
   const origin = req.headers.origin;
   if (allowedOrigins.includes(origin)) {
     res.set('Access-Control-Allow-Origin', origin);
@@ -190,32 +191,79 @@ const naverCompleteRegistration = onRequest({ region: 'asia-northeast3', cors: t
   res.set('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'METHOD_NOT_ALLOWED' });
+  
   try {
-    const { uid, profileData } = req.body || {};
-    if (!uid || typeof profileData !== 'object') return res.status(400).json({ error: { code: 'invalid-argument', message: 'uid와 profileData가 필요합니다.' } });
-    const required = ['name', 'position', 'regionMetro', 'regionLocal', 'electoralDistrict'];
-    for (const k of required) { if (!profileData[k] || String(profileData[k]).trim() === '') return res.status(400).json({ error: { code: 'invalid-argument', message: `${k} 필드가 필요합니다.` } }); }
-    const update = {
-      name: String(profileData.name).trim(), displayName: String(profileData.name).trim(),
-      position: profileData.position, regionMetro: profileData.regionMetro, regionLocal: profileData.regionLocal, electoralDistrict: profileData.electoralDistrict,
-      profileComplete: true, updatedAt: admin.firestore.FieldValue.serverTimestamp()
-    };
-    if (profileData.gender !== undefined) update.gender = profileData.gender;
-    if (profileData.age !== undefined) update.age = profileData.age;
-    await db.collection('users').doc(uid).set(update, { merge: true });
+    const { naverUserData, profileData } = req.body || {};
     
-    // TODO: Firebase Auth 커스텀 토큰 생성 (IAM 권한 필요)
-    // const customToken = await admin.auth().createCustomToken(uid, {
-    //   provider: 'naver',
-    //   name: update.name,
-    //   profileComplete: true
-    // });
+    if (!naverUserData?.id || typeof profileData !== 'object') {
+      return res.status(400).json({ error: { code: 'invalid-argument', message: 'naverUserData와 profileData가 필요합니다.' } });
+    }
+    
+    const required = ['name', 'position', 'regionMetro', 'regionLocal', 'electoralDistrict'];
+    for (const k of required) { 
+      if (!profileData[k] || String(profileData[k]).trim() === '') {
+        return res.status(400).json({ error: { code: 'invalid-argument', message: `${k} 필드가 필요합니다.` } });
+      }
+    }
+    
+    // 새 사용자 문서 생성
+    const ref = db.collection('users').doc();
+    const adminNaverIds = (process.env.ADMIN_NAVER_IDS || 'kjk6206').split(',').map(id => id.trim());
+    const isAdmin = adminNaverIds.includes(naverUserData.id);
+    
+    const doc = {
+      naverUserId: naverUserData.id,
+      name: String(profileData.name).trim(),
+      displayName: String(profileData.name).trim(),
+      profileImage: naverUserData.profile_image || null,
+      gender: profileData.gender || naverUserData.gender || null,
+      age: naverUserData.age || null,
+      position: profileData.position,
+      regionMetro: profileData.regionMetro,
+      regionLocal: profileData.regionLocal,
+      electoralDistrict: profileData.electoralDistrict,
+      status: profileData.status || '현역',
+      bio: profileData.bio || '',
+      provider: 'naver',
+      isNaverUser: true,
+      isAdmin: isAdmin,
+      role: isAdmin ? 'admin' : null,
+      profileComplete: true,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+    
+    // 선택 필드들
+    const optionalFields = ['ageDecade', 'ageDetail', 'familyStatus', 'backgroundCareer', 'localConnection', 'politicalExperience', 'committees', 'customCommittees', 'constituencyType', 'twitterPremium'];
+    for (const field of optionalFields) {
+      if (profileData[field] !== undefined) {
+        doc[field] = profileData[field];
+      }
+    }
+    
+    await ref.set(doc);
+    
+    // username 자동 할당
+    try { 
+      await claimUsernameForUid(ref.id, naverUserData.id); 
+    } catch (e) { 
+      console.warn('username auto-claim failed:', e.message); 
+    }
+    
+    if (isAdmin) {
+      console.log(`🔑 관리자 네이버 사용자 등록: ${naverUserData.id}`);
+    }
     
     return res.status(200).json({ 
       result: { 
         success: true, 
-        message: '등록 완료'
-        // customToken: customToken
+        message: '회원가입이 완료되었습니다. 로그인 페이지에서 네이버로 로그인해주세요.',
+        user: {
+          uid: ref.id,
+          naverUserId: naverUserData.id,
+          displayName: doc.name,
+          isAdmin: isAdmin
+        }
       } 
     });
   } catch (err) {
@@ -225,4 +273,3 @@ const naverCompleteRegistration = onRequest({ region: 'asia-northeast3', cors: t
 });
 
 module.exports = { naverLogin, naverLoginHTTP, naverCompleteRegistration };
-

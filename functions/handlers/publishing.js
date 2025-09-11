@@ -46,7 +46,7 @@ const publishPost = wrap(async (request) => {
       const currentMonth = publishedAt.getMonth() + 1;
       const monthKey = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
 
-      let publishingData = publishingDoc.exists ? publishingDoc.data() : {};
+      const publishingData = publishingDoc.exists ? publishingDoc.data() : {};
       
       if (!publishingData.months) {
         publishingData.months = {};
