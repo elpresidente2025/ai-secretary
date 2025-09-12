@@ -366,6 +366,18 @@ export default function ProfilePage() {
         regionLocal: profile.regionLocal,
         electoralDistrict: profile.electoralDistrict,
         bio: profile.bio,
+        // 개인화 정보 필드들 추가
+        ageDecade: profile.ageDecade,
+        ageDetail: profile.ageDetail,
+        familyStatus: profile.familyStatus,
+        backgroundCareer: profile.backgroundCareer,
+        localConnection: profile.localConnection,
+        politicalExperience: profile.politicalExperience,
+        gender: profile.gender,
+        twitterPremium: profile.twitterPremium,
+        committees: profile.committees,
+        customCommittees: profile.customCommittees,
+        constituencyType: profile.constituencyType,
       };
       
       console.log('전송할 데이터 (전체):', JSON.stringify(payload, null, 2));

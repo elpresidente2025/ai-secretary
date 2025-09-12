@@ -13,6 +13,13 @@ const fetch = require('node-fetch');
 const NAVER_CLIENT_ID = process.env.NAVER_CLIENT_ID;
 const NAVER_CLIENT_SECRET = process.env.NAVER_CLIENT_SECRET;
 
+function mapGender(g) {
+  if (!g) return '';
+  const s = String(g).trim().toUpperCase();
+  if (s === 'M' || s === 'MALE' || s === '남' || s === '남자') return '남성';
+  if (s === 'F' || s === 'FEMALE' || s === '여' || s === '여자') return '여성';
+  return String(g).trim();
+}
 // ?�이�??�용???�보 조회
 async function getNaverUserInfo(accessToken) {
   try {
@@ -198,9 +205,8 @@ const naverLoginHTTP = onRequest({
           // ?�이�?계정 ?�보 (ID�??�용)
           naverUserId: naverUserData.id,
           name: naverUserData.name || naverUserData.nickname || '네이버사용자',
-          displayName: naverUserData.name || naverUserData.nickname || '네이버사용자',
           profileImage: naverUserData.profile_image || null,
-          gender: naverUserData.gender || null,
+          gender: mapGender(naverUserData.gender) || null,
           age: naverUserData.age || null,
           
           // 기본 ?�용???�보 (?�중???�로?�에???�정 가??
@@ -266,10 +272,14 @@ const naverLoginHTTP = onRequest({
     const userData = userDoc.data();
 
     stage = 'update_last_login';
-    await userDoc.ref.update({
+    const updateExisting = {
       lastLoginAt: admin.firestore.FieldValue.serverTimestamp(),
       naverUserId: naverUserData.id
-    });
+    };
+    if (!userData.gender && naverUserData.gender) {
+      updateExisting.gender = mapGender(naverUserData.gender);
+    }
+    await userDoc.ref.update(updateExisting);
 
     // 기존 ?�용??로그???�공 ?�답 (?�큰 ?�이)
     stage = 'return_existing_user_data';

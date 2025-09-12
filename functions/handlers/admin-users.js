@@ -1,21 +1,21 @@
 const admin = require('firebase-admin');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const wrap = require('../common/wrap').wrap;
+const { auth } = require('../common/auth');
 
 // 모든 사용자 조회 (관리자 전용)
 const getAllUsers = wrap(async (request) => {
-  const uid = request.auth?.uid;
-
-  if (!uid) {
-    throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
-  }
+  const { uid, token } = await auth(request);
 
   try {
     const db = admin.firestore();
     
     // 요청자가 관리자인지 확인
     const requesterDoc = await db.collection('users').doc(uid).get();
-    if (!requesterDoc.exists || !requesterDoc.data().isAdmin) {
+    const userData = requesterDoc.data() || {};
+    const isAdmin = userData.role === 'admin' || userData.isAdmin === true; // 이전 버전과 호환성
+    
+    if (!requesterDoc.exists || !isAdmin) {
       throw new HttpsError('permission-denied', '관리자 권한이 필요합니다.');
     }
 
@@ -24,9 +24,26 @@ const getAllUsers = wrap(async (request) => {
     const users = [];
     
     usersSnapshot.forEach(doc => {
+      const data = doc.data();
+      
+      // Timestamp 필드들을 ISO 문자열로 변환
+      const convertedData = { ...data };
+      if (data.createdAt && data.createdAt.toDate) {
+        convertedData.createdAt = data.createdAt.toDate().toISOString();
+      }
+      if (data.updatedAt && data.updatedAt.toDate) {
+        convertedData.updatedAt = data.updatedAt.toDate().toISOString();
+      }
+      if (data.deactivatedAt && data.deactivatedAt.toDate) {
+        convertedData.deactivatedAt = data.deactivatedAt.toDate().toISOString();
+      }
+      if (data.reactivatedAt && data.reactivatedAt.toDate) {
+        convertedData.reactivatedAt = data.reactivatedAt.toDate().toISOString();
+      }
+      
       users.push({
         uid: doc.id,
-        ...doc.data()
+        ...convertedData
       });
     });
 
@@ -46,12 +63,8 @@ const getAllUsers = wrap(async (request) => {
 
 // 사용자 계정 비활성화 (관리자 전용)
 const deactivateUser = wrap(async (request) => {
-  const uid = request.auth?.uid;
+  const { uid, token } = await auth(request);
   const { userId } = request.data;
-
-  if (!uid) {
-    throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
-  }
 
   if (!userId) {
     throw new HttpsError('invalid-argument', '사용자 ID가 필요합니다.');
@@ -62,7 +75,10 @@ const deactivateUser = wrap(async (request) => {
     
     // 요청자가 관리자인지 확인
     const requesterDoc = await db.collection('users').doc(uid).get();
-    if (!requesterDoc.exists || !requesterDoc.data().isAdmin) {
+    const userData = requesterDoc.data() || {};
+    const isAdmin = userData.role === 'admin' || userData.isAdmin === true; // 이전 버전과 호환성
+    
+    if (!requesterDoc.exists || !isAdmin) {
       throw new HttpsError('permission-denied', '관리자 권한이 필요합니다.');
     }
 
@@ -101,12 +117,8 @@ const deactivateUser = wrap(async (request) => {
 
 // 사용자 계정 재활성화 (관리자 전용)
 const reactivateUser = wrap(async (request) => {
-  const uid = request.auth?.uid;
+  const { uid, token } = await auth(request);
   const { userId } = request.data;
-
-  if (!uid) {
-    throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
-  }
 
   if (!userId) {
     throw new HttpsError('invalid-argument', '사용자 ID가 필요합니다.');
@@ -117,7 +129,10 @@ const reactivateUser = wrap(async (request) => {
     
     // 요청자가 관리자인지 확인
     const requesterDoc = await db.collection('users').doc(uid).get();
-    if (!requesterDoc.exists || !requesterDoc.data().isAdmin) {
+    const userData = requesterDoc.data() || {};
+    const isAdmin = userData.role === 'admin' || userData.isAdmin === true; // 이전 버전과 호환성
+    
+    if (!requesterDoc.exists || !isAdmin) {
       throw new HttpsError('permission-denied', '관리자 권한이 필요합니다.');
     }
 
@@ -151,12 +166,8 @@ const reactivateUser = wrap(async (request) => {
 
 // 사용자 계정 완전 삭제 (관리자 전용)
 const deleteUser = wrap(async (request) => {
-  const uid = request.auth?.uid;
+  const { uid, token } = await auth(request);
   const { userId } = request.data;
-
-  if (!uid) {
-    throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
-  }
 
   if (!userId) {
     throw new HttpsError('invalid-argument', '사용자 ID가 필요합니다.');
@@ -167,7 +178,10 @@ const deleteUser = wrap(async (request) => {
     
     // 요청자가 관리자인지 확인
     const requesterDoc = await db.collection('users').doc(uid).get();
-    if (!requesterDoc.exists || !requesterDoc.data().isAdmin) {
+    const userData = requesterDoc.data() || {};
+    const isAdmin = userData.role === 'admin' || userData.isAdmin === true; // 이전 버전과 호환성
+    
+    if (!requesterDoc.exists || !isAdmin) {
       throw new HttpsError('permission-denied', '관리자 권한이 필요합니다.');
     }
 
@@ -178,7 +192,7 @@ const deleteUser = wrap(async (request) => {
 
     // 삭제 로그를 위해 사용자 정보 백업
     const userDoc = await db.collection('users').doc(userId).get();
-    const userData = userDoc.data();
+    const userDataToDelete = userDoc.data();
 
     // 관련된 모든 데이터 삭제
     const batch = db.batch();
@@ -209,7 +223,7 @@ const deleteUser = wrap(async (request) => {
       action: 'USER_DELETED',
       adminId: uid,
       deletedUserId: userId,
-      deletedUserData: userData,
+      deletedUserData: userDataToDelete,
       timestamp: admin.firestore.FieldValue.serverTimestamp()
     });
 

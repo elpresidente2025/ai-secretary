@@ -335,29 +335,6 @@ const Dashboard = () => {
         {/* 공지사항 배너 - 최상단에 위치 */}
         <NoticeBanner />
         
-        {/* 자기소개 미작성 알림 */}
-        {showBioAlert && (
-          <Alert 
-            severity="warning" 
-            sx={{ mb: 3 }}
-            action={
-              <Button 
-                color="inherit" 
-                size="small" 
-                onClick={() => navigate('/profile')}
-              >
-                작성하기
-              </Button>
-            }
-          >
-            <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
-              프로필 설정이 완료되지 않았습니다
-            </Typography>
-            <Typography variant="body2">
-              AI 원고 생성 등 일부 기능을 이용하려면 자기소개 작성이 필요합니다.
-            </Typography>
-          </Alert>
-        )}
         
         {/* 인사말 + 플랜 카드 */}
         <Paper 
@@ -409,6 +386,7 @@ const Dashboard = () => {
                   fullWidth
                   sx={{ 
                     bgcolor: canGeneratePost ? planColor : '#757575',
+                    color: '#ffffff',
                     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                     '&:hover': canGeneratePost ? { 
                       bgcolor: planColor, 
@@ -425,20 +403,42 @@ const Dashboard = () => {
                   새 원고 생성
                 </Button>
                 <Button 
-                  variant="outlined" 
+                  variant="contained" 
                   size="large"
                   startIcon={<Settings />}
                   onClick={handleChangePlan}
                   fullWidth
                   sx={{ 
-                    color: planColor, 
-                    borderColor: planColor,
-                    '&:hover': { borderColor: planColor, bgcolor: `${planColor}08` }
+                    bgcolor: showBioAlert ? '#f8c023' : '#003a87',
+                    color: '#ffffff',
+                    border: 'none',
+                    '&:hover': { 
+                      bgcolor: showBioAlert ? '#e6a91c' : '#002d66',
+                    },
+                    ...(showBioAlert && {
+                      animation: 'profileEditBlink 2s ease-in-out infinite',
+                      '@keyframes profileEditBlink': {
+                        '0%, 50%, 100%': { opacity: 1 },
+                        '25%, 75%': { opacity: 0.6 }
+                      }
+                    })
                   }}
                 >
-                  프로필 수정
+                  프로필 수정 {showBioAlert && '⚠️'}
                 </Button>
               </Box>
+
+              {/* 프로필 미완료 경고 메시지 */}
+              {showBioAlert && (
+                <Alert severity="warning" sx={{ mb: 2, mt: 1 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                    프로필 설정이 완료되지 않았습니다
+                  </Typography>
+                  <Typography variant="body2">
+                    AI 원고 생성을 위해 자기소개 작성이 필요합니다.
+                  </Typography>
+                </Alert>
+              )}
 
               {/* 사용량 현황 */}
               {!isAdmin && (
@@ -496,24 +496,23 @@ const Dashboard = () => {
                   다음 인증 예정: 2025년 4월 1일
                 </Typography>
                 <Button 
-                  variant="outlined" 
+                  variant="contained" 
                   size="small" 
                   onClick={handleViewBilling}
                   sx={{ 
-                    color: '#55207d', 
-                    borderColor: '#55207d',
+                    bgcolor: '#55207d',
+                    color: '#ffffff',
+                    border: 'none',
                     fontSize: '0.75rem',
-                    py: 0.5
+                    py: 0.5,
+                    '&:hover': {
+                      bgcolor: '#3e1558'
+                    }
                   }}
                 >
                   인증 관리
                 </Button>
               </Box>
-              
-              {/* 사용 안내 */}
-              <Alert severity="info" sx={{ mt: 2 }}>
-                참고: 한 번 누를 때 원고 1개 생성, 세션당 최대 3회 재생성
-              </Alert>
             </Box>
           ) : (
             /* PC 버전 - 수평 레이아웃 (2:1:1 비율) */
@@ -547,11 +546,6 @@ const Dashboard = () => {
                       <Chip label="무제한" sx={{ bgcolor: planColor, color: 'white' }} />
                     )}
                   </Box>
-                  
-                  {/* 사용 안내 */}
-                  <Typography variant="body2" color="text.secondary">
-                    참고: 클릭 시 원고 1개만 생성, 세션당 재생성 3회 제한
-                  </Typography>
 
                   {/* PC용 사용량 현황 */}
                   {!isAdmin && (
@@ -612,15 +606,19 @@ const Dashboard = () => {
                         다음 인증 예정: 2025년 4월 1일
                       </Typography>
                       <Button 
-                        variant="outlined" 
+                        variant="contained" 
                         size="small" 
                         onClick={handleViewBilling}
                         sx={{ 
-                          color: '#55207d', 
-                          borderColor: '#55207d',
+                          bgcolor: '#55207d',
+                          color: '#ffffff',
+                          border: 'none',
                           fontSize: '0.75rem',
                           py: 0.5,
-                          width: '100%'
+                          width: '100%',
+                          '&:hover': {
+                            bgcolor: '#3e1558'
+                          }
                         }}
                       >
                         인증 관리
@@ -641,6 +639,7 @@ const Dashboard = () => {
                       fullWidth
                       sx={{ 
                         bgcolor: canGeneratePost ? planColor : '#757575',
+                        color: '#ffffff',
                         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                         '&:hover': canGeneratePost ? { 
                           bgcolor: planColor, 
@@ -657,22 +656,44 @@ const Dashboard = () => {
                       새 원고 생성
                     </Button>
                     <Button 
-                      variant="outlined" 
+                      variant="contained" 
                       size="large"
                       startIcon={<Settings />}
                       onClick={handleChangePlan}
                       fullWidth
                       sx={{ 
-                        color: planColor, 
-                        borderColor: planColor,
-                        '&:hover': { borderColor: planColor, bgcolor: `${planColor}08` }
+                        bgcolor: showBioAlert ? '#f8c023' : '#003a87',
+                        color: '#ffffff',
+                        border: 'none',
+                        '&:hover': { 
+                          bgcolor: showBioAlert ? '#e6a91c' : '#002d66',
+                        },
+                        ...(showBioAlert && {
+                          animation: 'profileEditBlink 2s ease-in-out infinite',
+                          '@keyframes profileEditBlink': {
+                            '0%, 50%, 100%': { opacity: 1 },
+                            '25%, 75%': { opacity: 0.6 }
+                          }
+                        })
                       }}
                     >
-                      프로필 수정
+                      프로필 수정 {showBioAlert && '⚠️'}
                     </Button>
                   </Box>
                 </Grid>
               </Grid>
+
+              {/* PC 버전 프로필 미완료 경고 메시지 */}
+              {showBioAlert && (
+                <Alert severity="warning" sx={{ mt: 3 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                    프로필 설정이 완료되지 않았습니다
+                  </Typography>
+                  <Typography variant="body2">
+                    AI 원고 생성을 위해 자기소개 작성이 필요합니다.
+                  </Typography>
+                </Alert>
+              )}
             </Box>
           )}
         </Paper>

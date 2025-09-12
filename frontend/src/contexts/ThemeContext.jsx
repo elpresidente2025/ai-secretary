@@ -20,10 +20,26 @@ export const ThemeModeProvider = ({ children }) => {
     // 시스템 다크모드 설정 확인
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
+  
+  // 컴포넌트 마운트 시 body 클래스 초기 동기화
+  useEffect(() => {
+    if (isDarkMode) {
+      document.body.classList.add('dark-mode');
+    } else {
+      document.body.classList.remove('dark-mode');
+    }
+  }, []); // 빈 배열로 마운트 시에만 실행
 
   useEffect(() => {
-    // 테마 변경 시 로컬스토리지에 저장
+    // 테마 변경 시 로컬스토리지에 저장 및 body 클래스 동기화
     localStorage.setItem('themeMode', isDarkMode ? 'dark' : 'light');
+    
+    // body 클래스 동기화 (HTML 로딩 화면과 일치)
+    if (isDarkMode) {
+      document.body.classList.add('dark-mode');
+    } else {
+      document.body.classList.remove('dark-mode');
+    }
   }, [isDarkMode]);
 
   const toggleTheme = () => {

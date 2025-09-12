@@ -1,6 +1,6 @@
 // frontend/src/components/loading/LoadingOverlay.jsx
 import React from 'react';
-import { Box, Typography, Backdrop } from '@mui/material';
+import { Box, Typography, Backdrop, useTheme } from '@mui/material';
 import BaseSpinner, { SPINNER_SIZES } from './BaseSpinner';
 
 const LoadingOverlay = ({ 
@@ -11,6 +11,7 @@ const LoadingOverlay = ({
   backdrop = true,
   zIndex = 1300 
 }) => {
+  const theme = useTheme();
   if (backdrop) {
     return (
       <Backdrop 
@@ -26,7 +27,7 @@ const LoadingOverlay = ({
       >
         <BaseSpinner size={size} color="inherit" />
         {message && (
-          <Typography variant="h6" sx={{ color: '#f8c023' }}>
+          <Typography variant="h6" sx={{ color: theme.palette.primary.main }}>
             {message}
           </Typography>
         )}
@@ -53,7 +54,7 @@ const LoadingOverlay = ({
     >
       <BaseSpinner size={size} color={color} />
       {message && (
-        <Typography variant="body1" sx={{ color: '#f8c023' }}>
+        <Typography variant="body1" sx={{ color: theme.palette.primary.main }}>
           {message}
         </Typography>
       )}

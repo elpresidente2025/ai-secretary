@@ -45,7 +45,7 @@ export const TableSkeleton = ({
         <TableHead>
           <TableRow>
             {Array.from({ length: columns }).map((_, i) => (
-              <TableCell key={i} sx={{ color: 'black' }}>
+              <TableCell key={i}>
                 {headers[i] || <BaseSkeleton variant="text" width="80%" />}
               </TableCell>
             ))}

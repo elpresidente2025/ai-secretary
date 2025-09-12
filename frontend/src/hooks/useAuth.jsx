@@ -47,15 +47,18 @@ export const AuthProvider = ({ children }) => {
   const auth = getAuth(app);
   const db = getFirestore(app);
   
-  // 강제 타임아웃으로 무한 로딩 방지 (5초로 복원 - 네트워크 고려)
+  // 강제 타임아웃으로 무한 로딩 방지
+  // 네이버 콜백 구간에서는 여유 시간을 더 주고, 경고 로그는 낮춤
   React.useEffect(() => {
+    const isNaverCallback = (typeof window !== 'undefined') && window.location?.pathname?.startsWith('/auth/naver/callback');
+    const timeoutMs = isNaverCallback ? 20000 : 10000; // 콜백 페이지는 20초, 그 외 10초
     const timeout = setTimeout(() => {
       if (loading) {
-        console.warn('Auth 로딩 타임아웃 - 강제 종료');
+        console.log('Auth 초기화 지연 - 로딩 해제');
         setLoading(false);
       }
-    }, 5000); // 5초로 복원 (네트워크 불충분한 시간 고려)
-    
+    }, timeoutMs);
+
     return () => clearTimeout(timeout);
   }, [loading]);
 
@@ -70,7 +73,10 @@ export const AuthProvider = ({ children }) => {
         // 네이버 사용자는 Firebase Functions를 통해 프로필 조회
         console.log('🔍 네이버 사용자 프로필 조회 시작:', uid);
         const { callFunctionWithNaverAuth } = await import('../services/firebaseService');
-        const response = await callFunctionWithNaverAuth('getUserProfile');
+        const response = await Promise.race([
+          callFunctionWithNaverAuth('getUserProfile'),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('functions call timeout')), 7000))
+        ]);
         console.log('✅ 네이버 사용자 프로필 조회 완료:', response?.profile);
         return response?.profile || null;
       } else {
@@ -395,10 +401,18 @@ export const AuthProvider = ({ children }) => {
       setUser(null);
       setLoading(false);
       
-      // 브라우저 스토리지 완전 정리
+      // 브라우저 스토리지 선택적 정리 (테마 설정 보존)
       try {
+        // 테마 설정 백업
+        const themeMode = localStorage.getItem('themeMode');
+        
         localStorage.clear();
         sessionStorage.clear();
+        
+        // 테마 설정 복원
+        if (themeMode) {
+          localStorage.setItem('themeMode', themeMode);
+        }
         
         // IndexedDB 정리 (Firebase용)
         if ('indexedDB' in window) {

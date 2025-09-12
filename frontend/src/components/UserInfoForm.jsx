@@ -161,8 +161,12 @@ export default function UserInfoForm({
             onChange={handleSelectChange}
             disabled={disabled}
             MenuProps={{
-              disablePortal: true,
               keepMounted: false,
+              PaperProps: {
+                style: {
+                  zIndex: 1400,
+                },
+              },
             }}
           >
             <MenuItem value="현역">현역</MenuItem>
@@ -194,8 +198,12 @@ export default function UserInfoForm({
             onChange={handleSelectChange}
             disabled={disabled}
             MenuProps={{
-              disablePortal: true,
               keepMounted: false,
+              PaperProps: {
+                style: {
+                  zIndex: 1400,
+                },
+              },
             }}
           >
             <MenuItem value="국회의원">국회의원</MenuItem>
@@ -216,8 +224,12 @@ export default function UserInfoForm({
             onChange={handleSelectChange}
             disabled={disabled || !position}
             MenuProps={{
-              disablePortal: true,
               keepMounted: false,
+              PaperProps: {
+                style: {
+                  zIndex: 1400,
+                },
+              },
             }}
           >
             {metroList.map((metro) => (
@@ -240,8 +252,12 @@ export default function UserInfoForm({
             onChange={handleSelectChange}
             disabled={disabled || !regionMetro}
             MenuProps={{
-              disablePortal: true,
               keepMounted: false,
+              PaperProps: {
+                style: {
+                  zIndex: 1400,
+                },
+              },
             }}
           >
             {localList.map((local) => (
@@ -264,8 +280,12 @@ export default function UserInfoForm({
             onChange={handleSelectChange}
             disabled={disabled || !regionLocal || !position}
             MenuProps={{
-              disablePortal: true,
               keepMounted: false,
+              PaperProps: {
+                style: {
+                  zIndex: 1400,
+                },
+              },
             }}
           >
             {electoralList.map((district) => (

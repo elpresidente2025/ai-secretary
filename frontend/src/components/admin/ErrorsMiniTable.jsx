@@ -1,7 +1,6 @@
 // frontend/src/components/admin/ErrorsMiniTable.jsx
 import React, { useState, useEffect } from 'react';
 import {
-  Paper,
   Typography,
   Box,
   Button,
@@ -16,7 +15,8 @@ import {
   Tooltip
 } from '@mui/material';
 import { LoadingSkeleton } from '../loading';
-import { Download, Warning, Error } from '@mui/icons-material';
+import { Download, Warning, Error, Refresh } from '@mui/icons-material';
+import HongKongNeonCard from '../HongKongNeonCard';
 import { useAuth } from '../../hooks/useAuth';
 import { getErrorLogs } from '../../services/firebaseService';
 
@@ -154,7 +154,7 @@ function ErrorsMiniTable() {
   }
 
   return (
-    <Paper sx={{ p: 2 }}>
+    <HongKongNeonCard sx={{ p: 2 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Warning sx={{ color: '#55207D' }} />
@@ -171,22 +171,35 @@ function ErrorsMiniTable() {
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button
             size="small"
-            variant="outlined"
+            variant="contained"
             startIcon={<Download />}
             onClick={exportErrorsCsv}
             sx={{ 
-              borderColor: '#55207D',
-              color: '#55207D',
-              '&:hover': { borderColor: '#55207D' }
+              bgcolor: '#55207D',
+              color: 'white',
+              '&:hover': { 
+                bgcolor: '#6d2b93',
+                transform: 'translateY(-1px)',
+                boxShadow: '0 4px 12px rgba(85, 32, 125, 0.3)'
+              }
             }}
           >
             CSV 다운로드
           </Button>
           <Button
             size="small"
-            variant="text"
+            variant="contained"
+            startIcon={<Refresh />}
             onClick={fetchRecentErrors}
-            sx={{ color: '#152484' }}
+            sx={{ 
+              bgcolor: '#152484',
+              color: 'white',
+              '&:hover': { 
+                bgcolor: '#1e2d9f',
+                transform: 'translateY(-1px)',
+                boxShadow: '0 4px 12px rgba(21, 36, 132, 0.3)'
+              }
+            }}
           >
             새로고침
           </Button>
@@ -209,10 +222,10 @@ function ErrorsMiniTable() {
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ minWidth: 80, color: 'black' }}>시간</TableCell>
-                <TableCell sx={{ minWidth: 300, color: 'black' }}>메시지</TableCell>
-                <TableCell sx={{ minWidth: 120, color: 'black' }}>사용자</TableCell>
-                <TableCell sx={{ minWidth: 100, color: 'black' }}>함수</TableCell>
+                <TableCell sx={{ minWidth: 80, color: 'text.primary' }}>시간</TableCell>
+                <TableCell sx={{ minWidth: 300, color: 'text.primary' }}>메시지</TableCell>
+                <TableCell sx={{ minWidth: 120, color: 'text.primary' }}>사용자</TableCell>
+                <TableCell sx={{ minWidth: 100, color: 'text.primary' }}>함수</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -220,7 +233,7 @@ function ErrorsMiniTable() {
                 <TableRow>
                   <TableCell colSpan={4} align="center">
                     <Box sx={{ py: 3 }}>
-                      <Typography variant="body2" sx={{ color: 'black' }}>
+                      <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                         🎉 최근 에러가 없습니다!
                       </Typography>
                     </Box>
@@ -229,7 +242,7 @@ function ErrorsMiniTable() {
               ) : (
                 errors.map((error, index) => (
                   <TableRow key={error.id || index} hover>
-                    <TableCell sx={{ fontSize: '0.75rem', color: 'black' }}>
+                    <TableCell sx={{ fontSize: '0.75rem', color: 'text.primary' }}>
                       {formatTimestamp(error.timestamp)}
                     </TableCell>
                     <TableCell>
@@ -247,7 +260,7 @@ function ErrorsMiniTable() {
                               textOverflow: 'ellipsis',
                               whiteSpace: 'nowrap',
                               cursor: 'help',
-                              color: 'black'
+                              color: 'text.primary'
                             }}
                           >
                             {error.message || '-'}
@@ -255,10 +268,10 @@ function ErrorsMiniTable() {
                         </Tooltip>
                       </Box>
                     </TableCell>
-                    <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'black' }}>
+                    <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'text.primary' }}>
                       {error.userId || error.userEmail || '-'}
                     </TableCell>
-                    <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'black' }}>
+                    <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'text.primary' }}>
                       {error.functionName || '-'}
                     </TableCell>
                   </TableRow>
@@ -270,11 +283,11 @@ function ErrorsMiniTable() {
       )}
       
       {errors.length > 0 && (
-        <Typography variant="caption" sx={{ mt: 1, display: 'block', color: 'black' }}>
+        <Typography variant="caption" sx={{ mt: 1, display: 'block', color: 'text.secondary' }}>
           💡 최근 50건만 표시됩니다. 전체 분석은 CSV 다운로드를 이용하세요.
         </Typography>
       )}
-    </Paper>
+    </HongKongNeonCard>
   );
 }
 

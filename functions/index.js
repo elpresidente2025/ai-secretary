@@ -370,13 +370,9 @@ exports.getUsers = onRequest({
         console.log('🔍 사용 가능한 필드들:', Object.keys(data));
       }
       
-      // 이메일 필드에서 직접 가져오기 (없으면 'no email' 표시)
-      const finalEmail = data.email || '이메일 없음';
-
       users.push({
         uid: doc.id,
         name: data.name || data.displayName || '이름 없음',
-        email: finalEmail,
         electoralDistrict: data.electoralDistrict || data.district || '선거구 미설정',
         status: data.status || '상태 미설정',
         createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
@@ -389,8 +385,7 @@ exports.getUsers = onRequest({
         // 디버깅용 원본 데이터 일부 포함
         _debug: {
           docId: doc.id,
-          allFields: Object.keys(data).sort(),
-          emailFields: Object.keys(data).filter(key => key.toLowerCase().includes('email') || key.toLowerCase().includes('mail'))
+          allFields: Object.keys(data).sort()
         }
       });
     });

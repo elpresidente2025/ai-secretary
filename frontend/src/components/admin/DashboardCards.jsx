@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import {
   Box,
   Grid,
-  Card,
   CardContent,
   Typography,
   Alert,
@@ -22,6 +21,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../../hooks/useAuth';
 import { getAdminStats } from '../../services/firebaseService';
+import HongKongNeonCard from '../HongKongNeonCard';
 
 // Gemini 상태 수정 함수
 const handleGeminiStatusUpdate = async (newState) => {
@@ -191,7 +191,7 @@ function DashboardCards() {
     <Grid container spacing={3}>
       {/* 오늘 총 원고 생성 */}
       <Grid item xs={12} sm={6} md={3}>
-        <Card>
+        <HongKongNeonCard>
           <CardContent sx={{ p: 2 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <Typography variant="h6" gutterBottom sx={{ color: 'black' }}>
@@ -221,12 +221,12 @@ function DashboardCards() {
               />
             </Box>
           </CardContent>
-        </Card>
+        </HongKongNeonCard>
       </Grid>
 
       {/* 활성 사용자 */}
       <Grid item xs={12} sm={6} md={3}>
-        <Card>
+        <HongKongNeonCard>
           <CardContent sx={{ p: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
               <People sx={{ color: 'black' }} />
@@ -239,12 +239,12 @@ function DashboardCards() {
               최근 7일 내 활동
             </Typography>
           </CardContent>
-        </Card>
+        </HongKongNeonCard>
       </Grid>
 
       {/* 최근 30분 에러 */}
       <Grid item xs={12} sm={6} md={3}>
-        <Card>
+        <HongKongNeonCard>
           <CardContent sx={{ p: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
               <Error sx={{ color: stats.last30mErrors > 0 ? '#d22730' : 'black' }} />
@@ -257,12 +257,12 @@ function DashboardCards() {
               시스템 상태 모니터링
             </Typography>
           </CardContent>
-        </Card>
+        </HongKongNeonCard>
       </Grid>
 
       {/* Gemini API 상태 */}
       <Grid item xs={12} sm={6} md={3}>
-        <Card>
+        <HongKongNeonCard>
           <CardContent sx={{ p: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
               <Api sx={{ color: 'black' }} />
@@ -283,34 +283,52 @@ function DashboardCards() {
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
               <Button
                 size="small"
-                variant="outlined"
+                variant="contained"
                 color="success"
                 onClick={() => handleGeminiStatusUpdate('active')}
                 disabled={stats.geminiStatus.state === 'active'}
+                sx={{
+                  '&:hover': {
+                    transform: 'translateY(-1px)',
+                    boxShadow: '0 3px 8px rgba(46, 125, 50, 0.3)'
+                  }
+                }}
               >
                 정상
               </Button>
               <Button
                 size="small"
-                variant="outlined"
+                variant="contained"
                 color="warning"
                 onClick={() => handleGeminiStatusUpdate('maintenance')}
                 disabled={stats.geminiStatus.state === 'maintenance'}
+                sx={{
+                  '&:hover': {
+                    transform: 'translateY(-1px)',
+                    boxShadow: '0 3px 8px rgba(237, 108, 2, 0.3)'
+                  }
+                }}
               >
                 점검
               </Button>
               <Button
                 size="small"
-                variant="outlined"
+                variant="contained"
                 color="error"
                 onClick={() => handleGeminiStatusUpdate('inactive')}
                 disabled={stats.geminiStatus.state === 'inactive'}
+                sx={{
+                  '&:hover': {
+                    transform: 'translateY(-1px)',
+                    boxShadow: '0 3px 8px rgba(211, 47, 47, 0.3)'
+                  }
+                }}
               >
                 중단
               </Button>
             </Box>
           </CardContent>
-        </Card>
+        </HongKongNeonCard>
       </Grid>
     </Grid>
   );

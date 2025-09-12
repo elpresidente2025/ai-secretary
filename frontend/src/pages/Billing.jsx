@@ -174,7 +174,11 @@ const Billing = () => {
                 현재 플랜 및 인증 상태
               </Typography>
               
-              <Card sx={{ bgcolor: '#f5f5f5', mb: 3, p: 2 }}>
+              <Card sx={{ 
+                bgcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : '#f5f5f5', 
+                mb: 3, 
+                p: 2 
+              }}>
                 <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#55207d', mb: 1 }}>
                   {currentPlan}
                 </Typography>
@@ -297,12 +301,12 @@ const Billing = () => {
                     }}>
                       <Box sx={{ 
                         bgcolor: plan.color, 
-                        color: 'white', 
                         p: 2,
                         borderBottom: '1px solid #e0e0e0'
                       }}>
                         <Typography variant="h6" sx={{ 
                           fontWeight: 'bold',
+                          color: 'black !important',
                           textShadow: '1px 1px 0px white, -1px 1px 0px white, 1px -1px 0px white, -1px -1px 0px white'
                         }}>
                           {plan.name}
@@ -445,7 +449,12 @@ const Billing = () => {
                     </Grid>
                   </Grid>
 
-                  <Box sx={{ mt: 4, p: 3, bgcolor: 'grey.50', borderRadius: 2 }}>
+                  <Box sx={{ 
+                    mt: 4, 
+                    p: 3, 
+                    bgcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'grey.50', 
+                    borderRadius: 2 
+                  }}>
                     <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 2, color: '#e89f2f' }}>
                       💡 SNS 원고 추가 생성 서비스
                     </Typography>

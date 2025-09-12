@@ -8,6 +8,14 @@ const fetch = require('node-fetch');
 const NAVER_CLIENT_ID = defineSecret('NAVER_CLIENT_ID');
 const NAVER_CLIENT_SECRET = defineSecret('NAVER_CLIENT_SECRET');
 
+// Normalize gender to app standard labels
+function mapGender(g) {
+  if (!g) return '';
+  const s = String(g).trim().toUpperCase();
+  if (s === 'M' || s === 'MALE' || s === '남' || s === '남자') return '남성';
+  if (s === 'F' || s === 'FEMALE' || s === '여' || s === '여자') return '여성';
+  return String(g).trim();
+}
 function getSecretValue(secretObj, envName) {
   try {
     if (secretObj && typeof secretObj.value === 'function') {
@@ -139,6 +147,11 @@ const naverLoginHTTP = onRequest({ region: 'asia-northeast3', cors: true, timeou
       lastLoginAt: admin.firestore.FieldValue.serverTimestamp(), 
       naverUserId: naver.id 
     };
+    // Backfill gender if missing
+    if (!userData.gender && naver.gender) {
+      updateData.gender = mapGender(naver.gender);
+    }
+    // (removed duplicate raw gender assignment)
     
     if (shouldBeAdmin && !isCurrentlyAdmin) {
       console.log(`🔑 기존 사용자를 관리자로 승격: ${naver.id}`);
@@ -214,9 +227,8 @@ const naverCompleteRegistration = onRequest({ region: 'asia-northeast3', cors: t
     const doc = {
       naverUserId: naverUserData.id,
       name: String(profileData.name).trim(),
-      displayName: String(profileData.name).trim(),
       profileImage: naverUserData.profile_image || null,
-      gender: profileData.gender || naverUserData.gender || null,
+      gender: mapGender(profileData.gender) || mapGender(naverUserData.gender) || null,
       age: naverUserData.age || null,
       position: profileData.position,
       regionMetro: profileData.regionMetro,
@@ -258,9 +270,10 @@ const naverCompleteRegistration = onRequest({ region: 'asia-northeast3', cors: t
       result: { 
         success: true, 
         message: '회원가입이 완료되었습니다. 로그인 페이지에서 네이버로 로그인해주세요.',
-        user: {
-          uid: ref.id,
-          naverUserId: naverUserData.id,
+        user: { 
+          uid: ref.id, 
+          naverUserId: naverUserData.id, 
+          // displayName은 저장하지 않지만, 호환성을 위해 응답에는 name을 내려줍니다.
           displayName: doc.name,
           isAdmin: isAdmin
         }

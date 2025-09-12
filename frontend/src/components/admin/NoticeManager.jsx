@@ -1,7 +1,6 @@
 // frontend/src/components/admin/NoticeManager.jsx
 import React, { useState, useEffect } from 'react';
 import {
-  Paper,
   Typography,
   Button,
   Table,
@@ -37,6 +36,7 @@ import {
   Campaign,
   Schedule
 } from '@mui/icons-material';
+import HongKongNeonCard from '../HongKongNeonCard';
 import { getNotices } from '../../services/firebaseService';
 
 function NoticeManager() {
@@ -187,7 +187,7 @@ function NoticeManager() {
   };
 
   return (
-    <Paper sx={{ p: 3 }}>
+    <HongKongNeonCard sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Campaign sx={{ color: '#152484' }} />
@@ -202,14 +202,19 @@ function NoticeManager() {
           onClick={() => handleOpenDialog()}
           sx={{ 
             backgroundColor: '#152484',
-            '&:hover': { backgroundColor: '#003A87' }
+            color: 'white',
+            '&:hover': { 
+              backgroundColor: '#003A87',
+              transform: 'translateY(-1px)',
+              boxShadow: '0 4px 12px rgba(21, 36, 132, 0.3)'
+            }
           }}
         >
           공지 작성
         </Button>
       </Box>
 
-      <Typography variant="body2" sx={{ mb: 3, color: 'black' }}>
+      <Typography variant="body2" sx={{ mb: 3, color: 'text.secondary' }}>
         작성된 공지사항은 모든 사용자의 대시보드에 표시됩니다.
       </Typography>
 
@@ -217,26 +222,26 @@ function NoticeManager() {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell sx={{ color: 'black' }}>제목</TableCell>
-              <TableCell sx={{ color: 'black' }}>유형</TableCell>
-              <TableCell sx={{ color: 'black' }}>우선순위</TableCell>
-              <TableCell sx={{ color: 'black' }}>상태</TableCell>
-              <TableCell sx={{ color: 'black' }}>작성일</TableCell>
-              <TableCell sx={{ color: 'black' }}>만료일</TableCell>
-              <TableCell sx={{ color: 'black' }}>작업</TableCell>
+              <TableCell sx={{ color: 'text.primary' }}>제목</TableCell>
+              <TableCell sx={{ color: 'text.primary' }}>유형</TableCell>
+              <TableCell sx={{ color: 'text.primary' }}>우선순위</TableCell>
+              <TableCell sx={{ color: 'text.primary' }}>상태</TableCell>
+              <TableCell sx={{ color: 'text.primary' }}>작성일</TableCell>
+              <TableCell sx={{ color: 'text.primary' }}>만료일</TableCell>
+              <TableCell sx={{ color: 'text.primary' }}>작업</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {loading ? (
               <TableRow>
                 <TableCell colSpan={7} align="center">
-                  <Typography sx={{ color: 'black' }}>로딩 중...</Typography>
+                  <Typography sx={{ color: 'text.primary' }}>로딩 중...</Typography>
                 </TableCell>
               </TableRow>
             ) : notices.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} align="center">
-                  <Typography sx={{ color: 'black' }}>
+                  <Typography sx={{ color: 'text.secondary' }}>
                     📢 작성된 공지사항이 없습니다.
                   </Typography>
                 </TableCell>
@@ -245,7 +250,7 @@ function NoticeManager() {
               notices.map((notice) => (
                 <TableRow key={notice.id} hover>
                   <TableCell>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'black' }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'text.primary' }}>
                       {notice.title}
                     </Typography>
                     <Typography 
@@ -255,7 +260,7 @@ function NoticeManager() {
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
-                        color: 'black'
+                        color: 'text.secondary'
                       }}
                     >
                       {notice.content}
@@ -292,13 +297,13 @@ function NoticeManager() {
                     </Box>
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2" sx={{ color: 'black' }}>
+                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                       {notice.createdAt ? 
                         new Date(notice.createdAt).toLocaleDateString() : '-'}
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2" sx={{ color: 'black' }}>
+                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                       {notice.expiresAt ? 
                         new Date(notice.expiresAt).toLocaleDateString() : '무제한'}
                     </Typography>
@@ -424,7 +429,7 @@ function NoticeManager() {
           </Button>
         </DialogActions>
       </Dialog>
-    </Paper>
+    </HongKongNeonCard>
   );
 }
 

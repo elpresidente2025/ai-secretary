@@ -37,7 +37,6 @@ exports.getUserProfile = wrap(async (req) => {
 
   let profile = {
     name: token?.name || '',
-    email: token?.email || '',
     position: '',
     regionMetro: '',
     regionLocal: '',
@@ -47,6 +46,27 @@ exports.getUserProfile = wrap(async (req) => {
   };
 
   if (userDoc.exists) profile = { ...profile, ...(userDoc.data() || {}) };
+  // Derive ageDecade/age for response if one is missing
+  try {
+    if (!profile.ageDecade && profile.age) {
+      const m1 = String(profile.age).trim().match(/^(\d{2})\s*-\s*\d{2}$/);
+      if (m1) profile.ageDecade = `${m1[1]}대`;
+    }
+    if (!profile.age && profile.ageDecade) {
+      const m2 = String(profile.ageDecade).trim().match(/^(\d{2})\s*대$/);
+      if (m2) {
+        const start = parseInt(m2[1], 10);
+        if (!isNaN(start)) profile.age = `${start}-${start + 9}`;
+      }
+    }
+  } catch (_) {}
+
+  // Normalize gender if present (e.g., 'M'/'F' -> '남성'/'여성')
+  if (profile.gender) {
+    const g = String(profile.gender).trim().toUpperCase();
+    if (g === 'M' || g === 'MALE' || g === '남' || g === '남자') profile.gender = '남성';
+    else if (g === 'F' || g === 'FEMALE' || g === '여' || g === '여자') profile.gender = '여성';
+  }
 
   // bios 컬렉션에서 자기소개 조회 (호환성 유지)
   try {
@@ -84,6 +104,28 @@ exports.updateProfile = wrap(async (req) => {
   ];
   const sanitized = {};
   for (const k of allowed) if (profileData[k] !== undefined) sanitized[k] = profileData[k];
+  // age <-> ageDecade sync
+  try {
+    if (sanitized.age && !sanitized.ageDecade) {
+      const m1 = String(sanitized.age).trim().match(/^(\d{2})\s*-\s*\d{2}$/);
+      if (m1) sanitized.ageDecade = `${m1[1]}대`;
+    }
+    if (sanitized.ageDecade && !sanitized.age) {
+      const m2 = String(sanitized.ageDecade).trim().match(/^(\d{2})\s*대$/);
+      if (m2) {
+        const start = parseInt(m2[1], 10);
+        if (!isNaN(start)) sanitized.age = `${start}-${start + 9}`;
+      }
+    }
+  } catch (_) {}
+
+  // Normalize gender input from client
+  if (sanitized.gender !== undefined && sanitized.gender !== null) {
+    const g = String(sanitized.gender).trim().toUpperCase();
+    if (g === 'M' || g === 'MALE' || g === '남' || g === '남자') sanitized.gender = '남성';
+    else if (g === 'F' || g === 'FEMALE' || g === '여' || g === '여자') sanitized.gender = '여성';
+    else sanitized.gender = String(sanitized.gender).trim();
+  }
 
   const userRef = db.collection('users').doc(uid);
   const currentDoc = await userRef.get();
@@ -167,7 +209,6 @@ exports.updateProfile = wrap(async (req) => {
   await userRef.set(
     {
       ...sanitized,
-      email: token?.email || null, // Firebase Auth에서 이메일 가져와서 저장
       isActive,
       districtKey: newKey ?? oldKey,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -266,7 +307,6 @@ exports.registerWithDistrictCheck = wrap(async (req) => {
   await db.collection('users').doc(uid).set(
     {
       ...sanitizedProfileData,
-      email: token?.email || null, // Firebase Auth에서 이메일 가져오기
       bio,
       isActive,
       districtKey: newKey,

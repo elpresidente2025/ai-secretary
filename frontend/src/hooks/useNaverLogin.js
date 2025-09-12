@@ -9,9 +9,15 @@ export const useNaverLogin = () => {
 
   const initializeNaverLogin = () => {
     if (typeof window !== 'undefined' && window.naver) {
+      const clientId = import.meta.env.VITE_NAVER_CLIENT_ID;
+      const callbackUrl = import.meta.env.VITE_NAVER_REDIRECT_URI || (window.location.origin + "/auth/naver/callback");
+      if (!clientId) {
+        console.error('VITE_NAVER_CLIENT_ID is missing. Please set it in frontend/.env');
+        return null;
+      }
       const naverLogin = new window.naver.LoginWithNaverId({
-        clientId: "_E0OZLvkgp61fV7MFtND",
-        callbackUrl: window.location.origin + "/auth/naver/callback",
+        clientId,
+        callbackUrl,
         isPopup: false,
         callbackHandle: true,
         scope: 'name,gender,age,profile_image'
@@ -69,32 +75,39 @@ export const useNaverLogin = () => {
       const result = json.result;
       if (!result?.success) throw new Error('네이버 로그인 처리 실패');
 
-      const { autoRegistered, user, naver, customToken } = result;
+      const { registrationRequired, user, naver } = result;
       
-      // TODO: Firebase Auth 커스텀 토큰으로 로그인 (IAM 권한 해결 필요)
-      // if (customToken) {
-      //   const { signInWithCustomToken } = await import('firebase/auth');
-      //   const { auth } = await import('../services/firebase');
-      //   await signInWithCustomToken(auth, customToken);
-      // }
-      
-      // Persist light session for Naver users (no Firebase Auth email/password)
-      const currentUserData = {
-        uid: user.uid,
-        naverUserId: user.naverUserId,
-        displayName: user.displayName,
-        photoURL: user.photoURL,
-        provider: user.provider,
-        profileComplete: user.profileComplete
-      };
-      
-      localStorage.setItem('currentUser', JSON.stringify(currentUserData));
-      
-      // 프로필 완료된 사용자라면 추가 프로필 정보 조회하여 localStorage 업데이트
-      if (user.profileComplete) {
+      if (registrationRequired) {
+        // 미가입 회원 - 회원가입 페이지로 이동 (네이버 데이터와 함께)
+        // localStorage를 설정하지 않아야 useAuth에서 프로필 조회를 시도하지 않음
+        console.log('미가입 회원 - 회원가입 페이지로 이동:', naver);
+        navigate('/register', { 
+          state: { 
+            naverUserData: naver,
+            showNaverConsent: true // 네이버 동의 팝업 표시 플래그
+          } 
+        });
+      } else {
+        // 기존 회원 - localStorage에 저장하고 대시보드로 이동
+        const currentUserData = {
+          uid: user.uid,
+          naverUserId: user.naverUserId,
+          displayName: user.displayName,
+          photoURL: user.photoURL,
+          provider: user.provider,
+          profileComplete: user.profileComplete,
+          isAdmin: user.isAdmin
+        };
+        
+        localStorage.setItem('currentUser', JSON.stringify(currentUserData));
+        
+        // 추가 프로필 정보 조회하여 localStorage 업데이트
         try {
           const { callFunctionWithNaverAuth } = await import('../services/firebaseService');
-          const profileResponse = await callFunctionWithNaverAuth('getUserProfile');
+          const profileResponse = await Promise.race([
+            callFunctionWithNaverAuth('getUserProfile'),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('functions call timeout')), 7000))
+          ]);
           if (profileResponse?.profile) {
             const updatedUserData = {
               ...currentUserData,
@@ -106,11 +119,7 @@ export const useNaverLogin = () => {
         } catch (profileError) {
           console.warn('프로필 정보 조회 실패 (무시):', profileError.message);
         }
-      }
-
-      if (autoRegistered || !user?.profileComplete) {
-        navigate('/register', { state: { naverUserData: naver || null } });
-      } else {
+        
         window.location.href = '/dashboard';
       }
     } catch (e) {
@@ -122,4 +131,3 @@ export const useNaverLogin = () => {
 
   return { loginWithNaver, handleNaverCallback, isLoading, error, initializeNaverLogin };
 };
-

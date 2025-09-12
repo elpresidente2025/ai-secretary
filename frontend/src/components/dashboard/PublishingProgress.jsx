@@ -353,12 +353,21 @@ const PublishingProgress = () => {
             variant="contained" 
             fullWidth 
             sx={{ 
-              bgcolor: '#152484',
-              '&:hover': { bgcolor: '#003A87' }
+              bgcolor: '#f8c023',
+              color: '#ffffff',
+              border: 'none',
+              '&:hover': { 
+                bgcolor: '#e6a91c',
+              },
+              animation: 'planSelectBlink 2s ease-in-out infinite',
+              '@keyframes planSelectBlink': {
+                '0%, 50%, 100%': { opacity: 1 },
+                '25%, 75%': { opacity: 0.6 }
+              }
             }}
             onClick={() => window.location.href = '/billing'}
           >
-            요금제 선택하기
+            요금제 선택하기 ⚠️
           </Button>
         </CardContent>
       </Card>
@@ -467,7 +476,7 @@ const PublishingProgress = () => {
               border: '2px solid #333',
               borderRadius: 2,
               display: 'flex',
-              alignItems: 'center',
+              alignItems: 'flex-end',
               gap: 1,
               boxShadow: 'inset 4px 4px 10px rgba(0,0,0,0.8), inset -2px -2px 5px rgba(255,255,255,0.1)'
             }}
@@ -479,9 +488,13 @@ const PublishingProgress = () => {
             <Typography
               variant="caption"
               sx={{
-                color: '#fff',
+                color: `${userPlanColor} !important`,
                 fontFamily: 'monospace',
-                fontWeight: 700
+                fontWeight: 700,
+                fontSize: '0.75rem',
+                lineHeight: 1,
+                textShadow: `0 0 6px ${userPlanColor}`,
+                transition: 'color 0.8s ease, text-shadow 0.8s ease'
               }}
             >
               %

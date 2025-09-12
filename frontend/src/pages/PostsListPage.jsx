@@ -33,8 +33,7 @@ import HelpButton from '../components/HelpButton';
 import ManagementGuide from '../components/guides/ManagementGuide';
 import PostViewerModal from '../components/PostViewerModal';
 import { useAuth } from '../hooks/useAuth';
-import { httpsCallable } from 'firebase/functions';
-import { functions } from '../services/firebase';
+import { callFunctionWithNaverAuth } from '../services/firebaseService';
 
 function formatDate(iso) {
   try {
@@ -95,9 +94,7 @@ export default function PostsListPage() {
   console.log('🔍 user?.uid:', user?.uid);
   console.log('🔍 authLoading:', authLoading);
 
-  const callGetUserPosts = httpsCallable(functions, 'getUserPosts');
-  // deletePost는 HTTP 함수로 변경 (CORS 문제 해결)
-  const callPublishPost = httpsCallable(functions, 'publishPost');
+  // Network functions - 네이버 인증 시스템 사용
 
   useEffect(() => {
     let mounted = true;
@@ -113,7 +110,7 @@ export default function PostsListPage() {
         }
         
         console.log('🚀 Firebase Functions 호출:', { uid: user.uid });
-        const res = await callGetUserPosts();
+        const res = await callFunctionWithNaverAuth('getUserPosts');
         console.log('✅ getUserPosts 응답:', res);
         const list = res?.data?.posts || [];
         console.log('📝 처리된 posts 목록:', list);
@@ -168,22 +165,8 @@ export default function PostsListPage() {
     const ok = window.confirm('정말 이 원고를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.');
     if (!ok) return;
     try {
-      // HTTP 요청으로 변경 (CORS 문제 해결)
-      const token = await user._firebaseUser.getIdToken();
-      const response = await fetch('https://asia-northeast3-ai-secretary-6e9c8.cloudfunctions.net/deletePost', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ postId })
-      });
-      
-      const result = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(result.message || '삭제에 실패했습니다.');
-      }
+      // 네이버 인증 시스템 사용
+      await callFunctionWithNaverAuth('deletePost', { postId });
       
       setPosts((prev) => prev.filter((p) => p.id !== postId));
       setSnack({ open: true, message: '삭제되었습니다.', severity: 'info' });
@@ -227,7 +210,7 @@ export default function PostsListPage() {
     }
 
     try {
-      await callPublishPost({ 
+      await callFunctionWithNaverAuth('publishPost', { 
         postId: publishPost.id, 
         publishUrl: publishUrl.trim() 
       });
@@ -295,7 +278,15 @@ export default function PostsListPage() {
             <Typography variant="body1" color="text.secondary">
               생성한 원고를 관리하고 복사할 수 있습니다
             </Typography>
-            <Chip label={`총 ${posts.length}개`} sx={{ bgcolor: 'rgba(255,255,255,0.1)', color: 'white' }} variant="outlined" />
+            <Chip 
+              label={`총 ${posts.length}개`} 
+              sx={{ 
+                bgcolor: 'rgba(128,128,128,0.1)', 
+                color: 'text.primary',
+                borderColor: 'text.secondary'
+              }} 
+              variant="outlined" 
+            />
           </Box>
         </Box>
         

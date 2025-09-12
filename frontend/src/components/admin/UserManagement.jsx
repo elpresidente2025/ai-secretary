@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Paper,
   Typography,
   Box,
   Table,
@@ -18,7 +17,8 @@ import {
   DialogActions,
   TextField,
   Alert,
-  Tooltip
+  Tooltip,
+  Snackbar
 } from '@mui/material';
 import { LoadingSpinner } from '../loading';
 import {
@@ -29,8 +29,8 @@ import {
   Refresh,
   Search
 } from '@mui/icons-material';
-import { httpsCallable } from 'firebase/functions';
-import { functions } from '../../services/firebase';
+import HongKongNeonCard from '../HongKongNeonCard';
+import { callFunctionWithNaverAuth } from '../../services/firebaseService';
 
 const UserManagement = () => {
   const [users, setUsers] = useState([]);
@@ -40,10 +40,7 @@ const UserManagement = () => {
   const [deactivateDialog, setDeactivateDialog] = useState({ open: false, user: null });
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'info' });
 
-  const callGetAllUsers = httpsCallable(functions, 'getAllUsers');
-  const callDeactivateUser = httpsCallable(functions, 'deactivateUser');
-  const callDeleteUser = httpsCallable(functions, 'deleteUser');
-  const callReactivateUser = httpsCallable(functions, 'reactivateUser');
+  // Firebase Functions 호출을 네이버 인증 방식으로 변경
 
   useEffect(() => {
     loadUsers();
@@ -52,15 +49,41 @@ const UserManagement = () => {
   const loadUsers = async () => {
     try {
       setLoading(true);
-      const response = await callGetAllUsers();
-      if (response.data.success) {
-        setUsers(response.data.users);
+      console.log('🔍 사용자 목록 로드 시작...');
+      const response = await callFunctionWithNaverAuth('getAllUsers');
+      console.log('🔍 getAllUsers 응답:', response);
+      
+      if (response?.success) {
+        console.log('✅ 사용자 데이터:', response.users);
+        setUsers(response.users || []);
+      } else {
+        console.warn('⚠️ 응답 구조가 예상과 다름:', response);
+        setUsers([]);
+        setNotification({
+          open: true,
+          message: '사용자 목록 데이터 형식이 올바르지 않습니다.',
+          severity: 'warning'
+        });
       }
     } catch (error) {
-      console.error('사용자 목록 로드 실패:', error);
+      console.error('❌ 사용자 목록 로드 실패:', error);
+      console.error('❌ 에러 상세:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        stack: error.stack
+      });
+      
+      let errorMessage = '사용자 목록을 불러오는 중 오류가 발생했습니다.';
+      if (error.code === 'functions/permission-denied') {
+        errorMessage = '관리자 권한이 필요합니다.';
+      } else if (error.code === 'functions/unauthenticated') {
+        errorMessage = '로그인이 필요합니다.';
+      }
+      
       setNotification({
         open: true,
-        message: '사용자 목록을 불러오는 중 오류가 발생했습니다.',
+        message: errorMessage,
         severity: 'error'
       });
     } finally {
@@ -72,14 +95,14 @@ const UserManagement = () => {
     if (!deactivateDialog.user) return;
     
     try {
-      const response = await callDeactivateUser({ 
+      const response = await callFunctionWithNaverAuth('deactivateUser', { 
         userId: deactivateDialog.user.uid 
       });
       
-      if (response.data.success) {
+      if (response.success) {
         setNotification({
           open: true,
-          message: `${deactivateDialog.user.name || deactivateDialog.user.email} 계정이 비활성화되었습니다.`,
+          message: `${deactivateDialog.user.name || '사용자'} 계정이 비활성화되었습니다.`,
           severity: 'success'
         });
         loadUsers(); // 목록 새로고침
@@ -98,14 +121,14 @@ const UserManagement = () => {
 
   const handleReactivateUser = async (user) => {
     try {
-      const response = await callReactivateUser({ 
+      const response = await callFunctionWithNaverAuth('reactivateUser', { 
         userId: user.uid 
       });
       
-      if (response.data.success) {
+      if (response.success) {
         setNotification({
           open: true,
-          message: `${user.name || user.email} 계정이 재활성화되었습니다.`,
+          message: `${user.name || '사용자'} 계정이 재활성화되었습니다.`,
           severity: 'success'
         });
         loadUsers(); // 목록 새로고침
@@ -124,14 +147,14 @@ const UserManagement = () => {
     if (!deleteDialog.user) return;
     
     try {
-      const response = await callDeleteUser({ 
+      const response = await callFunctionWithNaverAuth('deleteUser', { 
         userId: deleteDialog.user.uid 
       });
       
-      if (response.data.success) {
+      if (response.success) {
         setNotification({
           open: true,
-          message: `${deleteDialog.user.name || deleteDialog.user.email} 계정이 완전히 삭제되었습니다.`,
+          message: `${deleteDialog.user.name || '사용자'} 계정이 완전히 삭제되었습니다.`,
           severity: 'success'
         });
         loadUsers(); // 목록 새로고침
@@ -150,28 +173,66 @@ const UserManagement = () => {
 
   const filteredUsers = users.filter(user => 
     user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.electoralDistrict?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const formatDate = (timestamp) => {
     if (!timestamp) return '-';
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    return date.toLocaleDateString('ko-KR');
+    
+    try {
+      let date;
+      if (timestamp.toDate) {
+        // Firestore Timestamp 객체
+        date = timestamp.toDate();
+      } else if (typeof timestamp === 'string') {
+        // ISO 문자열
+        date = new Date(timestamp);
+      } else if (typeof timestamp === 'number') {
+        // Unix timestamp
+        date = new Date(timestamp);
+      } else {
+        // 이미 Date 객체
+        date = timestamp;
+      }
+      
+      // Invalid Date 체크
+      if (isNaN(date.getTime())) {
+        console.warn('Invalid date:', timestamp);
+        return '-';
+      }
+      
+      return date.toLocaleDateString('ko-KR');
+    } catch (error) {
+      console.error('Date formatting error:', error, timestamp);
+      return '-';
+    }
   };
 
   return (
-    <Paper sx={{ p: 3 }}>
+    <HongKongNeonCard sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-        <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'black' }}>
+        <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.primary' }}>
           <Person />
           사용자 관리
         </Typography>
         <Button
-          variant="outlined"
+          variant="contained"
           startIcon={<Refresh />}
           onClick={loadUsers}
           disabled={loading}
+          sx={{
+            bgcolor: '#152484',
+            color: 'white',
+            '&:hover': {
+              bgcolor: '#1e2d9f',
+              transform: 'translateY(-1px)',
+              boxShadow: '0 4px 12px rgba(21, 36, 132, 0.3)'
+            },
+            '&:disabled': {
+              bgcolor: 'rgba(21, 36, 132, 0.3)',
+              color: 'rgba(255, 255, 255, 0.7)'
+            }
+          }}
         >
           새로고침
         </Button>
@@ -180,7 +241,7 @@ const UserManagement = () => {
       <Box sx={{ mb: 3 }}>
         <TextField
           fullWidth
-          placeholder="이름, 이메일, 선거구로 검색..."
+          placeholder="이름, 선거구로 검색..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           InputProps={{
@@ -196,22 +257,20 @@ const UserManagement = () => {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ color: 'black' }}>이름</TableCell>
-                <TableCell sx={{ color: 'black' }}>이메일</TableCell>
-                <TableCell sx={{ color: 'black' }}>직책</TableCell>
-                <TableCell sx={{ color: 'black' }}>선거구</TableCell>
-                <TableCell sx={{ color: 'black' }}>상태</TableCell>
-                <TableCell sx={{ color: 'black' }}>가입일</TableCell>
-                <TableCell align="center" sx={{ color: 'black' }}>작업</TableCell>
+                <TableCell sx={{ color: 'text.primary' }}>이름</TableCell>
+                <TableCell sx={{ color: 'text.primary' }}>직책</TableCell>
+                <TableCell sx={{ color: 'text.primary' }}>선거구</TableCell>
+                <TableCell sx={{ color: 'text.primary' }}>상태</TableCell>
+                <TableCell sx={{ color: 'text.primary' }}>가입일</TableCell>
+                <TableCell align="center" sx={{ color: 'text.primary' }}>작업</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {filteredUsers.map((user) => (
                 <TableRow key={user.uid}>
-                  <TableCell sx={{ color: 'black' }}>{user.name || '-'}</TableCell>
-                  <TableCell sx={{ color: 'black' }}>{user.email}</TableCell>
-                  <TableCell sx={{ color: 'black' }}>{user.position || '-'}</TableCell>
-                  <TableCell sx={{ color: 'black' }}>{user.electoralDistrict || '-'}</TableCell>
+                  <TableCell sx={{ color: 'text.primary' }}>{user.name || '-'}</TableCell>
+                  <TableCell sx={{ color: 'text.primary' }}>{user.position || '-'}</TableCell>
+                  <TableCell sx={{ color: 'text.primary' }}>{user.electoralDistrict || '-'}</TableCell>
                   <TableCell>
                     <Chip
                       label={user.isActive ? '활성' : '비활성'}
@@ -219,7 +278,7 @@ const UserManagement = () => {
                       size="small"
                     />
                   </TableCell>
-                  <TableCell sx={{ color: 'black' }}>{formatDate(user.createdAt)}</TableCell>
+                  <TableCell sx={{ color: 'text.secondary' }}>{formatDate(user.createdAt)}</TableCell>
                   <TableCell align="center">
                     <Box sx={{ display: 'flex', gap: 1 }}>
                       {user.isActive ? (
@@ -263,7 +322,7 @@ const UserManagement = () => {
 
       {filteredUsers.length === 0 && !loading && (
         <Box sx={{ textAlign: 'center', py: 4 }}>
-          <Typography sx={{ color: 'black' }}>
+          <Typography sx={{ color: 'text.secondary' }}>
             {searchTerm ? '검색 결과가 없습니다.' : '등록된 사용자가 없습니다.'}
           </Typography>
         </Box>
@@ -280,7 +339,7 @@ const UserManagement = () => {
             계정을 비활성화하면 해당 사용자는 로그인할 수 없게 됩니다.
           </Alert>
           <Typography>
-            <strong>{deactivateDialog.user?.name || deactivateDialog.user?.email}</strong> 계정을 비활성화하시겠습니까?
+            <strong>{deactivateDialog.user?.name || '사용자'}</strong> 계정을 비활성화하시겠습니까?
           </Typography>
         </DialogContent>
         <DialogActions>
@@ -304,7 +363,7 @@ const UserManagement = () => {
             이 작업은 되돌릴 수 없습니다. 계정과 관련된 모든 데이터가 영구적으로 삭제됩니다.
           </Alert>
           <Typography sx={{ mb: 2 }}>
-            <strong>{deleteDialog.user?.name || deleteDialog.user?.email}</strong> 계정을 완전히 삭제하시겠습니까?
+            <strong>{deleteDialog.user?.name || '사용자'}</strong> 계정을 완전히 삭제하시겠습니까?
           </Typography>
           <Typography variant="body2" color="text.secondary">
             삭제될 데이터: 프로필 정보, 생성된 게시물, 결제 정보, 활동 기록 등
@@ -319,7 +378,22 @@ const UserManagement = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Paper>
+
+      {/* 알림 메시지 */}
+      <Snackbar
+        open={notification.open}
+        autoHideDuration={6000}
+        onClose={() => setNotification({ ...notification, open: false })}
+      >
+        <Alert
+          onClose={() => setNotification({ ...notification, open: false })}
+          severity={notification.severity}
+          sx={{ width: '100%' }}
+        >
+          {notification.message}
+        </Alert>
+      </Snackbar>
+    </HongKongNeonCard>
   );
 };
 

@@ -249,6 +249,22 @@ const checkBonusEligibility = wrap(async (request) => {
     }
 
     const userData = userDoc.data();
+    const isAdmin = userData.role === 'admin' || userData.isAdmin === true;
+    
+    // 관리자는 무제한 보너스 제공
+    if (isAdmin) {
+      return {
+        success: true,
+        data: {
+          hasBonus: true,
+          availableBonus: 999999, // 관리자는 사실상 무제한
+          totalBonusGenerated: 999999,
+          bonusUsed: 0,
+          accessMethod: 'admin'
+        }
+      };
+    }
+    
     const usage = userData.usage || { postsGenerated: 0, monthlyLimit: 50, bonusGenerated: 0 };
     
     // NaN 방지를 위한 안전한 숫자 변환
@@ -297,6 +313,17 @@ const useBonusGeneration = wrap(async (request) => {
       }
 
       const userData = userDoc.data();
+      const isAdmin = userData.role === 'admin' || userData.isAdmin === true;
+      
+      // 관리자는 무제한 보너스 사용 가능
+      if (isAdmin) {
+        console.log('관리자 계정 보너스 사용 - 제한 없음:', uid);
+        return {
+          success: true,
+          message: '관리자 권한으로 보너스 원고를 사용했습니다.'
+        };
+      }
+      
       const usage = userData.usage || { postsGenerated: 0, monthlyLimit: 50, bonusGenerated: 0, bonusUsed: 0 };
       
       const availableBonus = Math.max(0, usage.bonusGenerated - (usage.bonusUsed || 0));

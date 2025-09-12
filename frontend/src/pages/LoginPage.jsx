@@ -2,44 +2,33 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link as RouterLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useNaverLogin } from '../hooks/useNaverLogin';
+import { useThemeMode } from '../contexts/ThemeContext';
 import {
   Container,
   Typography,
   Button,
   Box,
   Paper,
-  TextField,
   Alert,
-  Link,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
+  Link,
 } from '@mui/material';
 import { LoadingButton } from '../components/loading';
-import { sendPasswordResetEmail } from 'firebase/auth';
-import { auth } from '../services/firebase';
 
 function LoginPage() {
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-  });
-  
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [resetDialogOpen, setResetDialogOpen] = useState(false);
-  const [resetEmail, setResetEmail] = useState('');
-  const [resetName, setResetName] = useState('');
-  const [resetLoading, setResetLoading] = useState(false);
-  const [resetMessage, setResetMessage] = useState('');
   const [naverDialogOpen, setNaverDialogOpen] = useState(false);
   const [naverUserData, setNaverUserData] = useState(null);
   
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, user } = useAuth();
+  const { user } = useAuth();
   const { loginWithNaver } = useNaverLogin();
+  const { isDarkMode } = useThemeMode();
 
   useEffect(() => {
     if (user) {
@@ -52,52 +41,15 @@ function LoginPage() {
     document.title = '전자두뇌비서관 - 로그인';
   }, []);
 
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-
-    try {
-      await login(formData.email, formData.password);
-    } catch (error) {
-      console.error('로그인 오류:', error);
-      let errorMessage = '로그인에 실패했습니다.';
-      
-      switch (error.code) {
-        case 'auth/invalid-email':
-          errorMessage = '유효하지 않은 이메일 주소입니다.';
-          break;
-        case 'auth/user-disabled':
-          errorMessage = '비활성화된 계정입니다.';
-          break;
-        case 'auth/user-not-found':
-          errorMessage = '존재하지 않는 계정입니다.';
-          break;
-        case 'auth/wrong-password':
-          errorMessage = '잘못된 비밀번호입니다.';
-          break;
-        case 'auth/invalid-credential':
-          errorMessage = '이메일 또는 비밀번호가 올바르지 않습니다.';
-          break;
-        case 'auth/too-many-requests':
-          errorMessage = '너무 많은 로그인 시도가 있었습니다. 잠시 후 다시 시도해주세요.';
-          break;
-        default:
-          errorMessage = '로그인 실패: ' + error.message;
-      }
-      
-      setError(errorMessage);
-    } finally {
-      setLoading(false);
+  // 회원가입 완료 메시지 표시
+  useEffect(() => {
+    if (location.state?.message) {
+      setError(''); // 기존 에러 클리어
+      // 성공 메시지라면 성공 스타일로 표시 (간단한 방법)
+      console.log('회원가입 완료 메시지:', location.state.message);
     }
-  };
+  }, [location.state]);
+
 
   const handleNaverLogin = async () => {
     setError('');
@@ -142,72 +94,10 @@ function LoginPage() {
 
   const handleGoToRegister = () => {
     setNaverDialogOpen(false);
-    // 네이버 사용자 데이터를 state로 전달
-    navigate('/register', { 
-      state: { 
-        naverUserData: naverUserData 
-      } 
-    });
+    // 회원가입 페이지로 이동
+    navigate('/register');
   };
 
-  const handlePasswordReset = async () => {
-    if (!resetEmail.trim()) {
-      setResetMessage('이메일을 입력해주세요.');
-      return;
-    }
-    
-    if (!resetName.trim()) {
-      setResetMessage('사용자 이름을 입력해주세요.');
-      return;
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(resetEmail.trim())) {
-      setResetMessage('올바른 이메일 형식을 입력해주세요.');
-      return;
-    }
-
-    if (resetName.trim().length < 2) {
-      setResetMessage('사용자 이름은 2글자 이상 입력해주세요.');
-      return;
-    }
-
-    setResetLoading(true);
-    setResetMessage('');
-
-    try {
-      await sendPasswordResetEmail(auth, resetEmail.trim());
-      setResetMessage(resetName.trim() + '님, 비밀번호 재설정 이메일을 ' + resetEmail.trim() + '로 발송했습니다. 메일함을 확인해주세요.');
-    } catch (error) {
-      console.error('비밀번호 재설정 오류:', error);
-      let errorMessage = '비밀번호 재설정 이메일 발송에 실패했습니다.';
-      
-      switch (error.code) {
-        case 'auth/invalid-email':
-          errorMessage = '유효하지 않은 이메일 주소입니다.';
-          break;
-        case 'auth/user-not-found':
-          errorMessage = '해당 이메일로 등록된 계정이 존재하지 않습니다.';
-          break;
-        case 'auth/too-many-requests':
-          errorMessage = '너무 많은 요청이 발생했습니다. 잠시 후 다시 시도해주세요.';
-          break;
-        default:
-          errorMessage = '오류: ' + error.message;
-      }
-      
-      setResetMessage(errorMessage);
-    } finally {
-      setResetLoading(false);
-    }
-  };
-
-  const handleResetDialogClose = () => {
-    setResetDialogOpen(false);
-    setResetEmail('');
-    setResetName('');
-    setResetMessage('');
-  };
 
   return (
     <Box sx={{ 
@@ -239,82 +129,64 @@ function LoginPage() {
             </Alert>
           )}
 
-          <Box component="form" onSubmit={handleSubmit}>
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              id="email"
-              label="이메일 주소"
-              name="email"
-              autoComplete="email"
-              autoFocus
-              value={formData.email}
-              onChange={handleChange}
-              disabled={loading}
-            />
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              name="password"
-              label="비밀번호"
-              type="password"
-              id="password"
-              autoComplete="current-password"
-              value={formData.password}
-              onChange={handleChange}
-              disabled={loading}
-            />
-            
-            <LoadingButton
-              type="submit"
-              fullWidth
-              variant="contained"
-              loading={loading}
-              loadingText="로그인 중..."
-              sx={{ mt: 3, mb: 2 }}
-            >
-              로그인
-            </LoadingButton>
-
-            <Box sx={{ display: 'flex', alignItems: 'center', my: 2 }}>
-              <Box sx={{ flexGrow: 1, height: '1px', bgcolor: 'divider' }} />
-              <Typography variant="body2" color="text.secondary" sx={{ px: 2 }}>
-                또는
-              </Typography>
-              <Box sx={{ flexGrow: 1, height: '1px', bgcolor: 'divider' }} />
-            </Box>
-
-            <LoadingButton
-              fullWidth
-              variant="outlined"
-              onClick={handleNaverLogin}
-              loading={loading}
-              loadingText="네이버 로그인 중..."
-              sx={{ mb: 2 }}
-              startIcon={
+          <Box sx={{ textAlign: 'center' }}>
+            <Box sx={{ position: 'relative', display: 'inline-block', width: '75%', mb: 3 }}>
+              <Box
+                component="img"
+                src={isDarkMode ? "/buttons/login_dark.png" : "/buttons/login_light.png"}
+                alt="네이버로 로그인"
+                onClick={handleNaverLogin}
+                sx={{
+                  width: '100%',
+                  maxWidth: '225px',
+                  height: 'auto',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  opacity: loading ? 0.6 : 1,
+                  transition: 'opacity 0.2s, transform 0.1s',
+                  '&:hover': {
+                    transform: loading ? 'none' : 'scale(1.02)',
+                  },
+                  '&:active': {
+                    transform: loading ? 'none' : 'scale(0.98)',
+                  },
+                  pointerEvents: loading ? 'none' : 'auto'
+                }}
+              />
+              {loading && (
                 <Box
-                  component="img"
-                  src="https://developers.naver.com/inc/devcenter/images/nd_img.png"
-                  alt="네이버"
-                  sx={{ width: 18, height: 18 }}
-                />
-              }
-            >
-              네이버로 로그인
-            </LoadingButton>
+                  sx={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    color: '#03C75A',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1
+                  }}
+                >
+                  <Box
+                    sx={{
+                      width: 20,
+                      height: 20,
+                      border: '2px solid rgba(3, 199, 90, 0.3)',
+                      borderTop: '2px solid #03C75A',
+                      borderRadius: '50%',
+                      animation: 'spin 1s linear infinite',
+                      '@keyframes spin': {
+                        '0%': { transform: 'rotate(0deg)' },
+                        '100%': { transform: 'rotate(360deg)' }
+                      }
+                    }}
+                  />
+                  <Typography variant="body2" sx={{ color: '#03C75A', fontWeight: 600 }}>
+                    로그인 중...
+                  </Typography>
+                </Box>
+              )}
+            </Box>
             
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
-              <Link
-                component="button"
-                type="button"
-                variant="body2"
-                onClick={() => setResetDialogOpen(true)}
-                sx={{ textDecoration: 'none' }}
-              >
-                비밀번호 찾기
-              </Link>
+            <Box sx={{ textAlign: 'center' }}>
               <Link component={RouterLink} to="/register" variant="body2">
                 회원가입하기
               </Link>
@@ -322,60 +194,6 @@ function LoginPage() {
           </Box>
         </Paper>
 
-        <Dialog open={resetDialogOpen} onClose={handleResetDialogClose} maxWidth="sm" fullWidth>
-          <DialogTitle>비밀번호 재설정</DialogTitle>
-          <DialogContent>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              계정 확인을 위해 사용자 이름과 이메일 주소를 입력해주세요.
-            </Typography>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="사용자 이름"
-            type="text"
-            fullWidth
-            variant="outlined"
-            value={resetName}
-            onChange={(e) => setResetName(e.target.value)}
-            disabled={resetLoading}
-            placeholder="홍길동"
-            sx={{ mt: 2 }}
-          />
-          <TextField
-            margin="dense"
-            label="이메일 주소"
-            type="email"
-            fullWidth
-            variant="outlined"
-            value={resetEmail}
-            onChange={(e) => setResetEmail(e.target.value)}
-            disabled={resetLoading}
-            placeholder="example@domain.com"
-            sx={{ mt: 2 }}
-          />
-          {resetMessage && (
-            <Alert 
-              severity={resetMessage.includes('발송했습니다') ? 'success' : 'error'} 
-              sx={{ mt: 2 }}
-            >
-              {resetMessage}
-            </Alert>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleResetDialogClose} disabled={resetLoading}>
-            취소
-          </Button>
-          <LoadingButton 
-            onClick={handlePasswordReset} 
-            variant="contained" 
-            loading={resetLoading}
-            loadingText="이메일 발송 중..."
-          >
-            재설정 이메일 발송
-          </LoadingButton>
-        </DialogActions>
-        </Dialog>
 
         {/* 네이버 로그인 실패 다이얼로그 */}
         <Dialog open={naverDialogOpen} onClose={handleNaverDialogClose} maxWidth="sm" fullWidth>

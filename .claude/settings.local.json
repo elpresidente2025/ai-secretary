@@ -59,7 +59,15 @@
       "Bash(git rm:*)",
       "Bash(git stash:*)",
       "Bash(firebase functions:config:set:*)",
-      "WebFetch(domain:static.nid.naver.com)"
+      "WebFetch(domain:static.nid.naver.com)",
+      "Bash(nslookup:*)",
+      "WebFetch(domain:cyberbrain.kr)",
+      "WebFetch(domain:firebase.google.com)",
+      "Bash(firebase open:*)",
+      "Bash(gcloud projects describe:*)",
+      "Bash(find:*)",
+      "Bash(firebase functions:secrets:set:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": [],

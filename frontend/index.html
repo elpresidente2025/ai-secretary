@@ -47,6 +47,13 @@
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       background: transparent;
       color: #1f2937;
+      transition: background-color 0.2s, color 0.2s;
+    }
+    
+    /* 다크모드 스타일 */
+    body.dark-mode {
+      background: #121212;
+      color: #ffffff;
     }
     
     #root {
@@ -83,11 +90,43 @@
       font-size: 1rem;
     }
     
+    /* 다크모드 로딩 스타일 */
+    body.dark-mode .loading-spinner {
+      border: 4px solid rgba(248, 192, 35, 0.2);
+      border-top: 4px solid #f8c023;
+    }
+    
+    body.dark-mode .loading-text {
+      color: #f8c023;
+    }
+    
     /* React 로드 후 숨김 */
     .loading-container.hidden {
       display: none;
     }
   </style>
+  
+  <!-- 🌓 테마 초기화 스크립트 (React 로드 전 실행) -->
+  <script>
+    try {
+      const themeMode = localStorage.getItem('themeMode');
+      if (themeMode === 'dark') {
+        document.body.classList.add('dark-mode');
+      } else if (themeMode === 'light') {
+        document.body.classList.remove('dark-mode');
+      } else {
+        // 저장된 설정이 없으면 시스템 설정 확인
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          document.body.classList.add('dark-mode');
+        }
+      }
+    } catch (e) {
+      // localStorage 접근 실패시 시스템 설정 사용
+      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.body.classList.add('dark-mode');
+      }
+    }
+  </script>
 </head>
 <body>
   <!-- React 앱 마운트 지점 -->
