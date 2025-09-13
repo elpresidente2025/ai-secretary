@@ -14,9 +14,9 @@ const HelpButton = ({ title, children }) => {
         onClick={() => setOpen(true)}
         sx={{
           position: 'fixed',
-          bottom: 24, // 화면 하단에서 24px 고정
-          left: 24,   // 화면 왼쪽에서 24px 고정
-          zIndex: 1000,
+          bottom: 16, // 화면 하단에서 16px 고정 (더 아래로)
+          left: 16,   // 화면 왼쪽에서 16px 고정 (더 왼쪽으로)
+          zIndex: 1500, // Drawer보다 높은 z-index
           bgcolor: '#f8c023', // 노란색
           color: '#000000',   // 아이콘 색상을 검은색으로
           '&:hover': {
@@ -28,14 +28,8 @@ const HelpButton = ({ title, children }) => {
           transition: 'transform 0.3s ease, box-shadow 0.3s ease', // 호버 효과만 애니메이션
           // 반응형 여백 조정
           '@media (max-width: 600px)': {
-            bottom: 16, // 모바일에서는 조금 더 가깝게
-            left: 16,
-          },
-          '@media (min-width: 2560px)': {
-            left: 48, // 2K에서 더 안쪽
-          },
-          '@media (min-width: 3840px)': {
-            left: 64, // 4K에서 더 안쪽
+            bottom: 12, // 모바일에서는 더 아래로
+            left: 12,   // 모바일에서는 더 왼쪽으로
           },
         }}
       >
