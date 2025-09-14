@@ -13,16 +13,7 @@ import {
   People,
   HowToVote
 } from '@mui/icons-material';
-
-// 색상 옵션
-const COLOR_OPTIONS = [
-  '#d22730', // 클래식 레드
-  '#152484', // 로얄 블루  
-  '#006261', // 티온 그린
-  '#f8c023', // 사이버펑크 옐로우
-  '#55207d', // 퍼플
-  '#ffffff'  // 화이트
-];
+import { useColor } from '../../contexts/ColorContext';
 
 // 7세그먼트 패턴
 const DIGIT_PATTERNS = {
@@ -225,14 +216,9 @@ const DigitDisplay = ({ character, color, size = 'large', responsive = false, co
 // 메인 7세그먼트 디스플레이 컴포넌트
 const SevenSegmentDisplay = ({ dDay, cardHeight = '140px', onColorChange }) => {
   const theme = useTheme();
+  const { currentColor, changeColor } = useColor();
   const containerRef = useRef(null);
   const [containerHeight, setContainerHeight] = useState(60);
-  const [currentColorIndex, setCurrentColorIndex] = useState(() => {
-    const saved = localStorage.getItem('electionDDayColorIndex');
-    return saved ? parseInt(saved) : 0;
-  });
-
-  const currentColor = COLOR_OPTIONS[currentColorIndex];
 
   // 컨테이너 높이 측정
   useEffect(() => {
@@ -253,42 +239,13 @@ const SevenSegmentDisplay = ({ dDay, cardHeight = '140px', onColorChange }) => {
     return () => resizeObserver.disconnect();
   }, []);
 
-  // localStorage 변경 감지
+  // 색상 변경 시 부모 컴포넌트에 알림
   useEffect(() => {
-    const handleStorageChange = () => {
-      const saved = localStorage.getItem('electionDDayColorIndex');
-      if (saved) {
-        const savedIndex = parseInt(saved);
-        if (savedIndex >= 0 && savedIndex < COLOR_OPTIONS.length) {
-          setCurrentColorIndex(savedIndex);
-          onColorChange && onColorChange(COLOR_OPTIONS[savedIndex]);
-        }
-      }
-    };
+    onColorChange && onColorChange(currentColor);
+  }, [currentColor, onColorChange]);
 
-    // 초기 색상 설정
-    handleStorageChange();
-
-    // 폴링으로 색상 변경 감지
-    const interval = setInterval(handleStorageChange, 100);
-    window.addEventListener('storage', handleStorageChange);
-
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, [onColorChange]);
-
-
-  const handleColorChange = (direction) => {
-    let newIndex;
-    if (direction === 'prev') {
-      newIndex = currentColorIndex === 0 ? COLOR_OPTIONS.length - 1 : currentColorIndex - 1;
-    } else {
-      newIndex = currentColorIndex === COLOR_OPTIONS.length - 1 ? 0 : currentColorIndex + 1;
-    }
-    
-    localStorage.setItem('electionDDayColorIndex', newIndex.toString());
+  const handleColorChange = async (direction) => {
+    await changeColor(direction);
   };
 
   // D-Day 텍스트 생성
@@ -402,19 +359,11 @@ const SevenSegmentDisplay = ({ dDay, cardHeight = '140px', onColorChange }) => {
  */
 function ElectionDDay({ position, status }) {
 
-  const theme = useTheme(); // Hook??�??�로 ?�동
+  const theme = useTheme(); // Hook을 함수 최상단으로 이동
+  const { currentColor } = useColor();
   const [electionInfo, setElectionInfo] = useState(null);
   const [dDay, setDDay] = useState(null);
-  const [displayColor, setDisplayColor] = useState(() => {
-    const saved = localStorage.getItem('electionDDayColorIndex');
-    if (saved) {
-      const savedIndex = parseInt(saved);
-      if (savedIndex >= 0 && savedIndex < COLOR_OPTIONS.length) {
-        return COLOR_OPTIONS[savedIndex];
-      }
-    }
-    return COLOR_OPTIONS[0];
-  });
+  const [displayColor, setDisplayColor] = useState(currentColor);
 
   // 호버 시 랜덤 글로우 색상 생성 함수
   const getRandomGlowColor = () => {

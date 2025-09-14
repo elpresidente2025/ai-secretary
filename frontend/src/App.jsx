@@ -7,6 +7,7 @@ import { getSystemStatus } from './services/firebaseService';
 import MaintenancePage from './components/MaintenancePage';
 import { LoadingOverlay } from './components/loading';
 import { HelpProvider } from './contexts/HelpContext';
+import { ColorProvider } from './contexts/ColorContext';
 import BackgroundGrid from './components/BackgroundGrid';
 
 function App() {
@@ -135,6 +136,7 @@ function App() {
 
   return (
     <HelpProvider>
+      <ColorProvider>
       <Box sx={{ position: 'relative', minHeight: '100vh' }}>
         {/* Synthwave background image for top 50% */}
         <Box
@@ -156,6 +158,7 @@ function App() {
         <BackgroundGrid />
         <Outlet />
       </Box>
+      </ColorProvider>
     </HelpProvider>
   );
 }

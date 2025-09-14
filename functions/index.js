@@ -228,13 +228,25 @@ exports.getAdminStats = onRequest({
     });
 
     // Gemini 상태 처리
-    let geminiStatus = { state: 'unknown' };
+    let geminiStatus = { state: 'active' }; // 기본값을 active로 변경
     if (geminiStatusDoc.exists) {
       const statusData = geminiStatusDoc.data();
       geminiStatus = {
-        state: statusData.state || 'unknown',
+        state: statusData.state || 'active',
         lastUpdated: statusData.lastUpdated || null,
         message: statusData.message || null
+      };
+    } else {
+      // 문서가 없으면 자동으로 active 상태로 초기화
+      await db.collection('system_status').doc('gemini').set({
+        state: 'active',
+        lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+        message: 'System initialized'
+      });
+      geminiStatus = {
+        state: 'active',
+        lastUpdated: new Date(),
+        message: 'System initialized'
       };
     }
 

@@ -234,11 +234,9 @@ const getPublishingStats = wrap(async (request) => {
 
 // 보너스 원고 생성 권한 확인
 const checkBonusEligibility = wrap(async (request) => {
-  const uid = request.auth?.uid;
+  const { uid } = await auth(request);
 
-  if (!uid) {
-    throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
-  }
+  // auth 함수에서 이미 인증 검증이 완료됨
 
   try {
     const db = admin.firestore();
@@ -295,11 +293,9 @@ const checkBonusEligibility = wrap(async (request) => {
 
 // 보너스 원고 사용
 const useBonusGeneration = wrap(async (request) => {
-  const uid = request.auth?.uid;
+  const { uid } = await auth(request);
 
-  if (!uid) {
-    throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
-  }
+  // auth 함수에서 이미 인증 검증이 완료됨
 
   try {
     const db = admin.firestore();

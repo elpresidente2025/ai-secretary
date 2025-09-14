@@ -21,6 +21,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../../hooks/useAuth';
 import { callFunctionWithNaverAuth } from '../../services/firebaseService';
+import { useColor } from '../../contexts/ColorContext';
 
 // 7-세그먼트 숫자 컴포넌트 (3자리 고정)
 const SevenSegmentNumber = ({ number, color, size = 'small' }) => {
@@ -88,9 +89,9 @@ const SevenSegmentNumber = ({ number, color, size = 'small' }) => {
 
 const PublishingProgress = () => {
   const { user } = useAuth();
+  const { currentColor } = useColor();
   const [publishingStats, setPublishingStats] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [userPlanColor, setUserPlanColor] = useState('#152484');
 
   // 호버 시 랜덤 글로우 색상 생성 함수
   const getRandomGlowColor = () => {
@@ -100,41 +101,7 @@ const PublishingProgress = () => {
 
   const [currentGlowColor, setCurrentGlowColor] = useState('#00ffff');
 
-  // ElectionDDay와 색상 연동
-  useEffect(() => {
-    const colorOptions = [
-      '#d22730', '#152484', '#006261', '#f8c023', '#55207d', '#ffffff'
-    ];
-
-    const updateColor = () => {
-      const saved = localStorage.getItem('electionDDayColorIndex');
-      if (saved) {
-        const savedIndex = parseInt(saved);
-        if (savedIndex >= 0 && savedIndex < colorOptions.length) {
-          setUserPlanColor(colorOptions[savedIndex]);
-        }
-      }
-    };
-
-    // 초기 색상 설정
-    updateColor();
-
-    // localStorage 변경 감지 (다른 탭)
-    const handleStorageChange = (e) => {
-      if (e.key === 'electionDDayColorIndex') {
-        updateColor();
-      }
-    };
-
-    // 폴링으로 같은 탭에서의 변경 감지
-    const interval = setInterval(updateColor, 300);
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      clearInterval(interval);
-    };
-  }, []);
+  // ColorContext에서 색상을 자동으로 동기화하므로 별도 로직 불필요
 
   useEffect(() => {
     let mounted = true;
@@ -481,19 +448,19 @@ const PublishingProgress = () => {
               boxShadow: 'inset 4px 4px 10px rgba(0,0,0,0.8), inset -2px -2px 5px rgba(255,255,255,0.1)'
             }}
           >
-            <SevenSegmentNumber 
-              number={Math.round(progress)} 
-              color={userPlanColor}
+            <SevenSegmentNumber
+              number={Math.round(progress)}
+              color={currentColor}
             />
             <Typography
               variant="caption"
               sx={{
-                color: `${userPlanColor} !important`,
+                color: `${currentColor} !important`,
                 fontFamily: 'monospace',
                 fontWeight: 700,
                 fontSize: '0.75rem',
                 lineHeight: 1,
-                textShadow: `0 0 6px ${userPlanColor}`,
+                textShadow: `0 0 6px ${currentColor}`,
                 transition: 'color 0.8s ease, text-shadow 0.8s ease'
               }}
             >
@@ -539,15 +506,15 @@ const PublishingProgress = () => {
                   height: '100%',
                   width: `${progress}%`,
                   background: currentStage === 'completed'
-                    ? `linear-gradient(90deg, ${userPlanColor}, #39ff14)`
+                    ? `linear-gradient(90deg, ${currentColor}, #39ff14)`
                     : currentStage === 'bonus'
                     ? 'linear-gradient(90deg, #f8c023, #ffff00)' // 보너스 단계는 노란색
-                    : `linear-gradient(90deg, ${userPlanColor}, ${userPlanColor}AA)`,
+                    : `linear-gradient(90deg, ${currentColor}, ${currentColor}AA)`,
                   boxShadow: currentStage === 'completed'
                     ? '0 0 12px #39ff14, inset 0 0 8px rgba(57,255,20,0.3)'
                     : currentStage === 'bonus'
                     ? '0 0 12px #f8c023, inset 0 0 8px rgba(248,192,35,0.3)'
-                    : `0 0 12px ${userPlanColor}, inset 0 0 8px ${userPlanColor}50`,
+                    : `0 0 12px ${currentColor}, inset 0 0 8px ${currentColor}50`,
                   transition: 'all 0.5s ease',
                   borderRadius: '1px'
                 }}

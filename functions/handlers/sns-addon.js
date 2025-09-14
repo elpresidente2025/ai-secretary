@@ -2,6 +2,7 @@
 const { HttpsError } = require('firebase-functions/v2/https');
 const { wrap } = require('../common/wrap');
 const { ok, error } = require('../common/response');
+const { auth } = require('../common/auth');
 const { admin, db } = require('../utils/firebaseAdmin');
 const { callGenerativeModel } = require('../services/gemini');
 
@@ -342,11 +343,9 @@ exports.convertToSNS = wrap(async (req) => {
  * SNS 애드온 사용량 조회
  */
 exports.getSNSUsage = wrap(async (req) => {
-  const { uid } = req.auth || {};
+  const { uid } = await auth(req);
 
-  if (!uid) {
-    throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
-  }
+  // auth 함수에서 이미 인증 검증이 완료됨
 
   try {
     const userDoc = await db.collection('users').doc(uid).get();
@@ -374,22 +373,33 @@ exports.getSNSUsage = wrap(async (req) => {
 
     // SNS 접근 권한 확인
     const hasAddonAccess = isAdmin || userData.snsAddon?.isActive || userData.gamification?.snsUnlocked || userPlan === '오피니언 리더';
+
+    // 관리자는 무제한 사용
+    if (isAdmin) {
+      return ok({
+        isActive: true,
+        monthlyLimit: 999999, // 관리자 무제한
+        currentMonthUsage: 0,
+        remaining: 999999,
+        accessMethod: 'admin'
+      });
+    }
+
     const monthlyLimit = getSNSMonthlyLimit(userPlan);
-    
+
     // 현재 월 사용량 계산
     const now = new Date();
     const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     const monthlyUsage = userData.snsAddon?.monthlyUsage || {};
     const currentMonthUsage = monthlyUsage[currentMonthKey] || 0;
-    
+
     return ok({
       isActive: hasAddonAccess,
       monthlyLimit: monthlyLimit,
       currentMonthUsage: currentMonthUsage,
       remaining: Math.max(0, monthlyLimit - currentMonthUsage),
-      accessMethod: isAdmin ? 'admin' : 
-                   userPlan === '오피니언 리더' ? 'plan_included' :
-                   userData.snsAddon?.isActive ? 'paid' : 
+      accessMethod: userPlan === '오피니언 리더' ? 'plan_included' :
+                   userData.snsAddon?.isActive ? 'paid' :
                    userData.gamification?.snsUnlocked ? 'gamification' : 'none'
     });
 
@@ -403,11 +413,9 @@ exports.getSNSUsage = wrap(async (req) => {
  * SNS 애드온 구매/활성화
  */
 exports.purchaseSNSAddon = wrap(async (req) => {
-  const { uid } = req.auth || {};
+  const { uid } = await auth(req);
 
-  if (!uid) {
-    throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
-  }
+  // auth 함수에서 이미 인증 검증이 완료됨
 
   try {
     // 사용자 정보 조회하여 플랜 확인

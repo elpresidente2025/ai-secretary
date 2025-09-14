@@ -422,7 +422,7 @@ export const testSNS = async () => {
  * @returns {Promise<object>} 사용량 정보
  */
 export const getSNSUsage = async () => {
-  return await callFunctionWithRetry('getSNSUsage');
+  return await callFunctionWithNaverAuth('getSNSUsage');
 };
 
 /**
@@ -430,5 +430,5 @@ export const getSNSUsage = async () => {
  * @returns {Promise<object>} 구매 결과
  */
 export const purchaseSNSAddon = async () => {
-  return await callFunctionWithRetry('purchaseSNSAddon');
+  return await callFunctionWithNaverAuth('purchaseSNSAddon');
 };

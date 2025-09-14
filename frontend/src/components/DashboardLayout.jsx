@@ -164,16 +164,7 @@ const DashboardLayout = ({ children }) => {
             </>
           )}
 
-          {/* 모바일: 다크모드 토글만 */}
-          {isMobile && (
-            <IconButton
-              color="inherit"
-              onClick={toggleTheme}
-              sx={{ color: 'white', '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' } }}
-            >
-              {isDarkMode ? <LightMode /> : <DarkMode />}
-            </IconButton>
-          )}
+          {/* 모바일: 헤더에는 아무것도 표시하지 않음 (햄버거 메뉴 내부에서 처리) */}
         </Toolbar>
       </AppBar>
 

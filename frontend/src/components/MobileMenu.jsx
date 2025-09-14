@@ -13,7 +13,6 @@ import {
 } from '@mui/material';
 import {
   Menu as MenuIcon,
-  Close as CloseIcon,
   Create,
   History,
   Settings,
@@ -93,14 +92,13 @@ const MobileMenu = () => {
           top: 16,
           right: 16,
           zIndex: 9999,
-          bgcolor: '#152484',
           color: 'white',
-          '&:hover': { bgcolor: '#1a2a94' },
+          '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.1)' },
           width: 48,
           height: 48
         }}
       >
-        {isOpen ? <CloseIcon /> : <MenuIcon />}
+        <MenuIcon />
       </IconButton>
 
       {/* 메뉴 패널 */}
@@ -159,7 +157,9 @@ const MobileMenu = () => {
             ))}
             <ListItem disablePadding>
               <ListItemButton onClick={toggleTheme}>
-                <ListItemIcon>{isDarkMode ? <LightMode /> : <DarkMode />}</ListItemIcon>
+                <ListItemIcon>
+                  {isDarkMode ? <LightMode /> : <DarkMode />}
+                </ListItemIcon>
                 <ListItemText primary={isDarkMode ? "라이트 모드" : "다크 모드"} />
               </ListItemButton>
             </ListItem>

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../services/firebase';
 import { useAuth } from './useAuth';
+import { callFunctionWithNaverAuth } from '../services/firebaseService';
 
 export const useBonus = () => {
   const { user } = useAuth();
@@ -24,7 +25,7 @@ export const useBonus = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await callCheckBonusEligibility();
+      const response = await callFunctionWithNaverAuth('checkBonusEligibility');
       setBonusStats(response.data || {
         hasBonus: false,
         availableBonus: 0,
@@ -53,7 +54,7 @@ export const useBonus = () => {
     }
 
     try {
-      await callUseBonusGeneration();
+      await callFunctionWithNaverAuth('useBonusGeneration');
       // 사용 후 다시 조회하여 업데이트
       await fetchBonusStats();
       return true;
