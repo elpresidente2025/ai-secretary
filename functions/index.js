@@ -20,6 +20,13 @@ const dashboardHandler = require('./handlers/dashboard');
 const noticesHandler = require('./handlers/notices');
 const adminHandler = require('./handlers/admin');
 const performanceHandler = require('./handlers/performance');
+let systemHandler;
+try {
+  systemHandler = require('./handlers/system');
+} catch (e) {
+  // Fallback to clean implementation if legacy file has encoding issues
+  systemHandler = require('./handlers/system.clean');
+}
 const publishingHandler = require('./handlers/publishing');
 const adminUsersHandler = require('./handlers/admin-users');
 const snsAddonHandler = require('./handlers/sns-addon');
@@ -172,19 +179,100 @@ exports.getAdminStats = onRequest({
     res.set('Access-Control-Allow-Origin', '*');
     res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    
+
     if (req.method === 'OPTIONS') {
       res.status(204).send('');
       return;
     }
-    
+
     console.log('🔥 getAdminStats 시작');
-    res.json({ success: true, message: '관리자 통계 기능은 현재 구현 중입니다.' });
+
+    const { admin, db } = require('./utils/firebaseAdmin');
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const last30mStart = new Date(now.getTime() - 30 * 60 * 1000);
+    const last7dStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    // 병렬로 모든 통계 데이터 수집
+    const [todayPostsSnapshot, last30mErrorsSnapshot, last7dUsersSnapshot, geminiStatusDoc] = await Promise.all([
+      // 오늘 생성된 문서
+      db.collection('posts')
+        .where('createdAt', '>=', todayStart)
+        .get(),
+
+      // 최근 30분 에러 로그
+      db.collection('error_logs')
+        .where('timestamp', '>=', last30mStart)
+        .get(),
+
+      // 최근 7일 활성 사용자 (로그인한 사용자)
+      db.collection('users')
+        .where('lastLoginAt', '>=', last7dStart)
+        .get(),
+
+      // Gemini API 상태
+      db.collection('system_status').doc('gemini').get()
+    ]);
+
+    // 오늘 문서 생성 성공/실패 통계
+    let todaySuccess = 0;
+    let todayFail = 0;
+
+    todayPostsSnapshot.forEach(doc => {
+      const data = doc.data();
+      if (data.status === 'completed' || data.status === 'published') {
+        todaySuccess++;
+      } else if (data.status === 'failed' || data.status === 'error') {
+        todayFail++;
+      }
+    });
+
+    // Gemini 상태 처리
+    let geminiStatus = { state: 'unknown' };
+    if (geminiStatusDoc.exists) {
+      const statusData = geminiStatusDoc.data();
+      geminiStatus = {
+        state: statusData.state || 'unknown',
+        lastUpdated: statusData.lastUpdated || null,
+        message: statusData.message || null
+      };
+    }
+
+    const stats = {
+      todaySuccess,
+      todayFail,
+      last30mErrors: last30mErrorsSnapshot.size,
+      activeUsers: last7dUsersSnapshot.size,
+      geminiStatus,
+      timestamp: now.toISOString()
+    };
+
+    console.log('✅ getAdminStats 완료:', stats);
+    res.json({
+      success: true,
+      data: stats
+    });
+
   } catch (error) {
     console.error('❌ getAdminStats 오류:', error);
-    res.status(500).json({ success: false, error: 'internal', message: '서버 내부 오류가 발생했습니다.' });
+    res.status(500).json({
+      success: false,
+      error: 'internal',
+      message: '서버 내부 오류가 발생했습니다.',
+      // 에러 시 기본값 반환
+      data: {
+        todaySuccess: 0,
+        todayFail: 0,
+        last30mErrors: 0,
+        activeUsers: 0,
+        geminiStatus: { state: 'unknown' }
+      }
+    });
   }
 });
+
+// 시스템 상태 관련 (Gemini 상태 수동 업데이트 - onCall)
+exports.updateGeminiStatus = systemHandler.updateGeminiStatus;
 
 exports.getErrorLogs = onRequest({
   region: 'asia-northeast3', 

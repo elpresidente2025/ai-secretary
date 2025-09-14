@@ -196,6 +196,36 @@ const Dashboard = () => {
     navigate('/billing');
   };
 
+  // 당원 인증 상태 판단 함수
+  const getAuthStatus = () => {
+    // 실제 인증 데이터가 있다면 user.authStatus, user.authExpiry 등을 사용
+    // 현재는 임시로 2025년 4월 1일을 만료일로 설정
+    const authExpiry = new Date('2025-04-01');
+    const today = new Date();
+    const daysUntilExpiry = Math.ceil((authExpiry - today) / (1000 * 60 * 60 * 24));
+
+    // 15일 남은 시점부터 경고
+    if (daysUntilExpiry <= 15) {
+      return {
+        status: 'warning',
+        image: '/buttons/AuthFail.png',
+        title: daysUntilExpiry > 0 ? '인증 만료 임박' : '인증 만료됨',
+        message: daysUntilExpiry > 0
+          ? `${daysUntilExpiry}일 후 만료 예정`
+          : '인증이 만료되었습니다'
+      };
+    } else {
+      return {
+        status: 'active',
+        image: '/buttons/AuthPass.png',
+        title: '인증 완료',
+        message: `${authExpiry.toLocaleDateString('ko-KR')}까지`
+      };
+    }
+  };
+
+  const authStatus = getAuthStatus();
+
   // 유틸리티 함수들 (PostsListPage에서 가져옴)
   const formatDate = (iso) => {
     try {
@@ -292,8 +322,7 @@ const Dashboard = () => {
   if (isLoading) {
     return (
       <DashboardLayout>
-        <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
-        </Container>
+        <LoadingSpinner />
       </DashboardLayout>
     );
   }
@@ -302,14 +331,14 @@ const Dashboard = () => {
   if (error) {
     return (
       <DashboardLayout>
-        <Container maxWidth="xl" sx={{ py: 4, px: { xs: 2, md: 4 } }}>
+        <Box sx={{ py: 4, px: { xs: 2, md: 4 }, maxWidth: '1200px', mx: 'auto' }}>
           <Alert severity="error" sx={{ mb: 3 }}>
             {error}
           </Alert>
           <Button variant="contained" onClick={() => window.location.reload()}>
             다시 시도
           </Button>
-        </Container>
+        </Box>
       </DashboardLayout>
     );
   }
@@ -323,11 +352,12 @@ const Dashboard = () => {
 
   return (
     <DashboardLayout>
-      <Container 
-        maxWidth="xl" 
-        sx={{ 
-          py: 4, 
-          px: { xs: 2, md: 4 }
+      <Box
+        sx={{
+          py: 4,
+          px: { xs: 2, md: 4 },
+          maxWidth: '1200px',
+          mx: 'auto'
         }}
       >
         {/* 공지사항 배너 - 최상단에 위치 */}
@@ -342,7 +372,7 @@ const Dashboard = () => {
               elevation={0}
               data-greeting-card="true"
               sx={{
-                p: 3,
+                p: { xs: 2, md: 2.5 },
                 height: '100%'
               }}
             >
@@ -350,83 +380,134 @@ const Dashboard = () => {
           {isMobile ? (
             <Box>
               {/* 인사말 */}
-              <Typography variant="h5" sx={{ fontWeight: 600, mb: 1 }}>
+              <Typography variant="h5" sx={{ fontWeight: 600, mb: 2 }}>
                 안녕하세요, {user?.name || '사용자'} {getUserDisplayTitle(user)} {userIcon}
               </Typography>
-              
-              {/* 지역 정보 */}
-              {regionInfo && (
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  {regionInfo}
-                </Typography>
-              )}
-              
-              {/* 플랜 정보 */}
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
-                <Typography variant="body1">
-                  플랜: <strong style={{ color: planColor }}>{planName}</strong>
-                </Typography>
-                {!isAdmin && (
-                  <Typography variant="body2" color="text.secondary">
-                    · 잔여 생성: {usage.postsGenerated}/{usage.monthlyLimit}회
-                  </Typography>
-                )}
-                {isAdmin && (
-                  <Chip label="무제한" sx={{ bgcolor: planColor, color: 'white' }} size="small" />
-                )}
-              </Box>
-              
-              {/* 액션 버튼들 */}
-              <Box sx={{ display: 'flex', gap: 2, flexDirection: 'column', mb: 3 }}>
-                <Button 
-                  variant="contained" 
-                  size="large" 
-                  startIcon={<Create />}
-                  onClick={handleGeneratePost}
-                  disabled={!canGeneratePost}
-                  fullWidth
-                  sx={{ 
-                    bgcolor: canGeneratePost ? planColor : '#757575',
-                    color: '#ffffff',
-                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                    '&:hover': canGeneratePost ? { 
-                      bgcolor: planColor, 
-                      filter: 'brightness(0.9)',
-                      transform: 'scale(0.98)',
-                      boxShadow: `0 8px 32px ${planColor}40, 0 4px 16px ${planColor}20`,
-                    } : {},
-                    '&.Mui-disabled': {
-                      bgcolor: '#757575 !important',
-                      color: 'rgba(255, 255, 255, 0.6) !important'
-                    }
-                  }}
-                >
-                  새 원고 생성
-                </Button>
-                <Button 
-                  variant="contained" 
-                  size="large"
-                  startIcon={<Settings />}
-                  onClick={handleChangePlan}
-                  fullWidth
-                  sx={{ 
-                    bgcolor: showBioAlert ? '#f8c023' : '#003a87',
-                    color: '#ffffff',
-                    border: 'none',
-                    '&:hover': { 
-                      bgcolor: showBioAlert ? '#e6a91c' : '#002d66',
-                    },
-                    ...(showBioAlert && {
-                      animation: 'profileEditBlink 2s ease-in-out infinite',
-                      '@keyframes profileEditBlink': {
-                        '0%, 50%, 100%': { opacity: 1 },
-                        '25%, 75%': { opacity: 0.6 }
+
+              {/* 지역 정보와 플랜 정보, 인증 상태, 버튼들 */}
+              <Box sx={{ display: 'flex', gap: 2, alignItems: 'stretch' }}>
+                {/* 왼쪽: 지역/플랜 정보 */}
+                <Box sx={{ flex: 1 }}>
+                  {/* 지역 정보 */}
+                  {regionInfo && (
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.2 }}>
+                      {regionInfo}
+                    </Typography>
+                  )}
+
+                  {/* 플랜 정보 */}
+                  <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+                    <Typography variant="body1">
+                      플랜: <strong style={{ color: planColor }}>{planName}</strong>
+                    </Typography>
+                    {!isAdmin && (
+                      <Typography variant="body2" color="text.secondary">
+                        · 잔여 생성: {usage.postsGenerated}/{usage.monthlyLimit}회
+                      </Typography>
+                    )}
+                    {isAdmin && (
+                      <Chip label="무제한" sx={{ bgcolor: planColor, color: 'white' }} size="small" />
+                    )}
+                  </Box>
+                </Box>
+
+                {/* 가운데+오른쪽: 인증 상태와 액션 버튼들을 묶은 컨테이너 */}
+                <Box sx={{ display: 'flex', gap: 2, alignItems: 'stretch' }}>
+                  {/* 인증 상태 */}
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      cursor: 'pointer',
+                      transition: 'transform 0.2s ease',
+                      '&:hover': {
+                        transform: 'scale(1.02)'
                       }
-                    })
-                  }}
-                >
-                  프로필 수정 {showBioAlert && '⚠️'}
-                </Button>
+                    }}
+                    onClick={handleViewBilling}
+                  >
+                    <Box
+                      component="img"
+                      src={authStatus.image}
+                      alt={authStatus.title}
+                      sx={{
+                        width: '60px',
+                        height: 'auto',
+                        mb: 0.5,
+                        filter: 'drop-shadow(0 1px 4px rgba(0,0,0,0.1))'
+                      }}
+                    />
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem', textAlign: 'center', fontWeight: 500 }}>
+                      {authStatus.message}
+                    </Typography>
+                  </Box>
+
+                  {/* 액션 버튼들 - 인증 영역 전체 높이에 맞춤 */}
+                  <Box sx={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                    gap: 1.5,
+                    minWidth: '120px'
+                  }}>
+                    <Button
+                      variant="contained"
+                      size="medium"
+                      startIcon={<Create />}
+                      onClick={handleGeneratePost}
+                      disabled={!canGeneratePost}
+                      fullWidth
+                      sx={{
+                        bgcolor: canGeneratePost ? planColor : '#757575',
+                        color: '#ffffff',
+                        fontSize: '0.75rem',
+                        py: 1.2,
+                        minHeight: '44px',
+                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                        '&:hover': canGeneratePost ? {
+                          bgcolor: planColor,
+                          filter: 'brightness(0.9)',
+                          transform: 'scale(0.98)',
+                          boxShadow: `0 8px 32px ${planColor}40, 0 4px 16px ${planColor}20`,
+                        } : {},
+                        '&.Mui-disabled': {
+                          bgcolor: '#757575 !important',
+                          color: 'rgba(255, 255, 255, 0.6) !important'
+                        }
+                      }}
+                    >
+                      새 원고 생성
+                    </Button>
+                    <Button
+                      variant="contained"
+                      size="medium"
+                      startIcon={<Settings />}
+                      onClick={handleChangePlan}
+                      fullWidth
+                      sx={{
+                        bgcolor: showBioAlert ? '#f8c023' : '#003a87',
+                        color: '#ffffff',
+                        fontSize: '0.75rem',
+                        py: 1.2,
+                        minHeight: '44px',
+                        border: 'none',
+                        '&:hover': {
+                          bgcolor: showBioAlert ? '#e6a91c' : '#002d66',
+                        },
+                        ...(showBioAlert && {
+                          animation: 'profileEditBlink 2s ease-in-out infinite',
+                          '@keyframes profileEditBlink': {
+                            '0%, 50%, 100%': { opacity: 1 },
+                            '25%, 75%': { opacity: 0.6 }
+                          }
+                        })
+                      }}
+                    >
+                      프로필 수정
+                    </Button>
+                  </Box>
+                </Box>
               </Box>
 
               {/* 프로필 미완료 경고 메시지 */}
@@ -481,71 +562,142 @@ const Dashboard = () => {
                   </Button>
                 </Box>
               )}
-              
-              {/* 당원 인증 상태 */}
-              <Box sx={{ mt: 2, p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-                <Typography variant="subtitle2" sx={{ mb: 1, display: 'flex', alignItems: 'center' }}>
-                  <Schedule sx={{ mr: 1, color: '#55207d', fontSize: 18 }} />
-                  당원 인증 상태
-                </Typography>
-                <Alert severity="success" sx={{ mb: 1, py: 0.5 }}>
-                  <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-                    2025년 1분기 인증 완료
-                  </Typography>
-                </Alert>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                  다음 인증 예정: 2025년 4월 1일
-                </Typography>
-                <Button 
-                  variant="contained" 
-                  size="small" 
-                  onClick={handleViewBilling}
-                  sx={{ 
-                    bgcolor: '#55207d',
-                    color: '#ffffff',
-                    border: 'none',
-                    fontSize: '0.75rem',
-                    py: 0.5,
-                    '&:hover': {
-                      bgcolor: '#3e1558'
-                    }
-                  }}
-                >
-                  인증 관리
-                </Button>
-              </Box>
             </Box>
           ) : (
             /* PC 버전 - 수평 레이아웃 (2:1:1 비율) */
             <Box>
               <Grid container spacing={3} alignItems="stretch">
-                {/* 인사말 영역 (2/4 = 50%) */}
-                <Grid item xs={12} md={6}>
+                {/* 인사말 영역 (전체 너비) */}
+                <Grid item xs={12}>
                   {/* 인사말 */}
-                  <Typography variant="h4" sx={{ fontWeight: 600, mb: 1 }}>
+                  <Typography variant="h4" sx={{ fontWeight: 600, mb: 2 }}>
                     안녕하세요, {user?.name || '사용자'} {getUserDisplayTitle(user)} {userIcon}
                   </Typography>
-                  
-                  {/* 지역 정보 */}
-                  {regionInfo && (
-                    <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
-                      {regionInfo}
-                    </Typography>
-                  )}
-                  
-                  {/* 플랜 정보 */}
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-                    <Typography variant="h6">
-                      플랜: <strong style={{ color: planColor }}>{planName}</strong>
-                    </Typography>
-                    {!isAdmin && (
-                      <Typography variant="body1" color="text.secondary">
-                        · 잔여 생성: {usage.postsGenerated}/{usage.monthlyLimit}회
-                      </Typography>
-                    )}
-                    {isAdmin && (
-                      <Chip label="무제한" sx={{ bgcolor: planColor, color: 'white' }} />
-                    )}
+
+                  {/* 지역 정보와 플랜 정보, 인증 상태, 버튼들 */}
+                  <Box sx={{ display: 'flex', gap: 3, alignItems: 'stretch' }}>
+                    {/* 왼쪽: 지역/플랜 정보 */}
+                    <Box sx={{ flex: 1 }}>
+                      {/* 지역 정보 */}
+                      {regionInfo && (
+                        <Typography variant="h6" color="text.secondary" sx={{ mb: 0.2 }}>
+                          {regionInfo}
+                        </Typography>
+                      )}
+
+                      {/* 플랜 정보 */}
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Typography variant="h6">
+                          플랜: <strong style={{ color: planColor }}>{planName}</strong>
+                        </Typography>
+                        {!isAdmin && (
+                          <Typography variant="body1" color="text.secondary">
+                            · 잔여 생성: {usage.postsGenerated}/{usage.monthlyLimit}회
+                          </Typography>
+                        )}
+                        {isAdmin && (
+                          <Chip label="무제한" sx={{ bgcolor: planColor, color: 'white' }} />
+                        )}
+                      </Box>
+                    </Box>
+
+                    {/* 가운데+오른쪽: 인증 상태와 액션 버튼들을 묶은 컨테이너 */}
+                    <Box sx={{ display: 'flex', gap: 3, alignItems: 'stretch' }}>
+                      {/* 인증 상태 */}
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          cursor: 'pointer',
+                          transition: 'transform 0.2s ease',
+                          '&:hover': {
+                            transform: 'scale(1.02)'
+                          }
+                        }}
+                        onClick={handleViewBilling}
+                      >
+                        <Box
+                          component="img"
+                          src={authStatus.image}
+                          alt={authStatus.title}
+                          sx={{
+                            width: '80px',
+                            height: 'auto',
+                            mb: 0.5,
+                            filter: 'drop-shadow(0 1px 4px rgba(0,0,0,0.1))'
+                          }}
+                        />
+                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem', textAlign: 'center', fontWeight: 500 }}>
+                          {authStatus.message}
+                        </Typography>
+                      </Box>
+
+                      {/* 액션 버튼들 - 인증 영역 전체 높이에 맞춤 */}
+                      <Box sx={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'center',
+                        gap: 2,
+                        minWidth: '140px'
+                      }}>
+                        <Button
+                          variant="contained"
+                          size="medium"
+                          startIcon={<Create />}
+                          onClick={handleGeneratePost}
+                          disabled={!canGeneratePost}
+                          fullWidth
+                          sx={{
+                            bgcolor: canGeneratePost ? planColor : '#757575',
+                            color: '#ffffff',
+                            fontSize: '0.875rem',
+                            py: 1.5,
+                            minHeight: '50px',
+                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                            '&:hover': canGeneratePost ? {
+                              bgcolor: planColor,
+                              filter: 'brightness(0.9)',
+                              transform: 'scale(0.98)',
+                              boxShadow: `0 8px 32px ${planColor}40, 0 4px 16px ${planColor}20`,
+                            } : {},
+                            '&.Mui-disabled': {
+                              bgcolor: '#757575 !important',
+                              color: 'rgba(255, 255, 255, 0.6) !important'
+                            }
+                          }}
+                        >
+                          새 원고 생성
+                        </Button>
+                        <Button
+                          variant="contained"
+                          size="medium"
+                          startIcon={<Settings />}
+                          onClick={handleChangePlan}
+                          fullWidth
+                          sx={{
+                            bgcolor: showBioAlert ? '#f8c023' : '#003a87',
+                            color: '#ffffff',
+                            fontSize: '0.875rem',
+                            py: 1.5,
+                            minHeight: '50px',
+                            border: 'none',
+                            '&:hover': {
+                              bgcolor: showBioAlert ? '#e6a91c' : '#002d66',
+                            },
+                            ...(showBioAlert && {
+                              animation: 'profileEditBlink 2s ease-in-out infinite',
+                              '@keyframes profileEditBlink': {
+                                '0%, 50%, 100%': { opacity: 1 },
+                                '25%, 75%': { opacity: 0.6 }
+                              }
+                            })
+                          }}
+                        >
+                          프로필 수정{showBioAlert && ' ⚠️'}
+                        </Button>
+                      </Box>
+                    </Box>
                   </Box>
 
                   {/* PC용 사용량 현황 */}
@@ -588,99 +740,6 @@ const Dashboard = () => {
                       </Button>
                     </Box>
                   )}
-                </Grid>
-                
-                {/* 인증 상태 영역 (1/4 = 25%) */}
-                <Grid item xs={12} md={3}>
-                  <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                    <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1, height: 'fit-content' }}>
-                      <Typography variant="subtitle2" sx={{ mb: 1, display: 'flex', alignItems: 'center' }}>
-                        <Schedule sx={{ mr: 1, color: '#55207d', fontSize: 18 }} />
-                        당원 인증 상태
-                      </Typography>
-                      <Alert severity="success" sx={{ mb: 1, py: 0.5 }}>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-                          2025년 1분기 인증 완료
-                        </Typography>
-                      </Alert>
-                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                        다음 인증 예정: 2025년 4월 1일
-                      </Typography>
-                      <Button 
-                        variant="contained" 
-                        size="small" 
-                        onClick={handleViewBilling}
-                        sx={{ 
-                          bgcolor: '#55207d',
-                          color: '#ffffff',
-                          border: 'none',
-                          fontSize: '0.75rem',
-                          py: 0.5,
-                          width: '100%',
-                          '&:hover': {
-                            bgcolor: '#3e1558'
-                          }
-                        }}
-                      >
-                        인증 관리
-                      </Button>
-                    </Box>
-                  </Box>
-                </Grid>
-
-                {/* 액션 버튼 영역 (1/4 = 25%) */}
-                <Grid item xs={12} md={3}>
-                  <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 2 }}>
-                    <Button 
-                      variant="contained" 
-                      size="large" 
-                      startIcon={<Create />}
-                      onClick={handleGeneratePost}
-                      disabled={!canGeneratePost}
-                      fullWidth
-                      sx={{ 
-                        bgcolor: canGeneratePost ? planColor : '#757575',
-                        color: '#ffffff',
-                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                        '&:hover': canGeneratePost ? { 
-                          bgcolor: planColor, 
-                          filter: 'brightness(0.9)',
-                          transform: 'scale(0.98)',
-                          boxShadow: `0 8px 32px ${planColor}40, 0 4px 16px ${planColor}20`,
-                        } : {},
-                        '&.Mui-disabled': {
-                          bgcolor: '#757575 !important',
-                          color: 'rgba(255, 255, 255, 0.6) !important'
-                        }
-                      }}
-                    >
-                      새 원고 생성
-                    </Button>
-                    <Button 
-                      variant="contained" 
-                      size="large"
-                      startIcon={<Settings />}
-                      onClick={handleChangePlan}
-                      fullWidth
-                      sx={{ 
-                        bgcolor: showBioAlert ? '#f8c023' : '#003a87',
-                        color: '#ffffff',
-                        border: 'none',
-                        '&:hover': { 
-                          bgcolor: showBioAlert ? '#e6a91c' : '#002d66',
-                        },
-                        ...(showBioAlert && {
-                          animation: 'profileEditBlink 2s ease-in-out infinite',
-                          '@keyframes profileEditBlink': {
-                            '0%, 50%, 100%': { opacity: 1 },
-                            '25%, 75%': { opacity: 0.6 }
-                          }
-                        })
-                      }}
-                    >
-                      프로필 수정 {showBioAlert && '⚠️'}
-                    </Button>
-                  </Box>
                 </Grid>
               </Grid>
 
@@ -1082,7 +1141,7 @@ const Dashboard = () => {
             </Grid>
           </Grid>
         )}
-      </Container>
+      </Box>
 
       {/* 원고 보기 모달 */}
       <PostViewerModal

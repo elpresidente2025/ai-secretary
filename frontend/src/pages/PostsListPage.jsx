@@ -29,8 +29,6 @@ import { ContentCopy, DeleteOutline, Assignment, Publish, Link, Share } from '@m
 import DashboardLayout from '../components/DashboardLayout';
 import SNSConversionModal from '../components/SNSConversionModal';
 import { LoadingSpinner } from '../components/loading';
-import HelpButton from '../components/HelpButton';
-import ManagementGuide from '../components/guides/ManagementGuide';
 import PostViewerModal from '../components/PostViewerModal';
 import { useAuth } from '../hooks/useAuth';
 import { callFunctionWithNaverAuth } from '../services/firebaseService';
@@ -260,7 +258,7 @@ export default function PostsListPage() {
 
   return (
     <DashboardLayout title="포스트 목록">
-      <Container maxWidth="xl" sx={{ mt: 2, px: { xs: 1, sm: 2 } }}>
+      <Container maxWidth="xl" sx={{ py: 4, px: { xs: 1, sm: 2 } }}>
         {/* 페이지 헤더 */}
         <Box sx={{ mb: 4 }}>
           <Typography variant="h4" sx={{ 
@@ -290,7 +288,9 @@ export default function PostsListPage() {
           </Box>
         </Box>
         
-        <Paper sx={{ p: { xs: 2, sm: 3 } }}>
+        <Paper elevation={0} sx={{ 
+          p: { xs: 2, sm: 3 }
+        }}>
 
           <Typography variant="body2" sx={{ mb: 2, color: 'grey.100', fontStyle: 'italic' }}>
             이 화면은 읽기 전용입니다. 카드를 터치/클릭하면 원고가 열립니다. 복사 후 메모장 등 외부 편집기에서 직접 수정하세요.
@@ -314,12 +314,11 @@ export default function PostsListPage() {
                 return (
                   <Grid item xs={12} sm={6} md={4} key={p.id}>
                     <Card
-                      variant="outlined"
+                      elevation={0}
                       sx={{
                         height: '100%',
                         display: 'flex',
                         flexDirection: 'column',
-                        borderRadius: 2,
                       }}
                     >
                       <CardActionArea onClick={() => openViewer(p)} sx={{ flexGrow: 1 }}>
@@ -503,10 +502,6 @@ export default function PostsListPage() {
           post={snsPost}
         />
 
-        {/* 도움말 버튼 */}
-        <HelpButton title="원고 관리 가이드">
-          <ManagementGuide />
-        </HelpButton>
       </Container>
     </DashboardLayout>
   );

@@ -1,14 +1,20 @@
-/* 화이트 배경 */
+/* 화이트 배경 + 렌더링 최적화 */
 html, body {
   background: transparent;
-  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  scrollbar-gutter: stable;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "kern" 1;
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 #root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+  margin: 0;
+  padding: 0;
   background: transparent;
 }
 

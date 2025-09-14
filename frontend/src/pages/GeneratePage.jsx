@@ -15,10 +15,12 @@ import {
   DialogContent,
   DialogActions,
   IconButton,
-  Button
+  Button,
+  Typography
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import ShareIcon from '@mui/icons-material/Share';
+import { Create } from '@mui/icons-material';
 import DashboardLayout from '../components/DashboardLayout';
 import PromptForm from '../components/generate/PromptForm';
 import GenerateActions from '../components/generate/GenerateActions';
@@ -28,8 +30,6 @@ import { useAuth } from '../hooks/useAuth';
 import { useGenerateForm } from '../hooks/useGenerateForm';
 import { useGenerateAPI } from '../hooks/useGenerateAPI';
 import { useBonus } from '../hooks/useBonus';
-import HelpButton from '../components/HelpButton';
-import GenerateGuide from '../components/guides/GenerateGuide';
 import { getSNSUsage } from '../services/firebaseService';
 // 폼에서 사용할 카테고리/세부 카테고리 목록 데이터를 가져옵니다.
 import { CATEGORIES } from '../constants/formConstants';
@@ -111,8 +111,8 @@ const GeneratePage = () => {
   // 사용자 정보가 없으면 페이지 내용을 보여주지 않고 에러 메시지를 표시합니다.
   if (!user?.uid) {
     return (
-      <DashboardLayout title="원고 생성">
-        <Container maxWidth="xl">
+      <DashboardLayout>
+        <Container maxWidth="xl" sx={{ py: 4 }}>
           <Alert severity="error">
             사용자 정보를 불러올 수 없습니다. 다시 로그인해주세요.
           </Alert>
@@ -230,8 +230,22 @@ const GeneratePage = () => {
 
   // --- 🖥️ 화면 렌더링 ---
   return (
-    <DashboardLayout title={isMobile ? "새 원고 생성" : "AI 원고 생성"}>
-      <Container maxWidth="xl">
+    <DashboardLayout>
+      <Container maxWidth="xl" sx={{ py: 4 }}>
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h4" sx={{ 
+            fontWeight: 'bold', 
+            mb: 1, 
+            color: theme.palette.mode === 'dark' ? 'white' : 'black', 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 1 
+          }}>
+            <Create sx={{ color: theme.palette.mode === 'dark' ? 'white' : 'black' }} />
+            새 원고 생성
+          </Typography>
+        </Box>
+
         {/* API 에러가 있을 경우, 화면 상단에 에러 메시지를 보여줌 */}
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
@@ -369,10 +383,6 @@ const GeneratePage = () => {
         post={snsPost}
       />
 
-      {/* 도움말 버튼 */}
-      <HelpButton title="원고 생성 가이드">
-        <GenerateGuide />
-      </HelpButton>
     </DashboardLayout>
   );
 };

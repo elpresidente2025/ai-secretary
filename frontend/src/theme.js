@@ -99,40 +99,40 @@ const createCustomTheme = (isDarkMode) => createTheme({
     MuiPaper: {
       styleOverrides: {
         root: {
-          // 리퀴드 글래스 효과 - 다크모드 대응
+          // 글래스모피즘 효과
           backgroundColor: isDarkMode 
             ? 'rgba(255, 255, 255, 0.05)' 
-            : 'rgba(255, 255, 255, 0.08)',
+            : 'rgba(255, 255, 255, 0.15)',
           color: isDarkMode ? '#ffffff' : '#000000',
-          borderRadius: '6px',
+          borderRadius: '12px',
           border: isDarkMode 
             ? '1px solid rgba(255, 255, 255, 0.1)' 
-            : '1px solid rgba(255, 255, 255, 0.18)',
-          backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)',
+            : '1px solid rgba(255, 255, 255, 0.2)',
+          backdropFilter: 'blur(3px)',
+          WebkitBackdropFilter: 'blur(3px)',
           boxShadow: isDarkMode
-            ? '0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)'
-            : '0 8px 32px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.1)',
+            ? '0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
+            : '0 8px 32px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
         },
       },
     },
     MuiCard: {
       styleOverrides: {
         root: {
-          // 리퀴드 글래스 효과 - 다크모드 대응
+          // 글래스모피즘 효과
           backgroundColor: isDarkMode 
             ? 'rgba(255, 255, 255, 0.05)' 
-            : 'rgba(255, 255, 255, 0.08)',
+            : 'rgba(255, 255, 255, 0.15)',
           color: isDarkMode ? '#ffffff' : '#000000',
-          borderRadius: '6px',
+          borderRadius: '12px',
           border: isDarkMode 
             ? '1px solid rgba(255, 255, 255, 0.1)' 
-            : '1px solid rgba(255, 255, 255, 0.18)',
-          backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)',
+            : '1px solid rgba(255, 255, 255, 0.2)',
+          backdropFilter: 'blur(3px)',
+          WebkitBackdropFilter: 'blur(3px)',
           boxShadow: isDarkMode
-            ? '0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)'
-            : '0 8px 32px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.1)',
+            ? '0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
+            : '0 8px 32px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
         },
       },
     },
@@ -211,6 +211,74 @@ const createCustomTheme = (isDarkMode) => createTheme({
             },
             '&.Mui-focused fieldset': {
               borderColor: isDarkMode ? '#ffffff' : '#000000',
+            },
+          },
+        },
+      },
+    },
+    // CSS 렌더링 최적화 - 폰트 블러 방지
+    MuiCssBaseline: {
+      styleOverrides: {
+        html: {
+          WebkitFontSmoothing: 'antialiased',
+          MozOsxFontSmoothing: 'grayscale',
+          textRendering: 'optimizeLegibility',
+          fontFeatureSettings: '"kern" 1',
+        },
+        body: {
+          WebkitFontSmoothing: 'antialiased',
+          MozOsxFontSmoothing: 'grayscale',
+          textRendering: 'optimizeLegibility',
+          fontFeatureSettings: '"kern" 1',
+        },
+        '*': {
+          WebkitFontSmoothing: 'antialiased',
+          MozOsxFontSmoothing: 'grayscale',
+          textRendering: 'optimizeLegibility',
+          backfaceVisibility: 'hidden',
+          // transform: 'translateZ(0)', // 전역 가속은 스택 컨텍스트를 생성해 fixed 기준을 왜곡시킬 수 있음
+        },
+      },
+    },
+    // Dialog 컴포넌트 - 백드롭 그라데이션 및 글로우 효과
+    MuiDialog: {
+      styleOverrides: {
+        root: {
+          '& .MuiBackdrop-root': {
+            // 백드롭 그라데이션 (중앙에서 밝아짐)
+            background: isDarkMode 
+              ? 'radial-gradient(circle at center, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0.8) 70%)'
+              : 'radial-gradient(circle at center, rgba(0, 0, 0, 0.3) 0%, rgba(0, 0, 0, 0.6) 70%)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+          },
+        },
+        paper: {
+          // 팝업창 글로우 효과 및 강조
+          boxShadow: isDarkMode
+            ? '0 0 80px rgba(79, 195, 247, 0.3), 0 20px 60px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
+            : '0 0 60px rgba(1, 60, 149, 0.25), 0 20px 60px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
+          border: isDarkMode 
+            ? '2px solid rgba(79, 195, 247, 0.3)' 
+            : '2px solid rgba(1, 60, 149, 0.2)',
+          borderRadius: '12px',
+          backgroundColor: isDarkMode 
+            ? 'rgba(26, 26, 26, 0.95)' 
+            : 'rgba(255, 255, 255, 0.95)',
+          backdropFilter: 'blur(3px)',
+          WebkitBackdropFilter: 'blur(3px)',
+          // 글로우 애니메이션
+          animation: 'dialogGlow 3s ease-in-out infinite alternate',
+          '@keyframes dialogGlow': {
+            '0%': {
+              boxShadow: isDarkMode
+                ? '0 0 80px rgba(79, 195, 247, 0.3), 0 20px 60px rgba(0, 0, 0, 0.7)'
+                : '0 0 60px rgba(1, 60, 149, 0.25), 0 20px 60px rgba(0, 0, 0, 0.3)',
+            },
+            '100%': {
+              boxShadow: isDarkMode
+                ? '0 0 100px rgba(79, 195, 247, 0.4), 0 25px 70px rgba(0, 0, 0, 0.8)'
+                : '0 0 80px rgba(1, 60, 149, 0.35), 0 25px 70px rgba(0, 0, 0, 0.4)',
             },
           },
         },

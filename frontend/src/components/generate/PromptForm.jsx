@@ -83,14 +83,7 @@ export default function PromptForm({
   const formSize = isMobile ? "small" : "medium";
 
   return (
-    <Paper sx={{ p: isMobile ? 2 : 3, mb: isMobile ? 2 : 3 }}>
-      <Typography
-        variant={isMobile ? "h6" : "h5"}
-        sx={{ mb: 2, display: 'flex', alignItems: 'center' }}
-      >
-        <AutoAwesome sx={{ mr: 1, color: 'primary.main' }} />
-        {isMobile ? "원고 생성" : "AI 원고 생성"}
-      </Typography>
+    <Paper elevation={0} sx={{ p: isMobile ? 2 : 3, mb: isMobile ? 2 : 3 }}>
 
       <Grid container spacing={isMobile ? 2 : 3}>
         {/* 카테고리 */}

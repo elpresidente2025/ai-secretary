@@ -101,24 +101,31 @@ export const useNaverLogin = () => {
         
         localStorage.setItem('currentUser', JSON.stringify(currentUserData));
         
-        // 추가 프로필 정보 조회하여 localStorage 업데이트
-        try {
-          const { callFunctionWithNaverAuth } = await import('../services/firebaseService');
-          const profileResponse = await Promise.race([
-            callFunctionWithNaverAuth('getUserProfile'),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('functions call timeout')), 7000))
-          ]);
-          if (profileResponse?.profile) {
-            const updatedUserData = {
-              ...currentUserData,
-              ...profileResponse.profile
-            };
-            localStorage.setItem('currentUser', JSON.stringify(updatedUserData));
-            console.log('✅ 네이버 사용자 프로필 정보 업데이트 완료:', updatedUserData);
+        // 백그라운드에서 프로필 정보 조회 (메인 스레드 차단 방지)
+        setTimeout(async () => {
+          try {
+            const { callFunctionWithNaverAuth } = await import('../services/firebaseService');
+            const profileResponse = await Promise.race([
+              callFunctionWithNaverAuth('getUserProfile'),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('functions call timeout')), 3000))
+            ]);
+            if (profileResponse?.profile) {
+              const updatedUserData = {
+                ...currentUserData,
+                ...profileResponse.profile
+              };
+              localStorage.setItem('currentUser', JSON.stringify(updatedUserData));
+              console.log('✅ 네이버 사용자 프로필 정보 업데이트 완료:', updatedUserData);
+              
+              // CustomEvent로 프로필 업데이트 알림
+              window.dispatchEvent(new CustomEvent('userProfileUpdated', { 
+                detail: updatedUserData 
+              }));
+            }
+          } catch (profileError) {
+            console.warn('프로필 정보 조회 실패 (무시):', profileError.message);
           }
-        } catch (profileError) {
-          console.warn('프로필 정보 조회 실패 (무시):', profileError.message);
-        }
+        }, 100);
         
         window.location.href = '/dashboard';
       }

@@ -21,7 +21,7 @@ export default function DraftGrid({
 }) {
   if (items.length === 0) {
     return (
-      <Paper sx={{ p: 4, textAlign: 'center', color: 'text.secondary' }}>
+      <Paper elevation={0} sx={{ p: 4, textAlign: 'center', color: 'text.secondary' }}>
         <AutoAwesome sx={{ fontSize: 64, mb: 2, color: '#152484' }} />
         <Typography variant="h6" gutterBottom sx={{ color: 'black' }}>
           AI 원고 생성을 시작해보세요
@@ -75,6 +75,7 @@ export default function DraftGrid({
         {items.map((draft, index) => (
           <Card 
             key={draft.id || index} 
+            elevation={0}
             sx={{ 
               width: getCardWidth(),
               maxWidth: '100%',

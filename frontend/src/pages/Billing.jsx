@@ -143,16 +143,20 @@ const Billing = () => {
   };
 
   return (
-    <DashboardLayout title="인증 및 결제">
-      <Container maxWidth="lg">
+    <DashboardLayout>
+      <Container maxWidth="lg" sx={{ py: 4 }}>
         {/* 페이지 헤더 */}
         <Box sx={{ mb: 4 }}>
           <Typography variant="h4" sx={{ 
             fontWeight: 'bold', 
             mb: 1, 
-            color: theme.palette.mode === 'dark' ? 'white' : 'black' 
+            color: theme.palette.mode === 'dark' ? 'white' : 'black',
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 1 
           }}>
-            인증 및 결제 관리
+            <CreditCard sx={{ color: theme.palette.mode === 'dark' ? 'white' : 'black' }} />
+            인증 및 결제
           </Typography>
           <Typography variant="body1" color="text.secondary">
             요금제 변경과 당원 인증을 관리하세요
@@ -168,7 +172,12 @@ const Billing = () => {
           {/* 상단: 현재 플랜과 인증 상태 */}
           <Grid container spacing={3}>
             <Grid item xs={12} lg={4}>
-              <Paper sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <Paper elevation={0} sx={{ 
+                p: 3, 
+                height: '100%', 
+                display: 'flex', 
+                flexDirection: 'column'
+              }}>
               <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', fontSize: '1rem' }}>
                 <CreditCard sx={{ mr: 1 }} />
                 현재 플랜 및 인증 상태
@@ -234,7 +243,12 @@ const Billing = () => {
             </Grid>
 
             <Grid item xs={12} lg={4}>
-              <Paper sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <Paper elevation={0} sx={{ 
+                p: 3, 
+                height: '100%', 
+                display: 'flex', 
+                flexDirection: 'column'
+              }}>
                 <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', fontSize: '1rem' }}>
                   <Payment sx={{ mr: 1 }} />
                   결제 내역
@@ -256,7 +270,12 @@ const Billing = () => {
             </Grid>
 
             <Grid item xs={12} lg={4}>
-              <Paper sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <Paper elevation={0} sx={{ 
+                p: 3, 
+                height: '100%', 
+                display: 'flex', 
+                flexDirection: 'column'
+              }}>
                 <Typography variant="h6" sx={{ mb: 2, color: '#152484', fontSize: '1rem' }}>
                   서비스 제공 방식 및 환불 정책
                 </Typography>
@@ -285,7 +304,9 @@ const Billing = () => {
           </Grid>
 
           {/* 중단: 플랜 선택 */}
-          <Paper sx={{ p: 3 }}>
+          <Paper elevation={0} sx={{ 
+            p: 3
+          }}>
             <Typography variant="h6" sx={{ mb: 3, fontSize: '1.25rem', fontWeight: 'bold' }}>
               플랜 선택
             </Typography>
@@ -359,7 +380,9 @@ const Billing = () => {
           </Paper>
 
           {/* 하단: 애드온 서비스 */}
-          <Paper sx={{ p: 3 }}>
+          <Paper elevation={0} sx={{ 
+            p: 3
+          }}>
             <Typography variant="h6" sx={{ mb: 3, fontSize: '1.25rem', fontWeight: 'bold' }}>
               애드온 서비스
             </Typography>

@@ -67,7 +67,9 @@
       "Bash(gcloud projects describe:*)",
       "Bash(find:*)",
       "Bash(firebase functions:secrets:set:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "WebFetch(domain:asia-northeast3-ai-secretary-6e9c8.cloudfunctions.net)",
+      "WebFetch(domain:localhost)"
     ],
     "deny": [],
     "ask": [],
