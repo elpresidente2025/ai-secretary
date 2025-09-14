@@ -49,8 +49,6 @@ import { getUserFullTitle, getUserDisplayTitle, getUserRegionInfo, getUserStatus
 import { functions } from '../services/firebase';
 import { httpsCallable } from 'firebase/functions';
 import { callFunctionWithNaverAuth } from '../services/firebaseService';
-import HelpButton from '../components/HelpButton';
-import DashboardGuide from '../components/guides/DashboardGuide';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -336,15 +334,18 @@ const Dashboard = () => {
         <NoticeBanner />
         
         
-        {/* 인사말 + 플랜 카드 */}
-        <Paper 
-          elevation={0} 
-          sx={{ 
-            p: 3, 
-            mb: 3, 
-            bgcolor: 'transparent'
-          }}
-        >
+        {/* 인사말 + 선거 카운터 카드 */}
+        <Grid container spacing={3} sx={{ mb: 3, alignItems: 'stretch' }}>
+          {/* 인사말 카드 */}
+          <Grid item xs={12} sm={8}>
+            <Paper
+              elevation={0}
+              data-greeting-card="true"
+              sx={{
+                p: 3,
+                height: '100%'
+              }}
+            >
           {/* 모바일 버전 - 수직 스택 */}
           {isMobile ? (
             <Box>
@@ -696,14 +697,29 @@ const Dashboard = () => {
               )}
             </Box>
           )}
-        </Paper>
+            </Paper>
+          </Grid>
+
+          {/* 선거 카운터 카드 */}
+          <Grid item xs={12} sm={4}>
+            <ElectionDDay 
+              position={user?.position || '기초의원'} 
+              status={user?.status || '현역'} 
+            />
+          </Grid>
+        </Grid>
 
         {/* 콘텐츠 섹션 */}
         {isMobile ? (
           /* 모바일 - 수직 스택 */
           <Box>
             {/* 공지사항 카드 - 항상 표시 */}
-            <Paper elevation={0} sx={{ mb: 3, bgcolor: 'transparent' }}>
+            <Paper elevation={0} sx={{ 
+              mb: 3, 
+              bgcolor: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid rgba(255, 255, 255, 0.05)',
+              borderRadius: 2
+            }}>
               <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
                 <Typography variant="h6" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center' }}>
                   <Notifications sx={{ mr: 1, color: '#55207D' }} />
@@ -781,17 +797,15 @@ const Dashboard = () => {
               <PublishingProgress />
             </Box>
 
-            {/* 선거 일정 카드 */}
-            <Box sx={{ mb: 3 }}>
-              <ElectionDDay 
-                position={user?.position || '기초의원'} 
-                status={user?.status || '현역'} 
-              />
-            </Box>
 
 
             {/* 최근 생성한 글 */}
-            <Paper elevation={0} sx={{ mb: 3, bgcolor: 'transparent' }}>
+            <Paper elevation={0} sx={{ 
+              mb: 3, 
+              bgcolor: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid rgba(255, 255, 255, 0.05)',
+              borderRadius: 2
+            }}>
               <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
                 <Typography variant="h6" sx={{ fontWeight: 600 }}>
                   최근 생성한 글
@@ -841,7 +855,13 @@ const Dashboard = () => {
           <Grid container spacing={3}>
             {/* 좌측: 최근 생성한 글 */}
             <Grid item xs={12} md={6} xl={4}>
-              <Paper elevation={0} sx={{ height: 'fit-content', bgcolor: 'transparent' }}>
+              <Paper elevation={0} sx={{ 
+                height: 'fit-content', 
+                bgcolor: 'transparent',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: 2,
+                boxShadow: 'none'
+              }}>
                 <Box sx={{ p: 3, borderBottom: '1px solid', borderColor: 'divider' }}>
                   <Typography variant="h6" sx={{ fontWeight: 600 }}>
                     최근 생성한 글
@@ -890,7 +910,13 @@ const Dashboard = () => {
                 display: { xs: 'none', xl: 'block' } // 2K 미만에서는 숨김
               }}
             >
-              <Paper elevation={0} sx={{ height: 'fit-content', bgcolor: 'transparent' }}>
+              <Paper elevation={0} sx={{ 
+                height: 'fit-content', 
+                bgcolor: 'transparent',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: 2,
+                boxShadow: 'none'
+              }}>
                 <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
                   <Typography variant="h6" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center' }}>
                     <Notifications sx={{ mr: 1, color: '#55207D' }} />
@@ -970,17 +996,14 @@ const Dashboard = () => {
                 {/* 발행 진행률 카드 - 항상 상단에 */}
                 <PublishingProgress />
 
-                {/* 2K 이상에서 표시되는 선거 일정 */}
-                <Box sx={{ display: { xs: 'none', xl: 'block' } }}>
-                  <ElectionDDay 
-                    position={user?.position || '기초의원'} 
-                    status={user?.status || '현역'} 
-                  />
-                </Box>
 
                 {/* 2K 미만에서만 표시되는 공지사항 */}
                 <Box sx={{ display: { xs: 'block', xl: 'none' } }}>
-                  <Paper elevation={0} sx={{ bgcolor: 'transparent' }}>
+                  <Paper elevation={0} sx={{ 
+                    bgcolor: 'rgba(255, 255, 255, 0.03)',
+                          border: '1px solid rgba(255, 255, 255, 0.05)',
+                    borderRadius: 2
+                  }}>
                     <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
                       <Typography variant="h6" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center' }}>
                         <Notifications sx={{ mr: 1, color: '#55207D' }} />
@@ -1054,13 +1077,6 @@ const Dashboard = () => {
                   </Paper>
                 </Box>
 
-                {/* 2K 미만에서만 표시되는 선거 일정 */}
-                <Box sx={{ display: { xs: 'block', xl: 'none' } }}>
-                  <ElectionDDay 
-                    position={user?.position || '기초의원'} 
-                    status={user?.status || '현역'} 
-                  />
-                </Box>
 
               </Box>
             </Grid>
@@ -1092,10 +1108,6 @@ const Dashboard = () => {
         </Alert>
       </Snackbar>
 
-      {/* 도움말 버튼 */}
-      <HelpButton title="대시보드 사용 가이드">
-        <DashboardGuide />
-      </HelpButton>
     </DashboardLayout>
   );
 };
