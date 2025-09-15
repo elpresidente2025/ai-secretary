@@ -429,24 +429,35 @@ exports.checkUsageLimit = wrap(async (req) => {
 // 진짜 AI 원고 생성 함수 (백업에서 복구) - HTTP 버전
 exports.generatePosts = httpWrap(async (req) => {
   console.log('🔥 generatePosts HTTP 시작');
-  
-  // Authorization 헤더에서 토큰 추출
-  const authHeader = req.rawRequest.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    throw new HttpsError('unauthenticated', '인증이 필요합니다.');
+
+  let uid;
+  let decodedToken = null;
+
+  // 네이버 인증 데이터 체크
+  const data = req.data || {};
+  if (data.__naverAuth && data.__naverAuth.uid && data.__naverAuth.provider === 'naver') {
+    console.log('📱 네이버 사용자 인증 처리:', data.__naverAuth.uid);
+    uid = data.__naverAuth.uid;
+    // 네이버 인증 정보 제거 (처리 완료)
+    delete data.__naverAuth;
+  } else {
+    // Firebase 사용자 인증 처리
+    const authHeader = req.rawRequest.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new HttpsError('unauthenticated', '인증이 필요합니다.');
+    }
+
+    const idToken = authHeader.split('Bearer ')[1];
+
+    try {
+      decodedToken = await admin.auth().verifyIdToken(idToken);
+      uid = decodedToken.uid;
+    } catch (authError) {
+      console.error('❌ 토큰 검증 실패:', authError.message);
+      throw new HttpsError('unauthenticated', '유효하지 않은 인증 토큰입니다.');
+    }
   }
-  
-  const idToken = authHeader.split('Bearer ')[1];
-  let decodedToken;
-  
-  try {
-    decodedToken = await admin.auth().verifyIdToken(idToken);
-  } catch (authError) {
-    console.error('❌ 토큰 검증 실패:', authError.message);
-    throw new HttpsError('unauthenticated', '유효하지 않은 인증 토큰입니다.');
-  }
-  
-  const uid = decodedToken.uid;
+
   console.log('✅ 사용자 인증 성공:', uid);
   
   const useBonus = req.data?.useBonus || false;

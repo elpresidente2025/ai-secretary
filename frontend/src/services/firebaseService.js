@@ -131,13 +131,33 @@ export const callHttpFunction = async (functionName, data = {}) => {
   try {
     console.log(`🔥 HTTP Function 호출: ${functionName}`, data);
 
-    // Firebase Auth 토큰 가져오기
-    const user = auth.currentUser;
-    if (!user) {
-      throw new Error('로그인이 필요합니다.');
-    }
+    // 네이버 사용자 체크
+    const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+    console.log('🔍 사용자 정보:', { currentUser, firebaseUser: auth.currentUser });
 
-    const token = await user.getIdToken();
+    let token;
+
+    if (currentUser?.provider === 'naver') {
+      // 네이버 사용자의 경우 로컬스토리지에서 토큰 사용
+      console.log('📱 네이버 사용자 인증 처리');
+      if (!currentUser.uid) {
+        throw new Error('네이버 로그인 정보가 없습니다.');
+      }
+      // 네이버 사용자는 백엔드에서 __naverAuth로 처리
+      data.__naverAuth = {
+        uid: currentUser.uid,
+        provider: 'naver'
+      };
+      token = 'naver-auth'; // 임시 토큰
+    } else {
+      // Firebase 사용자의 경우 일반 토큰 사용
+      const user = auth.currentUser;
+      if (!user) {
+        throw new Error('로그인이 필요합니다.');
+      }
+      token = await user.getIdToken(true); // 강제 갱신
+      console.log('🔑 Firebase 토큰 획득 완료');
+    }
 
     // HTTP 함수 URL 구성
     const projectId = functions.app.options.projectId;
@@ -145,6 +165,7 @@ export const callHttpFunction = async (functionName, data = {}) => {
     const url = `https://${region}-${projectId}.cloudfunctions.net/${functionName}`;
 
     console.log('🔍 HTTP 요청 URL:', url);
+    console.log('🔍 요청 데이터:', { ...data, __naverAuth: data.__naverAuth ? '(있음)' : '(없음)' });
 
     const response = await fetch(url, {
       method: 'POST',
@@ -157,7 +178,12 @@ export const callHttpFunction = async (functionName, data = {}) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('❌ HTTP 함수 응답 오류:', { status: response.status, statusText: response.statusText, errorText });
+      console.error('❌ HTTP 함수 응답 오류:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorText,
+        isNaver: currentUser?.provider === 'naver'
+      });
       throw new Error(`HTTP ${response.status}: ${errorText}`);
     }
 
