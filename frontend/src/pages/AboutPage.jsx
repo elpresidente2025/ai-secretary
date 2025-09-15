@@ -541,8 +541,7 @@ const AboutPage = () => {
             </Grid>
 
             <Grid item xs={12} md={4}>
-              <PricingCard popular>
-                <PopularBadge label="인기" size="small" />
+              <PricingCard>
                 <CardContent sx={{ p: 3, textAlign: 'center' }}>
                   <Typography variant="h6" sx={{ mb: 2 }}>
                     🌆 영향력 확대
