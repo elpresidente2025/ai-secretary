@@ -351,3 +351,55 @@ exports.analyzeUserProfileOnUpdate = onDocumentUpdated('users/{userId}', async (
   }
   return null;
 });
+
+/**
+ * @trigger cleanupDistrictClaimsOnUserDelete
+ * @description 사용자가 삭제되면 해당 사용자의 선거구 점유 기록을 자동으로 정리합니다.
+ */
+const { onDocumentDeleted } = require('firebase-functions/v2/firestore');
+
+exports.cleanupDistrictClaimsOnUserDelete = onDocumentDeleted('users/{userId}', async (event) => {
+  const userId = event.params.userId;
+  const userData = event.data.data();
+
+  console.log(`🧹 사용자 삭제 감지 - 선거구 점유 기록 정리 시작:`, { userId });
+
+  try {
+    // 해당 사용자가 점유한 모든 선거구 찾기
+    const snapshot = await db.collection('district_claims').where('userId', '==', userId).get();
+
+    if (snapshot.empty) {
+      console.log(`ℹ️ 사용자 ${userId}의 선거구 점유 기록이 없습니다.`);
+      return;
+    }
+
+    // 배치로 모든 점유 기록 삭제
+    const batch = db.batch();
+    const deletedDistricts = [];
+
+    snapshot.forEach(doc => {
+      batch.delete(doc.ref);
+      deletedDistricts.push(doc.id);
+    });
+
+    await batch.commit();
+
+    console.log(`✅ 사용자 ${userId}의 선거구 점유 기록 정리 완료:`, {
+      deletedDistricts,
+      count: deletedDistricts.length
+    });
+
+    // bios 컬렉션도 정리
+    try {
+      await db.collection('bios').doc(userId).delete();
+      console.log(`✅ 사용자 ${userId}의 bio 기록도 정리 완료`);
+    } catch (bioError) {
+      console.warn(`⚠️ 사용자 ${userId}의 bio 정리 실패 (무시):`, bioError.message);
+    }
+
+  } catch (error) {
+    console.error(`❌ 사용자 ${userId}의 선거구 점유 기록 정리 실패:`, error);
+  }
+
+  return null;
+});

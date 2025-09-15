@@ -44,6 +44,7 @@ exports.getPost = postsHandler.getPost;
 exports.updatePost = postsHandler.updatePost;
 // deletePost는 HTTP 함수로 별도 구현 (CORS 문제 해결)
 exports.checkUsageLimit = postsHandler.checkUsageLimit;
+// generatePosts는 HTTP 함수로 별도 구현됨
 exports.generatePosts = postsHandler.generatePosts;
 
 // 프로필 관련 함수들 (이미 wrap으로 onCall이 적용됨)
@@ -52,6 +53,71 @@ exports.updateProfile = profileHandler.updateProfile;
 exports.updateUserPlan = profileHandler.updateUserPlan;
 exports.checkDistrictAvailability = profileHandler.checkDistrictAvailability;
 exports.registerWithDistrictCheck = profileHandler.registerWithDistrictCheck;
+
+// 관리자용 선거구 관리 함수들
+const { forceReleaseDistrict, getDistrictStatus } = require('./services/district');
+const { wrap } = require('./common/wrap');
+
+exports.forceReleaseDistrict = wrap(async (req) => {
+  const { districtKey } = req.data || {};
+  const { uid } = await require('./common/auth').auth(req);
+  return forceReleaseDistrict({ districtKey, requestedByUid: uid });
+});
+
+exports.getDistrictStatus = wrap(async (req) => {
+  const { districtKey } = req.data || {};
+  return getDistrictStatus(districtKey);
+});
+
+// 고아 선거구 기록 일괄 정리 (관리자용)
+exports.cleanupOrphanedDistricts = wrap(async (req) => {
+  const { uid } = await require('./common/auth').auth(req);
+  console.log('🧹 고아 선거구 기록 정리 시작:', { requestedBy: uid });
+
+  try {
+    const claimsSnapshot = await db.collection('district_claims').get();
+    const usersSnapshot = await db.collection('users').get();
+
+    // 현재 존재하는 사용자 UID 목록
+    const existingUsers = new Set();
+    usersSnapshot.forEach(doc => existingUsers.add(doc.id));
+
+    // 삭제할 고아 기록들
+    const orphanedClaims = [];
+    const batch = db.batch();
+
+    claimsSnapshot.forEach(doc => {
+      const data = doc.data();
+      if (data.userId && !existingUsers.has(data.userId)) {
+        orphanedClaims.push({
+          districtKey: doc.id,
+          userId: data.userId
+        });
+        batch.delete(doc.ref);
+      }
+    });
+
+    if (orphanedClaims.length > 0) {
+      await batch.commit();
+      console.log('✅ 고아 선거구 기록 정리 완료:', {
+        cleanedCount: orphanedClaims.length,
+        orphanedClaims
+      });
+    } else {
+      console.log('ℹ️ 정리할 고아 선거구 기록이 없습니다.');
+    }
+
+    return {
+      success: true,
+      cleanedCount: orphanedClaims.length,
+      orphanedClaims
+    };
+
+  } catch (error) {
+    console.error('❌ 고아 선거구 기록 정리 실패:', error);
+    throw error;
+  }
+});
 
 // Bio 관련 함수들 (새로 추가)
 exports.getUserBio = bioHandler.getUserBio;
@@ -868,12 +934,6 @@ exports.deletePost = httpWrap(async (request) => {
   return { success: true, postId };
 });
 
-// 사용자 프로필 업데이트 트리거 (프로필 핸들러에서 이동)
-exports.analyzeUserProfile = onDocumentUpdated({
-  document: 'users/{userId}',
-  memory: '1GiB',
-  timeoutSeconds: 300
-}, async (event) => {
-  console.log('사용자 프로필 트리거 호출됨 (구현 예정)');
-  return null;
-});
+// Firestore 트리거들
+exports.analyzeUserProfileOnUpdate = profileHandler.analyzeUserProfileOnUpdate;
+exports.cleanupDistrictClaimsOnUserDelete = profileHandler.cleanupDistrictClaimsOnUserDelete;

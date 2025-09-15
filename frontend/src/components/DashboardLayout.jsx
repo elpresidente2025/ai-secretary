@@ -20,7 +20,8 @@ import {
   AdminPanelSettings,
   MenuBook,
   DarkMode,
-  LightMode
+  LightMode,
+  Info
 } from '@mui/icons-material';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -59,6 +60,9 @@ const DashboardLayout = ({ children }) => {
       { text: '가이드라인', icon: <MenuBook />, path: '/guidelines' }
     );
   }
+
+  // 소개 페이지는 항상 표시
+  menuItems.push({ text: '소개', icon: <Info />, path: '/about' });
   
   // 프로필과 결제는 항상 표시
   menuItems.push(

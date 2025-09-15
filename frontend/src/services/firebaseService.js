@@ -122,6 +122,56 @@ export const callFunctionWithRetry = async (functionName, data = {}, retries = 2
 };
 
 /**
+ * HTTP 함수 호출 (generatePosts 전용)
+ * @param {string} functionName - 함수명
+ * @param {object} data - 전달할 데이터
+ * @returns {Promise} 함수 실행 결과
+ */
+export const callHttpFunction = async (functionName, data = {}) => {
+  try {
+    console.log(`🔥 HTTP Function 호출: ${functionName}`, data);
+
+    // Firebase Auth 토큰 가져오기
+    const user = auth.currentUser;
+    if (!user) {
+      throw new Error('로그인이 필요합니다.');
+    }
+
+    const token = await user.getIdToken();
+
+    // HTTP 함수 URL 구성
+    const projectId = functions.app.options.projectId;
+    const region = 'asia-northeast3';
+    const url = `https://${region}-${projectId}.cloudfunctions.net/${functionName}`;
+
+    console.log('🔍 HTTP 요청 URL:', url);
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(data)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ HTTP 함수 응답 오류:', { status: response.status, statusText: response.statusText, errorText });
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+
+    const result = await response.json();
+    console.log(`✅ HTTP Function ${functionName} 성공:`, result);
+    return result;
+
+  } catch (error) {
+    console.error(`❌ HTTP Function ${functionName} 실패:`, error);
+    throw error;
+  }
+};
+
+/**
  * 에러 로그를 Firestore에 저장
  * @param {Error} error - 에러 객체
  * @param {string} context - 에러 발생 컨텍스트

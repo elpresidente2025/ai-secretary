@@ -21,7 +21,8 @@ import {
   AdminPanelSettings,
   MenuBook,
   DarkMode,
-  LightMode
+  LightMode,
+  Info
 } from '@mui/icons-material';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -69,6 +70,9 @@ const MobileMenu = () => {
       { text: '가이드라인', icon: <MenuBook />, path: '/guidelines' }
     );
   }
+
+  // 소개 페이지는 항상 표시
+  menuItems.push({ text: '소개', icon: <Info />, path: '/about' });
 
   menuItems.push(
     { text: '프로필 수정', icon: <Settings />, path: '/profile' },

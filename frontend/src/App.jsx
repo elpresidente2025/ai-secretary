@@ -150,7 +150,7 @@ function App() {
             backgroundRepeat: 'no-repeat',
             backgroundPosition: 'top center',
             backgroundSize: 'cover',
-            zIndex: -1,
+            zIndex: -0.2,
           }}
         />
 

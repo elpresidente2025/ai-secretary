@@ -37,6 +37,10 @@
   <meta name="msapplication-tap-highlight" content="no">
   
   <title>전자두뇌비서관</title>
+  <!-- Force cache refresh -->
+  <meta name="cache-control" content="no-cache, no-store, must-revalidate">
+  <meta name="pragma" content="no-cache">
+  <meta name="expires" content="0">
   
   <!-- 🎨 인라인 스타일로 로딩 최적화 -->
   <style>
@@ -108,37 +112,29 @@
     }
   </style>
   
+</head>
+<body>
   <!-- 🌓 테마 초기화 스크립트 (React 로드 전 실행) -->
   <script>
     try {
       const themeMode = localStorage.getItem('themeMode');
       if (themeMode === 'dark') {
-        if (document.body) {
-          document.body.classList.add('dark-mode');
-        }
+        document.body.classList.add('dark-mode');
       } else if (themeMode === 'light') {
-        if (document.body) {
-          document.body.classList.remove('dark-mode');
-        }
+        document.body.classList.remove('dark-mode');
       } else {
         // 저장된 설정이 없으면 시스템 설정 확인
         if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-          if (document.body) {
-            document.body.classList.add('dark-mode');
-          }
+          document.body.classList.add('dark-mode');
         }
       }
     } catch (e) {
       // localStorage 접근 실패시 시스템 설정 사용
       if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        if (document.body) {
-          document.body.classList.add('dark-mode');
-        }
+        document.body.classList.add('dark-mode');
       }
     }
   </script>
-</head>
-<body>
   <!-- React 앱 마운트 지점 -->
   <div id="root">
     <!-- React 로딩 중 표시할 내용 -->

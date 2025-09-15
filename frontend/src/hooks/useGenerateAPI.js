@@ -112,13 +112,10 @@ export function useGenerateAPI() {
 
     try {
       console.log('🔥 generatePosts 호출 시작');
-      
-      // HTTP 요청을 위한 인증 토큰 획득
-      const token = await user._firebaseUser.getIdToken();
-      
+
       // 관리자 테스트 모드에서 모델 선택
       const modelName = localStorage.getItem('gemini_model') || 'gemini-1.5-flash';
-      
+
       const requestData = {
         ...formData,
         prompt: formData.topic || formData.prompt,
@@ -128,27 +125,14 @@ export function useGenerateAPI() {
         // 🆕 editorial.js 규칙 적용 요청 (백엔드에서 처리)
         applyEditorialRules: true
       };
-      
+
       delete requestData.topic;
-      
+
       console.log('📝 요청 데이터:', requestData);
-      
-      // HTTP 요청으로 변경
-      const response = await fetch('https://asia-northeast3-ai-secretary-6e9c8.cloudfunctions.net/generatePosts', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ data: requestData })
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `HTTP 오류: ${response.status}`);
-      }
-      
-      const result = await response.json();
+
+      // generatePosts는 HTTP 함수이므로 HTTP 호출 사용
+      const { callHttpFunction } = await import('../services/firebaseService');
+      const result = await callHttpFunction('generatePosts', requestData);
       console.log('✅ generatePosts 응답 수신:', result);
 
       // HTTP 응답 구조 확인 및 처리

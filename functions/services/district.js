@@ -189,6 +189,66 @@ async function scrubDuplicateHolders({ key, ownerUid }) {
   }
 }
 
+/**
+ * 관리자용 선거구 점유 기록 정리 (강제 해제)
+ */
+async function forceReleaseDistrict({ districtKey, requestedByUid }) {
+  if (!districtKey) {
+    throw new HttpsError('invalid-argument', 'districtKey가 필요합니다.');
+  }
+
+  console.log('🧹 [forceReleaseDistrict] 시작:', { districtKey, requestedByUid });
+
+  const claimRef = db.collection('district_claims').doc(districtKey);
+  const doc = await claimRef.get();
+
+  if (!doc.exists) {
+    console.log('ℹ️ [forceReleaseDistrict] 이미 해제됨:', { districtKey });
+    return { success: true, message: '이미 해제된 선거구입니다.' };
+  }
+
+  const occupiedBy = doc.get('userId');
+  console.log('🔍 [forceReleaseDistrict] 점유자 확인:', { districtKey, occupiedBy });
+
+  await claimRef.delete();
+
+  console.log('✅ [forceReleaseDistrict] 완료:', { districtKey, occupiedBy });
+  return {
+    success: true,
+    message: '선거구 점유가 해제되었습니다.',
+    previousOwner: occupiedBy
+  };
+}
+
+/**
+ * 특정 선거구 점유 상태 조회 (디버깅용)
+ */
+async function getDistrictStatus(districtKey) {
+  if (!districtKey) {
+    throw new HttpsError('invalid-argument', 'districtKey가 필요합니다.');
+  }
+
+  const doc = await db.collection('district_claims').doc(districtKey).get();
+
+  if (!doc.exists) {
+    return {
+      status: 'available',
+      districtKey,
+      message: '사용 가능한 선거구입니다.'
+    };
+  }
+
+  const data = doc.data();
+  return {
+    status: 'occupied',
+    districtKey,
+    occupiedBy: data.userId,
+    claimedAt: data.claimedAt,
+    lastUpdated: data.lastUpdated,
+    message: `${data.userId}가 점유 중입니다.`
+  };
+}
+
 /* =========================================
  * Exports
  * =======================================*/
@@ -199,5 +259,7 @@ module.exports = {
   districtKey,
   checkDistrictAvailability,
   claimDistrict,
-  scrubDuplicateHolders
+  scrubDuplicateHolders,
+  forceReleaseDistrict,
+  getDistrictStatus
 };

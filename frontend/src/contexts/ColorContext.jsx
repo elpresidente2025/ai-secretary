@@ -32,7 +32,19 @@ export const ColorProvider = ({ children }) => {
 
   // Firestore에서 색상 설정 로드
   const loadColorPreference = async () => {
+    // 로그인하지 않은 사용자는 localStorage에서 로드
     if (!user?.uid) {
+      try {
+        const savedIndex = localStorage.getItem('electionDDayColorIndex');
+        if (savedIndex !== null) {
+          const index = parseInt(savedIndex, 10);
+          if (index >= 0 && index < COLOR_OPTIONS.length) {
+            setCurrentColorIndex(index);
+          }
+        }
+      } catch (error) {
+        console.warn('localStorage 색상 설정 로드 실패:', error);
+      }
       setIsLoading(false);
       return;
     }
@@ -48,7 +60,19 @@ export const ColorProvider = ({ children }) => {
         }
       }
     } catch (error) {
-      console.error('색상 설정 로드 실패:', error);
+      console.warn('Firestore 색상 설정 로드 실패, localStorage로 fallback:', error);
+      // Firestore 실패시 localStorage에서 로드
+      try {
+        const savedIndex = localStorage.getItem('electionDDayColorIndex');
+        if (savedIndex !== null) {
+          const index = parseInt(savedIndex, 10);
+          if (index >= 0 && index < COLOR_OPTIONS.length) {
+            setCurrentColorIndex(index);
+          }
+        }
+      } catch (localError) {
+        console.warn('localStorage 색상 설정 로드도 실패:', localError);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -56,7 +80,15 @@ export const ColorProvider = ({ children }) => {
 
   // Firestore에 색상 설정 저장
   const saveColorPreference = async (newIndex) => {
-    if (!user?.uid) return;
+    // 로그인하지 않은 사용자는 localStorage에 저장
+    if (!user?.uid) {
+      try {
+        localStorage.setItem('electionDDayColorIndex', newIndex.toString());
+      } catch (error) {
+        console.warn('localStorage 색상 설정 저장 실패:', error);
+      }
+      return;
+    }
 
     try {
       const colorDocRef = doc(db, 'user_preferences', user.uid);
@@ -65,7 +97,13 @@ export const ColorProvider = ({ children }) => {
         updatedAt: new Date()
       }, { merge: true });
     } catch (error) {
-      console.error('색상 설정 저장 실패:', error);
+      console.warn('Firestore 색상 설정 저장 실패, localStorage로 fallback:', error);
+      // Firestore 실패시 localStorage에 저장
+      try {
+        localStorage.setItem('electionDDayColorIndex', newIndex.toString());
+      } catch (localError) {
+        console.warn('localStorage 색상 설정 저장도 실패:', localError);
+      }
     }
   };
 
