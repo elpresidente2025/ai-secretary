@@ -131,33 +131,20 @@ export const callHttpFunction = async (functionName, data = {}) => {
   try {
     console.log(`🔥 HTTP Function 호출: ${functionName}`, data);
 
-    // 네이버 사용자 체크
+    // 사용자 인증 정보 확인 (모든 사용자는 네이버 로그인)
     const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
-    console.log('🔍 사용자 정보:', { currentUser, firebaseUser: auth.currentUser });
+    console.log('🔍 사용자 정보:', { currentUser });
 
-    let token;
-
-    if (currentUser?.provider === 'naver') {
-      // 네이버 사용자의 경우 로컬스토리지에서 토큰 사용
-      console.log('📱 네이버 사용자 인증 처리');
-      if (!currentUser.uid) {
-        throw new Error('네이버 로그인 정보가 없습니다.');
-      }
-      // 네이버 사용자는 백엔드에서 __naverAuth로 처리
-      data.__naverAuth = {
-        uid: currentUser.uid,
-        provider: 'naver'
-      };
-      token = 'naver-auth'; // 임시 토큰
-    } else {
-      // Firebase 사용자의 경우 일반 토큰 사용
-      const user = auth.currentUser;
-      if (!user) {
-        throw new Error('로그인이 필요합니다.');
-      }
-      token = await user.getIdToken(true); // 강제 갱신
-      console.log('🔑 Firebase 토큰 획득 완료');
+    if (!currentUser?.uid || currentUser.provider !== 'naver') {
+      throw new Error('로그인 정보가 없습니다.');
     }
+
+    // 백엔드에서 __naverAuth로 처리
+    data.__naverAuth = {
+      uid: currentUser.uid,
+      provider: 'naver'
+    };
+    const token = 'naver-auth'; // 임시 토큰
 
     // HTTP 함수 URL 구성
     const projectId = functions.app.options.projectId;
@@ -482,8 +469,8 @@ export const clearSystemCache = async () => {
 export const convertToSNS = async (postId) => {
   // 관리자 테스트 모드에서 모델 선택
   const modelName = localStorage.getItem('gemini_model') || 'gemini-1.5-flash';
-  
-  return await callFunctionWithRetry('convertToSNS', { postId, modelName });
+
+  return await callHttpFunction('convertToSNS', { postId, modelName });
 };
 
 /**
@@ -498,7 +485,7 @@ export const testSNS = async () => {
  * @returns {Promise<object>} 사용량 정보
  */
 export const getSNSUsage = async () => {
-  return await callFunctionWithNaverAuth('getSNSUsage');
+  return await callHttpFunction('getSNSUsage', {});
 };
 
 /**

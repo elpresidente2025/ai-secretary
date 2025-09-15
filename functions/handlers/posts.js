@@ -433,49 +433,39 @@ exports.generatePosts = httpWrap(async (req) => {
   let uid;
   let decodedToken = null;
 
-  // 네이버 인증 데이터 체크
-  const data = req.data || {};
-  if (data.__naverAuth && data.__naverAuth.uid && data.__naverAuth.provider === 'naver') {
-    console.log('📱 네이버 사용자 인증 처리:', data.__naverAuth.uid);
-    uid = data.__naverAuth.uid;
-    // 네이버 인증 정보 제거 (처리 완료)
-    delete data.__naverAuth;
+  // 데이터 추출 - Firebase SDK와 HTTP 요청 모두 처리
+  let requestData = req.data || req.rawRequest?.body || {};
+
+  // 중첩된 data 구조 처리 (Firebase SDK에서 {data: {실제데이터}} 형태로 올 수 있음)
+  if (requestData.data && typeof requestData.data === 'object') {
+    requestData = requestData.data;
+  }
+
+  // 사용자 인증 데이터 확인 (모든 사용자는 네이버 로그인)
+  if (requestData.__naverAuth && requestData.__naverAuth.uid && requestData.__naverAuth.provider === 'naver') {
+    console.log('📱 사용자 인증 처리:', requestData.__naverAuth.uid);
+    uid = requestData.__naverAuth.uid;
+    // 인증 정보 제거 (처리 완료)
+    delete requestData.__naverAuth;
   } else {
-    // Firebase 사용자 인증 처리
-    const authHeader = req.rawRequest.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new HttpsError('unauthenticated', '인증이 필요합니다.');
-    }
-
-    const idToken = authHeader.split('Bearer ')[1];
-
-    try {
-      decodedToken = await admin.auth().verifyIdToken(idToken);
-      uid = decodedToken.uid;
-    } catch (authError) {
-      console.error('❌ 토큰 검증 실패:', authError.message);
-      throw new HttpsError('unauthenticated', '유효하지 않은 인증 토큰입니다.');
-    }
+    console.error('❌ 유효하지 않은 인증 데이터:', requestData);
+    throw new HttpsError('unauthenticated', '인증이 필요합니다.');
   }
 
   console.log('✅ 사용자 인증 성공:', uid);
-  
-  const useBonus = req.data?.useBonus || false;
-  
+
   console.log('🔍 전체 요청 구조:', JSON.stringify({
     data: req.data,
     body: req.rawRequest?.body,
     method: req.rawRequest?.method,
     headers: req.rawRequest?.headers
   }, null, 2));
-  
-  // 데이터 추출 - Firebase SDK와 HTTP 요청 모두 처리
-  let data = req.data || req.rawRequest?.body || {};
-  
-  // 중첩된 data 구조 처리 (Firebase SDK에서 {data: {실제데이터}} 형태로 올 수 있음)
-  if (data.data && typeof data.data === 'object') {
-    data = data.data;
-  }
+
+  // 데이터는 이미 위에서 추출했으므로 requestData 변수 사용
+  const useBonus = requestData?.useBonus || false;
+
+  // 이제 data를 requestData로 할당
+  const data = requestData;
   
   console.log('🔥 generatePosts 시작 (실제 AI 생성) - 받은 데이터:', JSON.stringify(data, null, 2));
   
@@ -510,26 +500,40 @@ exports.generatePosts = httpWrap(async (req) => {
     let userProfile = {};
     let bioMetadata = null;
     let personalizedHints = '';
+    let dailyLimitWarning = false;
 
     try {
       // 사용자 기본 정보 조회
+      console.log(`🔍 프로필 조회 시도 - UID: ${uid}, 길이: ${uid?.length}`);
       const userDoc = await Promise.race([
         db.collection('users').doc(uid).get(),
         new Promise((_, reject) => setTimeout(() => reject(new Error('프로필 조회 타임아웃')), 5000))
       ]);
-      
+
+      console.log(`📋 프로필 문서 존재 여부: ${userDoc.exists}`);
       if (userDoc.exists) {
         userProfile = userDoc.data();
         console.log('✅ 사용자 프로필 조회 성공:', userProfile.name || 'Unknown');
         
-        // 하루 생성량 제한 확인 (모든 원고에 적용 - 네이버 블로그 스팸 방지)
-        const today = new Date();
-        const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-        const dailyUsage = userProfile.dailyUsage || {};
-        const todayGenerated = dailyUsage[todayKey] || 0;
-        
-        if (todayGenerated >= 3) {
-          throw new HttpsError('resource-exhausted', '하루 원고 생성 한도(3회)를 초과했습니다. 네이버 블로그 정책상 하루에 3회를 초과하여 발행하면 스팸 블로그로 분류될 수 있습니다.');
+        // 하루 생성량 제한 확인 (관리자는 제한 없음)
+        const isAdmin = userProfile.isAdmin === true;
+
+        if (!isAdmin) {
+          // 일반 사용자 하루 3회 초과 시 경고 (차단하지는 않음)
+          const today = new Date();
+          const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+          const dailyUsage = userProfile.dailyUsage || {};
+          const todayGenerated = dailyUsage[todayKey] || 0;
+
+          if (todayGenerated >= 3) {
+            console.log('⚠️ 하루 3회 초과 생성 - 경고만 표시');
+            dailyLimitWarning = true;
+            // 차단하지 않고 계속 진행 (경고 메시지는 응답에 포함)
+          }
+
+          console.log('✅ 일반 사용자 하루 사용량 확인:', { todayGenerated, warning: todayGenerated >= 3 });
+        } else {
+          console.log('✅ 관리자 계정 - 하루 생성량 제한 우회');
         }
 
         // 보너스 사용 여부에 따른 사용 가능량 확인
@@ -543,22 +547,28 @@ exports.generatePosts = httpWrap(async (req) => {
           
           console.log('✅ 보너스 원고 사용 가능:', { availableBonus });
         } else {
-          // 일반 사용량 확인 (기존 로직 유지)
-          const usage = userProfile.usage || { postsGenerated: 0, monthlyLimit: 50 };
-          
-          if (usage.postsGenerated >= usage.monthlyLimit) {
-            throw new HttpsError('resource-exhausted', '월간 생성 한도를 초과했습니다.');
+          // 일반 사용량 확인 (관리자는 제한 없음)
+          if (!isAdmin) {
+            const usage = userProfile.usage || { postsGenerated: 0, monthlyLimit: 50 };
+
+            if (usage.postsGenerated >= usage.monthlyLimit) {
+              throw new HttpsError('resource-exhausted', '월간 생성 한도를 초과했습니다.');
+            }
+
+            console.log('✅ 일반 원고 생성 가능:', {
+              current: usage.postsGenerated,
+              limit: usage.monthlyLimit
+            });
+          } else {
+            console.log('✅ 관리자 계정 - 월간 생성량 제한 우회');
           }
-          
-          console.log('✅ 일반 원고 생성 가능:', { 
-            current: usage.postsGenerated, 
-            limit: usage.monthlyLimit 
-          });
         }
       }
 
       // Bio 메타데이터 조회 (선택적)
+      console.log(`🔍 Bio 메타데이터 조회 시도 - UID: ${uid}`);
       const bioDoc = await db.collection('bios').doc(uid).get();
+      console.log(`📋 Bio 문서 존재 여부: ${bioDoc.exists}`);
       if (bioDoc.exists && bioDoc.data().extractedMetadata) {
         bioMetadata = bioDoc.data().extractedMetadata;
         
@@ -581,8 +591,16 @@ exports.generatePosts = httpWrap(async (req) => {
       }
 
     } catch (profileError) {
-      console.warn('⚠️ 프로필/Bio 조회 실패:', profileError.message);
-      throw new HttpsError('unauthenticated', '사용자 프로필을 조회할 수 없습니다. 다시 로그인해주세요.');
+      console.error('❌ 프로필/Bio 조회 실패:', {
+        error: profileError.message,
+        stack: profileError.stack,
+        uid: uid,
+        uidType: typeof uid,
+        uidLength: uid?.length
+      });
+
+      // 프로필이 있어야 하는 사용자입니다
+      throw new HttpsError('internal', `프로필 조회 실패: ${profileError.message}`);
     }
 
     // 사용자 상태에 따른 톤 설정 및 호칭 결정
@@ -704,7 +722,7 @@ ${personalizedHints ? `개인화 가이드라인: ${personalizedHints}` : ''}
 **MANDATORY JSON 응답 형식 - 절대 다른 형식 사용 금지:**
 
 {
-  "title": "${topic}에 대한 의견을 제시합니다",
+  "title": "실제 주제에 맞는 구체적이고 정치인다운 제목을 작성하세요 (30-40자, 위 가이드라인 준수)",
   "content": "<p>존경하는 ${fullRegion} 시민 여러분, ${fullName}입니다.</p><p>[서론 문단: 주제에 대한 간단한 소개와 문제 제기]</p><p>[본론 1문단: 첫 번째 핵심 논점이나 현황 분석]</p><p>[본론 2문단: 두 번째 핵심 논점이나 해결방안]</p><p>[본론 3문단: 세 번째 핵심 논점이나 향후 계획 - 필요시]</p><p>[결론 문단: 마무리 다짐과 시민들에 대한 감사 인사]</p>",
   "wordCount": ${targetWordCount}
 }
@@ -994,31 +1012,41 @@ ${currentStatus === '예비' ? `- **예비 상태 특별 금지사항**: "예비
       generatedAt: new Date().toISOString()
     };
 
-    // 사용량 업데이트
+    // 사용량 업데이트 (관리자는 카운트하지 않음)
     if (userProfile && Object.keys(userProfile).length > 0) {
+      const isAdmin = userProfile.isAdmin === true;
+
       try {
         if (useBonus) {
           // 보너스 사용량 증가 (하루 사용량도 함께 증가)
           const today = new Date();
           const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-          
+
           await db.collection('users').doc(uid).update({
             'usage.bonusUsed': admin.firestore.FieldValue.increment(1),
-            [`dailyUsage.${todayKey}`]: admin.firestore.FieldValue.increment(1),
+            [`dailyUsage.${todayKey}`]: isAdmin ? 0 : admin.firestore.FieldValue.increment(1), // 관리자는 하루 카운트 안함
             lastBonusUsed: admin.firestore.FieldValue.serverTimestamp()
           });
-          console.log('✅ 보너스 원고 사용량 및 하루 사용량 업데이트');
+          console.log('✅ 보너스 원고 사용량 업데이트', isAdmin ? '(관리자 - 하루 카운트 제외)' : '');
         } else {
-          // 일반 사용량 증가 (기존 로직)
-          const today = new Date();
-          const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-          
-          await db.collection('users').doc(uid).update({
-            'usage.postsGenerated': admin.firestore.FieldValue.increment(1),
-            [`dailyUsage.${todayKey}`]: admin.firestore.FieldValue.increment(1),
-            lastGenerated: admin.firestore.FieldValue.serverTimestamp()
-          });
-          console.log('✅ 일반 원고 사용량 및 하루 사용량 업데이트');
+          // 일반 사용량 증가 (관리자는 카운트하지 않음)
+          if (!isAdmin) {
+            const today = new Date();
+            const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+            await db.collection('users').doc(uid).update({
+              'usage.postsGenerated': admin.firestore.FieldValue.increment(1),
+              [`dailyUsage.${todayKey}`]: admin.firestore.FieldValue.increment(1),
+              lastGenerated: admin.firestore.FieldValue.serverTimestamp()
+            });
+            console.log('✅ 일반 원고 사용량 및 하루 사용량 업데이트');
+          } else {
+            // 관리자는 사용량 카운트하지 않음 (생성 기록만 남김)
+            await db.collection('users').doc(uid).update({
+              lastGenerated: admin.firestore.FieldValue.serverTimestamp()
+            });
+            console.log('✅ 관리자 계정 - 사용량 카운트 없이 기록만 업데이트');
+          }
         }
       } catch (updateError) {
         console.warn('⚠️ 사용량 업데이트 실패:', updateError.message);
@@ -1031,9 +1059,16 @@ ${currentStatus === '예비' ? `- **예비 상태 특별 금지사항**: "예비
       useBonus
     });
 
-    return ok({ 
+    // 경고 메시지 생성
+    let message = useBonus ? '보너스 원고가 성공적으로 생성되었습니다.' : '원고가 성공적으로 생성되었습니다.';
+    if (dailyLimitWarning) {
+      message += '\n\n⚠️ 하루 3회 이상 원고를 생성하셨습니다. 네이버 블로그 정책상 과도한 발행은 스팸으로 분류될 수 있으니, 반드시 마지막 포스팅으로부터 3시간 경과 후 발행해 주세요.';
+    }
+
+    return ok({
       success: true,
-      message: useBonus ? '보너스 원고가 성공적으로 생성되었습니다.' : '원고가 성공적으로 생성되었습니다.',
+      message: message,
+      dailyLimitWarning: dailyLimitWarning,
       drafts: draftData,
       metadata: {
         generatedAt: new Date().toISOString(),
@@ -1051,9 +1086,29 @@ ${currentStatus === '예비' ? `- **예비 상태 특별 금지사항**: "예비
 
 
 // saveSelectedPost - 선택된 원고 저장
-exports.saveSelectedPost = wrap(async (req) => {
-  const { uid } = await auth(req);
-  const data = req.data || {};
+exports.saveSelectedPost = httpWrap(async (req) => {
+  let uid;
+
+  // 데이터 추출 - Firebase SDK와 HTTP 요청 모두 처리
+  let requestData = req.data || req.rawRequest?.body || {};
+
+  // 중첩된 data 구조 처리
+  if (requestData.data && typeof requestData.data === 'object') {
+    requestData = requestData.data;
+  }
+
+  // 사용자 인증 데이터 확인 (모든 사용자는 네이버 로그인)
+  if (requestData.__naverAuth && requestData.__naverAuth.uid && requestData.__naverAuth.provider === 'naver') {
+    console.log('📱 사용자 인증 처리:', requestData.__naverAuth.uid);
+    uid = requestData.__naverAuth.uid;
+    // 인증 정보 제거 (처리 완료)
+    delete requestData.__naverAuth;
+  } else {
+    console.error('❌ 유효하지 않은 인증 데이터:', requestData);
+    throw new HttpsError('unauthenticated', '인증이 필요합니다.');
+  }
+
+  const data = requestData;
   
   console.log('POST saveSelectedPost 호출:', { userId: uid, data });
 

@@ -1,6 +1,7 @@
 // functions/handlers/sns-addon.js
 const { HttpsError } = require('firebase-functions/v2/https');
 const { wrap } = require('../common/wrap');
+const { httpWrap } = require('../common/http-wrap');
 const { ok, error } = require('../common/response');
 const { auth } = require('../common/auth');
 const { admin, db } = require('../utils/firebaseAdmin');
@@ -69,20 +70,31 @@ exports.testSNS = wrap(async (req) => {
 /**
  * 원고를 모든 SNS용으로 변환
  */
-exports.convertToSNS = wrap(async (req) => {
+exports.convertToSNS = httpWrap(async (req) => {
   console.log('🔥 convertToSNS 함수 시작');
-  console.log('🔍 전체 요청 구조:', JSON.stringify({
-    auth: req.auth ? { uid: req.auth.uid } : null,
-    data: req.data,
-    rawRequest: req.rawRequest ? {
-      method: req.rawRequest.method,
-      headers: req.rawRequest.headers,
-      body: req.rawRequest.body
-    } : null
-  }, null, 2));
-  
-  const { uid } = req.auth || {};
-  const { postId, modelName } = req.data;
+
+  let uid;
+
+  // 데이터 추출 - Firebase SDK와 HTTP 요청 모두 처리
+  let requestData = req.data || req.rawRequest?.body || {};
+
+  // 중첩된 data 구조 처리
+  if (requestData.data && typeof requestData.data === 'object') {
+    requestData = requestData.data;
+  }
+
+  // 사용자 인증 데이터 확인 (모든 사용자는 네이버 로그인)
+  if (requestData.__naverAuth && requestData.__naverAuth.uid && requestData.__naverAuth.provider === 'naver') {
+    console.log('📱 사용자 인증 처리:', requestData.__naverAuth.uid);
+    uid = requestData.__naverAuth.uid;
+    // 인증 정보 제거 (처리 완료)
+    delete requestData.__naverAuth;
+  } else {
+    console.error('❌ 유효하지 않은 인증 데이터:', requestData);
+    throw new HttpsError('unauthenticated', '인증이 필요합니다.');
+  }
+
+  const { postId, modelName } = requestData;
 
   console.log('📝 입력 데이터:', { uid, postId, modelName });
 
@@ -342,8 +354,27 @@ exports.convertToSNS = wrap(async (req) => {
 /**
  * SNS 애드온 사용량 조회
  */
-exports.getSNSUsage = wrap(async (req) => {
-  const { uid } = await auth(req);
+exports.getSNSUsage = httpWrap(async (req) => {
+  let uid;
+
+  // 데이터 추출 - Firebase SDK와 HTTP 요청 모두 처리
+  let requestData = req.data || req.rawRequest?.body || {};
+
+  // 중첩된 data 구조 처리
+  if (requestData.data && typeof requestData.data === 'object') {
+    requestData = requestData.data;
+  }
+
+  // 사용자 인증 데이터 확인 (모든 사용자는 네이버 로그인)
+  if (requestData.__naverAuth && requestData.__naverAuth.uid && requestData.__naverAuth.provider === 'naver') {
+    console.log('📱 사용자 인증 처리:', requestData.__naverAuth.uid);
+    uid = requestData.__naverAuth.uid;
+    // 인증 정보 제거 (처리 완료)
+    delete requestData.__naverAuth;
+  } else {
+    console.error('❌ 유효하지 않은 인증 데이터:', requestData);
+    throw new HttpsError('unauthenticated', '인증이 필요합니다.');
+  }
 
   // auth 함수에서 이미 인증 검증이 완료됨
 

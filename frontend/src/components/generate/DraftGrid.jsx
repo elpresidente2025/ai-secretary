@@ -106,14 +106,18 @@ export default function DraftGrid({
                 초안 {index + 1}
               </Typography>
               
-              <Box sx={{ 
-                bgcolor: '#f5f5f5', 
-                p: 2, 
+              <Box sx={{
+                bgcolor: '#f5f5f5',
+                p: 2,
                 borderRadius: 1,
-                mt: 1
+                mt: 1,
+                // 모든 텍스트 강제로 검정색
+                '& *': {
+                  color: '#000000 !important'
+                }
               }}>
-                <Typography variant="subtitle1" sx={{ 
-                  color: 'black',
+                <Typography variant="subtitle1" sx={{
+                  color: '#000000 !important',
                   fontWeight: 'bold',
                   mb: 1
                 }}>
@@ -122,11 +126,11 @@ export default function DraftGrid({
                 
                 <Divider sx={{ my: 1, borderColor: 'rgba(0,0,0,0.1)' }} />
                 
-                <Typography variant="body2" sx={{ 
+                <Typography variant="body2" sx={{
                   maxHeight: getContentHeight(),
                   overflow: 'auto',
                   whiteSpace: 'pre-wrap',
-                  color: 'black',
+                  color: '#000000 !important',
                   lineHeight: 1.6,
                   fontSize: getFontSize()
                 }}>

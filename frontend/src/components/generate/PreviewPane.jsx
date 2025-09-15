@@ -60,6 +60,7 @@ export default function PreviewPane({ draft }) {
             fontSize: '1rem',
             lineHeight: 1.8,
             marginBottom: '1rem',
+            color: '#000000 !important', // Force black text
           },
           // 🔥 'strong' 태그 스타일 개선 (가이드 역할 강화)
           '.article-content strong': {
@@ -111,6 +112,10 @@ export default function PreviewPane({ draft }) {
             overflow: 'auto',
             '& p:last-child': {
               mb: 0,
+            },
+            // Force all text to be black
+            '& *': {
+              color: '#000000 !important',
             },
           }}
         />

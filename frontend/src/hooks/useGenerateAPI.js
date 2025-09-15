@@ -233,9 +233,8 @@ export function useGenerateAPI() {
   const save = useCallback(async (draft) => {
     try {
       console.log('💾 savePost 호출 시작:', draft.title);
-      const savePost = httpsCallable(functions, 'savePost');
-      
-      const result = await savePost({
+
+      const result = await callHttpFunction('saveSelectedPost', {
         title: draft.title,
         content: draft.content,
         htmlContent: draft.htmlContent,
@@ -248,22 +247,22 @@ export function useGenerateAPI() {
         type: draft.type,
         meta: draft.meta
       });
-      
+
       console.log('✅ savePost 응답 수신:', result);
-      
-      if (result.data?.success) {
+
+      if (result?.success) {
         // 🆕 저장 시에도 메타데이터 수집
         collectMetadata({
           ...draft,
           savedAt: new Date().toISOString()
         }).catch(console.warn);
         
-        return { 
-          success: true, 
-          message: result.data.message || '원고가 성공적으로 저장되었습니다.' 
+        return {
+          success: true,
+          message: result.message || '원고가 성공적으로 저장되었습니다.'
         };
       } else {
-        throw new Error(result.data?.error || '저장에 실패했습니다.');
+        throw new Error(result?.error || '저장에 실패했습니다.');
       }
       
     } catch (err) {
