@@ -20,11 +20,19 @@ const dashboardHandler = require('./handlers/dashboard');
 const noticesHandler = require('./handlers/notices');
 const adminHandler = require('./handlers/admin');
 const performanceHandler = require('./handlers/performance');
+let systemHandler;
+try {
+  systemHandler = require('./handlers/system');
+} catch (e) {
+  // Fallback to clean implementation if legacy file has encoding issues
+  systemHandler = require('./handlers/system.clean');
+}
 const publishingHandler = require('./handlers/publishing');
 const adminUsersHandler = require('./handlers/admin-users');
 const snsAddonHandler = require('./handlers/sns-addon');
 const tossPaymentsHandler = require('./handlers/toss-payments');
-const naverLoginHandler = require('./handlers/naver-login');
+const naverLoginHandler = require('./handlers/naver-login2');
+const usernameHandler = require('./handlers/username');
 
 // 스크래핑 테스트 함수들
 const { testElectionScraping, checkCacheStatus, refreshCache } = require('./handlers/test-scraper');
@@ -36,6 +44,7 @@ exports.getPost = postsHandler.getPost;
 exports.updatePost = postsHandler.updatePost;
 // deletePost는 HTTP 함수로 별도 구현 (CORS 문제 해결)
 exports.checkUsageLimit = postsHandler.checkUsageLimit;
+// generatePosts는 HTTP 함수로 별도 구현됨
 exports.generatePosts = postsHandler.generatePosts;
 
 // 프로필 관련 함수들 (이미 wrap으로 onCall이 적용됨)
@@ -44,6 +53,71 @@ exports.updateProfile = profileHandler.updateProfile;
 exports.updateUserPlan = profileHandler.updateUserPlan;
 exports.checkDistrictAvailability = profileHandler.checkDistrictAvailability;
 exports.registerWithDistrictCheck = profileHandler.registerWithDistrictCheck;
+
+// 관리자용 선거구 관리 함수들
+const { forceReleaseDistrict, getDistrictStatus } = require('./services/district');
+const { wrap } = require('./common/wrap');
+
+exports.forceReleaseDistrict = wrap(async (req) => {
+  const { districtKey } = req.data || {};
+  const { uid } = await require('./common/auth').auth(req);
+  return forceReleaseDistrict({ districtKey, requestedByUid: uid });
+});
+
+exports.getDistrictStatus = wrap(async (req) => {
+  const { districtKey } = req.data || {};
+  return getDistrictStatus(districtKey);
+});
+
+// 고아 선거구 기록 일괄 정리 (관리자용)
+exports.cleanupOrphanedDistricts = wrap(async (req) => {
+  const { uid } = await require('./common/auth').auth(req);
+  console.log('🧹 고아 선거구 기록 정리 시작:', { requestedBy: uid });
+
+  try {
+    const claimsSnapshot = await db.collection('district_claims').get();
+    const usersSnapshot = await db.collection('users').get();
+
+    // 현재 존재하는 사용자 UID 목록
+    const existingUsers = new Set();
+    usersSnapshot.forEach(doc => existingUsers.add(doc.id));
+
+    // 삭제할 고아 기록들
+    const orphanedClaims = [];
+    const batch = db.batch();
+
+    claimsSnapshot.forEach(doc => {
+      const data = doc.data();
+      if (data.userId && !existingUsers.has(data.userId)) {
+        orphanedClaims.push({
+          districtKey: doc.id,
+          userId: data.userId
+        });
+        batch.delete(doc.ref);
+      }
+    });
+
+    if (orphanedClaims.length > 0) {
+      await batch.commit();
+      console.log('✅ 고아 선거구 기록 정리 완료:', {
+        cleanedCount: orphanedClaims.length,
+        orphanedClaims
+      });
+    } else {
+      console.log('ℹ️ 정리할 고아 선거구 기록이 없습니다.');
+    }
+
+    return {
+      success: true,
+      cleanedCount: orphanedClaims.length,
+      orphanedClaims
+    };
+
+  } catch (error) {
+    console.error('❌ 고아 선거구 기록 정리 실패:', error);
+    throw error;
+  }
+});
 
 // Bio 관련 함수들 (새로 추가)
 exports.getUserBio = bioHandler.getUserBio;
@@ -99,8 +173,60 @@ exports.purchaseSNSAddon = snsAddonHandler.purchaseSNSAddon;
 exports.confirmTossPayment = tossPaymentsHandler.confirmTossPayment;
 exports.getUserPayments = tossPaymentsHandler.getUserPayments;
 
-// 네이버 로그인 관련 함수들
+// 네이버 로그인 관련 함수들 (HTTP 함수)
 exports.naverLogin = naverLoginHandler.naverLogin;
+exports.naverLoginHTTP = naverLoginHandler.naverLoginHTTP;
+exports.naverCompleteRegistration = naverLoginHandler.naverCompleteRegistration;
+exports.checkUsername = usernameHandler.checkUsername;
+exports.claimUsername = usernameHandler.claimUsername;
+
+// 네이버 로그인 테스트 함수 (디버깅용)
+exports.naverTest = require('firebase-functions/v2/https').onRequest({
+  region: 'asia-northeast3',
+  cors: true
+}, async (req, res) => {
+  try {
+    res.set('Access-Control-Allow-Origin', 'https://cyberbrain.kr');
+    res.set('Access-Control-Allow-Methods', 'POST, OPTIONS, GET');
+    res.set('Access-Control-Allow-Headers', 'Content-Type');
+    
+    if (req.method === 'OPTIONS') {
+      return res.status(204).end();
+    }
+    
+    console.log('🧪 네이버 테스트 함수 호출됨');
+    
+    const testData = {
+      timestamp: new Date().toISOString(),
+      environment: {
+        naverClientId: !!process.env.NAVER_CLIENT_ID,
+        naverClientSecret: !!process.env.NAVER_CLIENT_SECRET,
+        nodeVersion: process.version
+      },
+      request: {
+        method: req.method,
+        body: req.body,
+        headers: Object.keys(req.headers)
+      }
+    };
+    
+    console.log('🧪 테스트 데이터:', testData);
+    
+    res.json({ 
+      success: true, 
+      message: '네이버 테스트 함수 정상 동작',
+      data: testData
+    });
+    
+  } catch (error) {
+    console.error('🧪 테스트 함수 오류:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message,
+      stack: error.stack
+    });
+  }
+});
 
 // 네이버 연결 끊기 콜백 함수
 const naverDisconnectHandler = require('./handlers/naver-disconnect');
@@ -119,19 +245,112 @@ exports.getAdminStats = onRequest({
     res.set('Access-Control-Allow-Origin', '*');
     res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    
+
     if (req.method === 'OPTIONS') {
       res.status(204).send('');
       return;
     }
-    
+
     console.log('🔥 getAdminStats 시작');
-    res.json({ success: true, message: '관리자 통계 기능은 현재 구현 중입니다.' });
+
+    const { admin, db } = require('./utils/firebaseAdmin');
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const last30mStart = new Date(now.getTime() - 30 * 60 * 1000);
+    const last7dStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    // 병렬로 모든 통계 데이터 수집
+    const [todayPostsSnapshot, last30mErrorsSnapshot, last7dUsersSnapshot, geminiStatusDoc] = await Promise.all([
+      // 오늘 생성된 문서
+      db.collection('posts')
+        .where('createdAt', '>=', todayStart)
+        .get(),
+
+      // 최근 30분 에러 로그
+      db.collection('error_logs')
+        .where('timestamp', '>=', last30mStart)
+        .get(),
+
+      // 최근 7일 활성 사용자 (로그인한 사용자)
+      db.collection('users')
+        .where('lastLoginAt', '>=', last7dStart)
+        .get(),
+
+      // Gemini API 상태
+      db.collection('system_status').doc('gemini').get()
+    ]);
+
+    // 오늘 문서 생성 성공/실패 통계
+    let todaySuccess = 0;
+    let todayFail = 0;
+
+    todayPostsSnapshot.forEach(doc => {
+      const data = doc.data();
+      if (data.status === 'completed' || data.status === 'published') {
+        todaySuccess++;
+      } else if (data.status === 'failed' || data.status === 'error') {
+        todayFail++;
+      }
+    });
+
+    // Gemini 상태 처리
+    let geminiStatus = { state: 'active' }; // 기본값을 active로 변경
+    if (geminiStatusDoc.exists) {
+      const statusData = geminiStatusDoc.data();
+      geminiStatus = {
+        state: statusData.state || 'active',
+        lastUpdated: statusData.lastUpdated || null,
+        message: statusData.message || null
+      };
+    } else {
+      // 문서가 없으면 자동으로 active 상태로 초기화
+      await db.collection('system_status').doc('gemini').set({
+        state: 'active',
+        lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+        message: 'System initialized'
+      });
+      geminiStatus = {
+        state: 'active',
+        lastUpdated: new Date(),
+        message: 'System initialized'
+      };
+    }
+
+    const stats = {
+      todaySuccess,
+      todayFail,
+      last30mErrors: last30mErrorsSnapshot.size,
+      activeUsers: last7dUsersSnapshot.size,
+      geminiStatus,
+      timestamp: now.toISOString()
+    };
+
+    console.log('✅ getAdminStats 완료:', stats);
+    res.json({
+      success: true,
+      data: stats
+    });
+
   } catch (error) {
     console.error('❌ getAdminStats 오류:', error);
-    res.status(500).json({ success: false, error: 'internal', message: '서버 내부 오류가 발생했습니다.' });
+    res.status(500).json({
+      success: false,
+      error: 'internal',
+      message: '서버 내부 오류가 발생했습니다.',
+      // 에러 시 기본값 반환
+      data: {
+        todaySuccess: 0,
+        todayFail: 0,
+        last30mErrors: 0,
+        activeUsers: 0,
+        geminiStatus: { state: 'unknown' }
+      }
+    });
   }
 });
+
+// 시스템 상태 관련 (Gemini 상태 수동 업데이트 - onCall)
+exports.updateGeminiStatus = systemHandler.updateGeminiStatus;
 
 exports.getErrorLogs = onRequest({
   region: 'asia-northeast3', 
@@ -317,13 +536,9 @@ exports.getUsers = onRequest({
         console.log('🔍 사용 가능한 필드들:', Object.keys(data));
       }
       
-      // 이메일 필드에서 직접 가져오기 (없으면 'no email' 표시)
-      const finalEmail = data.email || '이메일 없음';
-
       users.push({
         uid: doc.id,
         name: data.name || data.displayName || '이름 없음',
-        email: finalEmail,
         electoralDistrict: data.electoralDistrict || data.district || '선거구 미설정',
         status: data.status || '상태 미설정',
         createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
@@ -336,8 +551,7 @@ exports.getUsers = onRequest({
         // 디버깅용 원본 데이터 일부 포함
         _debug: {
           docId: doc.id,
-          allFields: Object.keys(data).sort(),
-          emailFields: Object.keys(data).filter(key => key.toLowerCase().includes('email') || key.toLowerCase().includes('mail'))
+          allFields: Object.keys(data).sort()
         }
       });
     });
@@ -720,12 +934,6 @@ exports.deletePost = httpWrap(async (request) => {
   return { success: true, postId };
 });
 
-// 사용자 프로필 업데이트 트리거 (프로필 핸들러에서 이동)
-exports.analyzeUserProfile = onDocumentUpdated({
-  document: 'users/{userId}',
-  memory: '1GiB',
-  timeoutSeconds: 300
-}, async (event) => {
-  console.log('사용자 프로필 트리거 호출됨 (구현 예정)');
-  return null;
-});
+// Firestore 트리거들
+exports.analyzeUserProfileOnUpdate = profileHandler.analyzeUserProfileOnUpdate;
+exports.cleanupDistrictClaimsOnUserDelete = profileHandler.cleanupDistrictClaimsOnUserDelete;

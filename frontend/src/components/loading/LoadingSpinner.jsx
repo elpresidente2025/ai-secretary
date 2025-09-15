@@ -1,6 +1,6 @@
 // frontend/src/components/loading/LoadingSpinner.jsx
 import React from 'react';
-import { Box, Typography } from '@mui/material';
+import { Box, Typography, useTheme } from '@mui/material';
 import BaseSpinner, { SPINNER_SIZES } from './BaseSpinner';
 
 const LoadingSpinner = ({ 
@@ -11,6 +11,7 @@ const LoadingSpinner = ({
   fullHeight = false,
   sx = {} 
 }) => {
+  const theme = useTheme();
   const containerSx = {
     display: 'flex',
     flexDirection: 'column',
@@ -35,10 +36,10 @@ const LoadingSpinner = ({
           variant="body2" 
           sx={{ 
             mt: 1, 
-            color: '#f8c023',
-            // 카드 내부에서는 파란색으로 표시
+            color: theme.palette.primary.main,
+            // 카드 내부에서는 텍스트 색상으로 표시
             '.MuiCard-root &, .MuiPaper-root &': {
-              color: '#152484'
+              color: theme.palette.text.secondary
             }
           }}
         >

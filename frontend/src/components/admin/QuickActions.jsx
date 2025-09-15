@@ -1,7 +1,6 @@
 // frontend/src/components/admin/QuickActions.jsx
 import React, { useState } from 'react';
 import {
-  Paper,
   Typography,
   Grid,
   Button,
@@ -19,6 +18,7 @@ import {
 } from '@mui/icons-material';
 import UserListModal from './UserListModal';
 import StatusUpdateModal from './StatusUpdateModal';
+import HongKongNeonCard from '../HongKongNeonCard';
 import { getAdminStats, callFunctionWithRetry } from '../../services/firebaseService';
 
 function QuickActions() {
@@ -120,7 +120,7 @@ function QuickActions() {
 
   return (
     <>
-      <Paper sx={{ p: 3, mb: 3 }}>
+      <HongKongNeonCard sx={{ p: 3, mb: 3 }}>
         <Typography variant="h6" gutterBottom sx={{ color: '#152484', fontWeight: 600 }}>
           빠른 작업 (Quick Actions)
         </Typography>
@@ -132,16 +132,17 @@ function QuickActions() {
           <Grid item xs={12} sm={6} md={4}>
             <Button
               fullWidth
-              variant="outlined"
+              variant="contained"
               startIcon={<People />}
               onClick={() => setUserListOpen(true)}
               sx={{ 
                 py: 2,
-                borderColor: '#152484',
-                color: '#152484',
+                bgcolor: '#152484',
+                color: 'white',
                 '&:hover': {
-                  borderColor: '#152484',
-                  backgroundColor: 'rgba(21, 36, 132, 0.04)'
+                  bgcolor: '#1e2d9f',
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 6px 16px rgba(21, 36, 132, 0.3)'
                 }
               }}
             >
@@ -152,16 +153,17 @@ function QuickActions() {
           <Grid item xs={12} sm={6} md={4}>
             <Button
               fullWidth
-              variant="outlined"
+              variant="contained"
               startIcon={<Api />}
               onClick={() => setStatusUpdateOpen(true)}
               sx={{ 
                 py: 2,
-                borderColor: '#006261',
-                color: '#006261',
+                bgcolor: '#006261',
+                color: 'white',
                 '&:hover': {
-                  borderColor: '#006261',
-                  backgroundColor: 'rgba(0, 98, 97, 0.04)'
+                  bgcolor: '#007a74',
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 6px 16px rgba(0, 98, 97, 0.3)'
                 }
               }}
             >
@@ -172,16 +174,17 @@ function QuickActions() {
           <Grid item xs={12} sm={6} md={4}>
             <Button
               fullWidth
-              variant="outlined"
+              variant="contained"
               startIcon={<Download />}
               onClick={exportAllData}
               sx={{ 
                 py: 2,
-                borderColor: '#55207D',
-                color: '#55207D',
+                bgcolor: '#55207D',
+                color: 'white',
                 '&:hover': {
-                  borderColor: '#55207D',
-                  backgroundColor: 'rgba(85, 32, 125, 0.04)'
+                  bgcolor: '#6d2b93',
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 6px 16px rgba(85, 32, 125, 0.3)'
                 }
               }}
             >
@@ -240,7 +243,7 @@ function QuickActions() {
             </Grid>
           </Grid>
         </Box>
-      </Paper>
+      </HongKongNeonCard>
 
       {/* 모달들 */}
       <UserListModal 

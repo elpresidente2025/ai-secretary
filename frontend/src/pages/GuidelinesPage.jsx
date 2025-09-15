@@ -26,7 +26,6 @@ import {
   Edit,
   Dashboard,
   List as ListIcon,
-  LightbulbOutlined,
   CheckCircleOutline,
   Warning,
   TrendingUp,
@@ -38,7 +37,6 @@ import DashboardLayout from '../components/DashboardLayout';
 import GenerateGuide from '../components/guides/GenerateGuide';
 import DashboardGuide from '../components/guides/DashboardGuide';
 import ManagementGuide from '../components/guides/ManagementGuide';
-import TipsGuide from '../components/guides/TipsGuide';
 import ChecklistGuide from '../components/guides/ChecklistGuide';
 import UsageGuide from '../components/guides/UsageGuide';
 import ProfileGuide from '../components/guides/ProfileGuide';
@@ -70,12 +68,6 @@ const GuidelinesPage = () => {
       title: '원고 관리',
       icon: <ListIcon sx={{ color: '#55207D' }} />,
       component: <ManagementGuide />
-    },
-    {
-      id: 'tips',
-      title: '더 좋은 글을 위한 팁',
-      icon: <LightbulbOutlined sx={{ color: '#f57c00' }} />,
-      component: <TipsGuide />
     },
     {
       id: 'checklist',

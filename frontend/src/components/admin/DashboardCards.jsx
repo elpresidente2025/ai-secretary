@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import {
   Box,
   Grid,
-  Card,
   CardContent,
   Typography,
   Alert,
@@ -21,18 +20,19 @@ import {
   Api
 } from '@mui/icons-material';
 import { useAuth } from '../../hooks/useAuth';
-import { getAdminStats } from '../../services/firebaseService';
+import { getAdminStats, updateGeminiStatus } from '../../services/firebaseService';
+import HongKongNeonCard from '../HongKongNeonCard';
 
-// Gemini 상태 수정 함수
+// Gemini 상태 변경 함수
 const handleGeminiStatusUpdate = async (newState) => {
   try {
-    console.log('🔧 Gemini 상태 업데이트:', newState);
-    await callFunctionWithRetry('updateGeminiStatus', { newState });
-    alert('✅ 상태가 성공적으로 업데이트되었습니다.');
+    console.log('Update Gemini status:', newState);
+    await updateGeminiStatus(newState);
+    alert('상태가 업데이트되었습니다.');
     window.location.reload();
   } catch (error) {
-    console.error('❌ Gemini 상태 수정 실패:', error);
-    alert('❌ 수정 실패: ' + error.message);
+    console.error('Gemini 상태 변경 실패:', error);
+    alert('상태 변경 실패: ' + error.message);
   }
 };
 
@@ -61,7 +61,7 @@ function DashboardCards() {
         
         const result = await getAdminStats();
         
-        console.log('📊 관리자 통계 조회 결과:', result);
+        console.log('신규 관리자 통계 조회 결과:', result);
         
         // 응답 구조에 따라 데이터 추출
         let statsData = {};
@@ -84,7 +84,7 @@ function DashboardCards() {
       } catch (err) {
         console.error('통계 데이터 조회 실패:', err);
         setError(err.message);
-        // 에러 시 기본값 유지
+        // 에러 시 기본값 사용
       } finally {
         setLoading(false);
       }
@@ -92,22 +92,22 @@ function DashboardCards() {
 
     fetchStats();
     
-    // 자동 폴링 제거 - 1인 운영 최적화
+    // 자동 새로고침 제거 - 1분마다 실행 최적화
     // const interval = setInterval(fetchStats, 30000);
     // return () => clearInterval(interval);
   }, [user]);
 
   const handleRefresh = async () => {
-    console.log('🔄 수동 새로고침');
+    console.log('수동 새로고침 시작');
     setLoading(true);
     setError(null);
     
     try {
       const result = await getAdminStats();
       
-      console.log('🔄 새로고침 결과:', result);
+      console.log('수동 새로고침 결과:', result);
       
-      // 응답 구조에 따라 데이터 추출
+      // ?�답 구조???�라 ?�이??추출
       let statsData = {};
       
       if (result.success && result.data) {
@@ -144,7 +144,7 @@ function DashboardCards() {
   if (!user.isAdmin) {
     return (
       <Alert severity="error">
-        관리자 권한이 필요합니다. 현재 권한: {user.role || '일반 사용자'}
+        관리자 권한이 필요합니다. 현재 권한: {user.role || 'user'}
       </Alert>
     );
   }
@@ -189,13 +189,13 @@ function DashboardCards() {
 
   return (
     <Grid container spacing={3}>
-      {/* 오늘 총 원고 생성 */}
+      {/* 오늘 문서 생성 */}
       <Grid item xs={12} sm={6} md={3}>
-        <Card>
+        <HongKongNeonCard>
           <CardContent sx={{ p: 2 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <Typography variant="h6" gutterBottom sx={{ color: 'black' }}>
-                오늘 총 원고 생성
+                오늘 문서 생성
               </Typography>
               <Tooltip title="새로고침">
                 <IconButton size="small" onClick={handleRefresh}>
@@ -221,12 +221,12 @@ function DashboardCards() {
               />
             </Box>
           </CardContent>
-        </Card>
+        </HongKongNeonCard>
       </Grid>
 
       {/* 활성 사용자 */}
       <Grid item xs={12} sm={6} md={3}>
-        <Card>
+        <HongKongNeonCard>
           <CardContent sx={{ p: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
               <People sx={{ color: 'black' }} />
@@ -236,15 +236,15 @@ function DashboardCards() {
               {stats.activeUsers}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              최근 7일 내 활동
+              최근 7일간 활동
             </Typography>
           </CardContent>
-        </Card>
+        </HongKongNeonCard>
       </Grid>
 
       {/* 최근 30분 에러 */}
       <Grid item xs={12} sm={6} md={3}>
-        <Card>
+        <HongKongNeonCard>
           <CardContent sx={{ p: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
               <Error sx={{ color: stats.last30mErrors > 0 ? '#d22730' : 'black' }} />
@@ -257,12 +257,12 @@ function DashboardCards() {
               시스템 상태 모니터링
             </Typography>
           </CardContent>
-        </Card>
+        </HongKongNeonCard>
       </Grid>
 
       {/* Gemini API 상태 */}
       <Grid item xs={12} sm={6} md={3}>
-        <Card>
+        <HongKongNeonCard>
           <CardContent sx={{ p: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
               <Api sx={{ color: 'black' }} />
@@ -283,34 +283,52 @@ function DashboardCards() {
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
               <Button
                 size="small"
-                variant="outlined"
+                variant="contained"
                 color="success"
                 onClick={() => handleGeminiStatusUpdate('active')}
                 disabled={stats.geminiStatus.state === 'active'}
+                sx={{
+                  '&:hover': {
+                    transform: 'translateY(-1px)',
+                    boxShadow: '0 3px 8px rgba(46, 125, 50, 0.3)'
+                  }
+                }}
               >
                 정상
               </Button>
               <Button
                 size="small"
-                variant="outlined"
+                variant="contained"
                 color="warning"
                 onClick={() => handleGeminiStatusUpdate('maintenance')}
                 disabled={stats.geminiStatus.state === 'maintenance'}
+                sx={{
+                  '&:hover': {
+                    transform: 'translateY(-1px)',
+                    boxShadow: '0 3px 8px rgba(237, 108, 2, 0.3)'
+                  }
+                }}
               >
                 점검
               </Button>
               <Button
                 size="small"
-                variant="outlined"
+                variant="contained"
                 color="error"
                 onClick={() => handleGeminiStatusUpdate('inactive')}
                 disabled={stats.geminiStatus.state === 'inactive'}
+                sx={{
+                  '&:hover': {
+                    transform: 'translateY(-1px)',
+                    boxShadow: '0 3px 8px rgba(211, 47, 47, 0.3)'
+                  }
+                }}
               >
                 중단
               </Button>
             </Box>
           </CardContent>
-        </Card>
+        </HongKongNeonCard>
       </Grid>
     </Grid>
   );

@@ -21,7 +21,7 @@ export default function DraftGrid({
 }) {
   if (items.length === 0) {
     return (
-      <Paper sx={{ p: 4, textAlign: 'center', color: 'text.secondary' }}>
+      <Paper elevation={0} sx={{ p: 4, textAlign: 'center', color: 'text.secondary' }}>
         <AutoAwesome sx={{ fontSize: 64, mb: 2, color: '#152484' }} />
         <Typography variant="h6" gutterBottom sx={{ color: 'black' }}>
           AI 원고 생성을 시작해보세요
@@ -75,6 +75,7 @@ export default function DraftGrid({
         {items.map((draft, index) => (
           <Card 
             key={draft.id || index} 
+            elevation={0}
             sx={{ 
               width: getCardWidth(),
               maxWidth: '100%',
@@ -105,14 +106,18 @@ export default function DraftGrid({
                 초안 {index + 1}
               </Typography>
               
-              <Box sx={{ 
-                bgcolor: '#f5f5f5', 
-                p: 2, 
+              <Box sx={{
+                bgcolor: '#f5f5f5',
+                p: 2,
                 borderRadius: 1,
-                mt: 1
+                mt: 1,
+                // 모든 텍스트 강제로 검정색
+                '& *': {
+                  color: '#000000 !important'
+                }
               }}>
-                <Typography variant="subtitle1" sx={{ 
-                  color: 'black',
+                <Typography variant="subtitle1" sx={{
+                  color: '#000000 !important',
                   fontWeight: 'bold',
                   mb: 1
                 }}>
@@ -121,11 +126,11 @@ export default function DraftGrid({
                 
                 <Divider sx={{ my: 1, borderColor: 'rgba(0,0,0,0.1)' }} />
                 
-                <Typography variant="body2" sx={{ 
+                <Typography variant="body2" sx={{
                   maxHeight: getContentHeight(),
                   overflow: 'auto',
                   whiteSpace: 'pre-wrap',
-                  color: 'black',
+                  color: '#000000 !important',
                   lineHeight: 1.6,
                   fontSize: getFontSize()
                 }}>

@@ -17,7 +17,11 @@ const TOSS_API_BASE = 'https://api.tosspayments.com/v1';
  * 토스페이먼츠 결제 승인
  */
 exports.confirmTossPayment = onCall({
-  cors: true,
+  cors: [
+    'https://cyberbrain.kr',
+    'https://ai-secretary-6e9c8.web.app',
+    'https://ai-secretary-6e9c8.firebaseapp.com'
+  ],
   memory: '512MiB',
   timeoutSeconds: 60
 }, async (request) => {

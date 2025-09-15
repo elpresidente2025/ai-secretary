@@ -110,8 +110,9 @@ class NECElectionScraper {
         /(제\d+회[^<]*선거)[\s\S]*?(\d{4}-\d{2}-\d{2})/gi
       ];
       
-      let match;
-      while ((match = electionPattern.exec(htmlContent)) !== null) {
+      for (const electionPattern of electionPatterns) {
+        let match;
+        while ((match = electionPattern.exec(htmlContent)) !== null) {
         try {
           const electionType = match[1].trim(); // 선거 유형
           const electionName = match[2].trim(); // 선거명
@@ -138,6 +139,7 @@ class NECElectionScraper {
           }
         } catch (parseError) {
           console.warn('개별 선거 데이터 파싱 실패:', parseError.message);
+        }
         }
       }
       

@@ -3,6 +3,46 @@ import { httpsCallable } from 'firebase/functions';
 import { functions, auth } from './firebase';
 
 /**
+ * 네이버 사용자를 위한 Firebase Functions 호출 (onCall 방식)
+ */
+export const callFunctionWithNaverAuth = async (functionName, data = {}) => {
+  // 네이버 사용자 정보 확인
+  const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+  
+  console.log('🔍 callFunctionWithNaverAuth 호출:', {
+    functionName,
+    currentUser: currentUser ? {
+      uid: currentUser.uid,
+      provider: currentUser.provider,
+      displayName: currentUser.displayName
+    } : null,
+    originalData: { ...data }
+  });
+  
+  // 네이버 사용자의 경우 데이터에 인증 정보 추가
+  if (currentUser?.provider === 'naver' && currentUser?.uid) {
+    data.__naverAuth = {
+      uid: currentUser.uid,
+      provider: 'naver'
+    };
+    console.log('✅ 네이버 인증 데이터 추가됨:', data.__naverAuth);
+  } else {
+    console.log('⚠️ 네이버 사용자가 아니거나 필수 정보 누락:', {
+      hasCurrentUser: !!currentUser,
+      provider: currentUser?.provider,
+      hasUid: !!currentUser?.uid
+    });
+  }
+  
+  // 기존 onCall 방식으로 호출
+  const callable = httpsCallable(functions, functionName);
+  const result = await callable(data);
+  
+  console.log(`✅ callFunctionWithNaverAuth ${functionName} 성공:`, result.data);
+  return result.data;
+};
+
+/**
  * Firebase Functions 호출 래퍼 (토큰 갱신 포함)
  * @param {string} functionName - 호출할 함수명
  * @param {object} data - 전달할 데이터
@@ -78,6 +118,69 @@ export const callFunctionWithRetry = async (functionName, data = {}, retries = 2
       
       throw new Error(errorMessage);
     }
+  }
+};
+
+/**
+ * HTTP 함수 호출 (generatePosts 전용)
+ * @param {string} functionName - 함수명
+ * @param {object} data - 전달할 데이터
+ * @returns {Promise} 함수 실행 결과
+ */
+export const callHttpFunction = async (functionName, data = {}) => {
+  try {
+    console.log(`🔥 HTTP Function 호출: ${functionName}`, data);
+
+    // 사용자 인증 정보 확인 (모든 사용자는 네이버 로그인)
+    const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+    console.log('🔍 사용자 정보:', { currentUser });
+
+    if (!currentUser?.uid || currentUser.provider !== 'naver') {
+      throw new Error('로그인 정보가 없습니다.');
+    }
+
+    // 백엔드에서 __naverAuth로 처리
+    data.__naverAuth = {
+      uid: currentUser.uid,
+      provider: 'naver'
+    };
+    const token = 'naver-auth'; // 임시 토큰
+
+    // HTTP 함수 URL 구성
+    const projectId = functions.app.options.projectId;
+    const region = 'asia-northeast3';
+    const url = `https://${region}-${projectId}.cloudfunctions.net/${functionName}`;
+
+    console.log('🔍 HTTP 요청 URL:', url);
+    console.log('🔍 요청 데이터:', { ...data, __naverAuth: data.__naverAuth ? '(있음)' : '(없음)' });
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(data)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ HTTP 함수 응답 오류:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorText,
+        isNaver: currentUser?.provider === 'naver'
+      });
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+
+    const result = await response.json();
+    console.log(`✅ HTTP Function ${functionName} 성공:`, result);
+    return result;
+
+  } catch (error) {
+    console.error(`❌ HTTP Function ${functionName} 실패:`, error);
+    throw error;
   }
 };
 
@@ -366,8 +469,8 @@ export const clearSystemCache = async () => {
 export const convertToSNS = async (postId) => {
   // 관리자 테스트 모드에서 모델 선택
   const modelName = localStorage.getItem('gemini_model') || 'gemini-1.5-flash';
-  
-  return await callFunctionWithRetry('convertToSNS', { postId, modelName });
+
+  return await callHttpFunction('convertToSNS', { postId, modelName });
 };
 
 /**
@@ -382,7 +485,7 @@ export const testSNS = async () => {
  * @returns {Promise<object>} 사용량 정보
  */
 export const getSNSUsage = async () => {
-  return await callFunctionWithRetry('getSNSUsage');
+  return await callHttpFunction('getSNSUsage', {});
 };
 
 /**
@@ -390,5 +493,5 @@ export const getSNSUsage = async () => {
  * @returns {Promise<object>} 구매 결과
  */
 export const purchaseSNSAddon = async () => {
-  return await callFunctionWithRetry('purchaseSNSAddon');
+  return await callFunctionWithNaverAuth('purchaseSNSAddon');
 };

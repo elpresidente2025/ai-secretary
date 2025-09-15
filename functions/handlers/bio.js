@@ -23,7 +23,7 @@ const { BIO_ENTRY_TYPES, VALIDATION_RULES, TYPE_ANALYSIS_WEIGHTS } = require('..
  * 사용자 자기소개 조회
  */
 exports.getUserBio = wrap(async (req) => {
-  const { uid } = auth(req);
+  const { uid } = await auth(req);
   logInfo('getUserBio 호출', { userId: uid });
 
   const bioDoc = await db.collection('bios').doc(uid).get();
@@ -50,7 +50,7 @@ exports.getUserBio = wrap(async (req) => {
  * Bio 엔트리 추가/업데이트 (새로운 구조화 시스템)
  */
 exports.updateBioEntry = wrap(async (req) => {
-  const { uid } = auth(req);
+  const { uid } = await auth(req);
   const { entryId, type, title, content, tags = [], weight = 1.0 } = req.data || {};
   
   // 입력 유효성 검사
@@ -159,7 +159,7 @@ exports.updateBioEntry = wrap(async (req) => {
  * Bio 엔트리 삭제
  */
 exports.deleteBioEntry = wrap(async (req) => {
-  const { uid } = auth(req);
+  const { uid } = await auth(req);
   const { entryId } = req.data || {};
   
   if (!entryId) {
@@ -220,7 +220,7 @@ exports.deleteBioEntry = wrap(async (req) => {
  * 사용자 자기소개 생성/업데이트 (기존 호환성 유지)
  */
 exports.updateUserBio = wrap(async (req) => {
-  const { uid } = auth(req);
+  const { uid } = await auth(req);
   const { content } = req.data || {};
   
   if (!content || typeof content !== 'string' || content.trim().length < 10) {
@@ -246,7 +246,7 @@ exports.updateUserBio = wrap(async (req) => {
  * 사용자 자기소개 삭제
  */
 exports.deleteUserBio = wrap(async (req) => {
-  const { uid } = auth(req);
+  const { uid } = await auth(req);
   logInfo('deleteUserBio 호출', { userId: uid });
 
   await db.collection('bios').doc(uid).delete();
@@ -265,7 +265,7 @@ exports.deleteUserBio = wrap(async (req) => {
  * 메타데이터 재분석 강제 실행
  */
 exports.reanalyzeBioMetadata = wrap(async (req) => {
-  const { uid } = auth(req);
+  const { uid } = await auth(req);
   logInfo('reanalyzeBioMetadata 호출', { userId: uid });
 
   const bioDoc = await db.collection('bios').doc(uid).get();

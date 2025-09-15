@@ -8,7 +8,7 @@ import {
   Alert,
   Snackbar
 } from '@mui/material';
-import { Refresh, Speed } from '@mui/icons-material';
+import { Speed } from '@mui/icons-material';
 import DashboardLayout from '../components/DashboardLayout';
 import DashboardCards from '../components/admin/DashboardCards';
 import QuickActions from '../components/admin/QuickActions';
@@ -20,28 +20,8 @@ import { useAuth } from '../hooks/useAuth';
 
 function AdminPage() {
   const { user } = useAuth();
-  const [refreshing, setRefreshing] = useState(false);
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'info' });
   const [performanceMonitorOpen, setPerformanceMonitorOpen] = useState(false);
-
-  // 전체 새로고침 함수
-  const handleGlobalRefresh = async () => {
-    setRefreshing(true);
-    
-    try {
-      // 페이지 전체 새로고침으로 모든 데이터 갱신
-      window.location.reload();
-    } catch (error) {
-      console.error('새로고침 실패:', error);
-      setNotification({
-        open: true,
-        message: '새로고침 중 오류가 발생했습니다.',
-        severity: 'error'
-      });
-    } finally {
-      setRefreshing(false);
-    }
-  };
 
   // 권한 체크
   if (!user) {
@@ -102,33 +82,20 @@ function AdminPage() {
           
           <Box sx={{ display: 'flex', gap: 2 }}>
             <Button
-              variant="outlined"
+              variant="contained"
               startIcon={<Speed />}
               onClick={() => setPerformanceMonitorOpen(true)}
               sx={{ 
-                borderColor: '#006261',
-                color: '#006261',
+                bgcolor: '#006261',
+                color: 'white',
                 '&:hover': { 
-                  borderColor: '#006261',
-                  backgroundColor: 'rgba(0, 98, 97, 0.04)'
+                  bgcolor: '#007a74',
+                  transform: 'translateY(-1px)',
+                  boxShadow: '0 4px 12px rgba(0, 98, 97, 0.3)'
                 }
               }}
             >
               성능 모니터
-            </Button>
-            <Button
-              variant="contained"
-              startIcon={<Refresh />}
-              onClick={handleGlobalRefresh}
-              disabled={refreshing}
-              sx={{ 
-                backgroundColor: '#152484',
-                '&:hover': { 
-                  backgroundColor: '#003A87'
-                }
-              }}
-            >
-              {refreshing ? '새로고침 중...' : '전체 새로고침'}
             </Button>
           </Box>
         </Box>
@@ -158,24 +125,6 @@ function AdminPage() {
           <UserManagement />
         </Box>
 
-        {/* 푸터 정보 */}
-        <Box 
-          sx={{ 
-            mt: 6, 
-            pt: 3, 
-            borderTop: '1px solid #e0e0e0',
-            textAlign: 'center'
-          }}
-        >
-          <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-            💡 <strong>1인 운영 최적화</strong>: 필요한 정보만 간단히 표시하고, 
-            상세 분석은 CSV 다운로드를 활용하세요.
-          </Typography>
-          <Typography variant="caption" sx={{ mt: 1, display: 'block', color: 'rgba(255, 255, 255, 0.7)' }}>
-            자동 새로고침이 비활성화되어 API 비용을 절약합니다. 
-            필요시 수동 새로고침을 이용하세요.
-          </Typography>
-        </Box>
       </Container>
 
       {/* 알림 스낵바 */}

@@ -1,15 +1,12 @@
 const admin = require('firebase-admin');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
-const wrap = require('../common/wrap').wrap;
+const { wrap } = require('../common/wrap');
+const { auth } = require('../common/auth');
 
 // 원고 발행 등록
 const publishPost = wrap(async (request) => {
+  const { uid } = await auth(request);
   const { postId, publishUrl } = request.data;
-  const uid = request.auth?.uid;
-
-  if (!uid) {
-    throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
-  }
 
   if (!postId || !publishUrl) {
     throw new HttpsError('invalid-argument', '원고 ID와 발행 URL이 필요합니다.');
@@ -49,7 +46,7 @@ const publishPost = wrap(async (request) => {
       const currentMonth = publishedAt.getMonth() + 1;
       const monthKey = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
 
-      let publishingData = publishingDoc.exists ? publishingDoc.data() : {};
+      const publishingData = publishingDoc.exists ? publishingDoc.data() : {};
       
       if (!publishingData.months) {
         publishingData.months = {};
@@ -155,11 +152,7 @@ const publishPost = wrap(async (request) => {
 
 // 발행 통계 조회
 const getPublishingStats = wrap(async (request) => {
-  const uid = request.auth?.uid;
-
-  if (!uid) {
-    throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
-  }
+  const { uid } = await auth(request);
 
   try {
     const db = admin.firestore();
@@ -241,11 +234,9 @@ const getPublishingStats = wrap(async (request) => {
 
 // 보너스 원고 생성 권한 확인
 const checkBonusEligibility = wrap(async (request) => {
-  const uid = request.auth?.uid;
+  const { uid } = await auth(request);
 
-  if (!uid) {
-    throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
-  }
+  // auth 함수에서 이미 인증 검증이 완료됨
 
   try {
     const db = admin.firestore();
@@ -256,6 +247,22 @@ const checkBonusEligibility = wrap(async (request) => {
     }
 
     const userData = userDoc.data();
+    const isAdmin = userData.role === 'admin' || userData.isAdmin === true;
+    
+    // 관리자는 무제한 보너스 제공
+    if (isAdmin) {
+      return {
+        success: true,
+        data: {
+          hasBonus: true,
+          availableBonus: 999999, // 관리자는 사실상 무제한
+          totalBonusGenerated: 999999,
+          bonusUsed: 0,
+          accessMethod: 'admin'
+        }
+      };
+    }
+    
     const usage = userData.usage || { postsGenerated: 0, monthlyLimit: 50, bonusGenerated: 0 };
     
     // NaN 방지를 위한 안전한 숫자 변환
@@ -286,11 +293,9 @@ const checkBonusEligibility = wrap(async (request) => {
 
 // 보너스 원고 사용
 const useBonusGeneration = wrap(async (request) => {
-  const uid = request.auth?.uid;
+  const { uid } = await auth(request);
 
-  if (!uid) {
-    throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
-  }
+  // auth 함수에서 이미 인증 검증이 완료됨
 
   try {
     const db = admin.firestore();
@@ -304,6 +309,17 @@ const useBonusGeneration = wrap(async (request) => {
       }
 
       const userData = userDoc.data();
+      const isAdmin = userData.role === 'admin' || userData.isAdmin === true;
+      
+      // 관리자는 무제한 보너스 사용 가능
+      if (isAdmin) {
+        console.log('관리자 계정 보너스 사용 - 제한 없음:', uid);
+        return {
+          success: true,
+          message: '관리자 권한으로 보너스 원고를 사용했습니다.'
+        };
+      }
+      
       const usage = userData.usage || { postsGenerated: 0, monthlyLimit: 50, bonusGenerated: 0, bonusUsed: 0 };
       
       const availableBonus = Math.max(0, usage.bonusGenerated - (usage.bonusUsed || 0));

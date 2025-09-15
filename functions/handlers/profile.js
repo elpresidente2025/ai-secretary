@@ -30,14 +30,13 @@ const { analyzeBioForStyle } = require('../services/style-analysis');
  * 사용자 프로필 조회
  */
 exports.getUserProfile = wrap(async (req) => {
-  const { uid, token } = auth(req);
+  const { uid, token } = await auth(req);
   logInfo('getUserProfile 호출', { userId: uid });
 
   const userDoc = await db.collection('users').doc(uid).get();
 
   let profile = {
     name: token?.name || '',
-    email: token?.email || '',
     position: '',
     regionMetro: '',
     regionLocal: '',
@@ -47,6 +46,27 @@ exports.getUserProfile = wrap(async (req) => {
   };
 
   if (userDoc.exists) profile = { ...profile, ...(userDoc.data() || {}) };
+  // Derive ageDecade/age for response if one is missing
+  try {
+    if (!profile.ageDecade && profile.age) {
+      const m1 = String(profile.age).trim().match(/^(\d{2})\s*-\s*\d{2}$/);
+      if (m1) profile.ageDecade = `${m1[1]}대`;
+    }
+    if (!profile.age && profile.ageDecade) {
+      const m2 = String(profile.ageDecade).trim().match(/^(\d{2})\s*대$/);
+      if (m2) {
+        const start = parseInt(m2[1], 10);
+        if (!isNaN(start)) profile.age = `${start}-${start + 9}`;
+      }
+    }
+  } catch (_) {}
+
+  // Normalize gender if present (e.g., 'M'/'F' -> '남성'/'여성')
+  if (profile.gender) {
+    const g = String(profile.gender).trim().toUpperCase();
+    if (g === 'M' || g === 'MALE' || g === '남' || g === '남자') profile.gender = '남성';
+    else if (g === 'F' || g === 'FEMALE' || g === '여' || g === '여자') profile.gender = '여성';
+  }
 
   // bios 컬렉션에서 자기소개 조회 (호환성 유지)
   try {
@@ -66,7 +86,7 @@ exports.getUserProfile = wrap(async (req) => {
  * 프로필 업데이트 (+ 선거구 유일성 락)
  */
 exports.updateProfile = wrap(async (req) => {
-  const { uid, token } = auth(req);
+  const { uid, token } = await auth(req);
   const profileData = req.data;
   if (!profileData || typeof profileData !== 'object') {
     throw new HttpsError('invalid-argument', '올바른 프로필 데이터를 입력해주세요.');
@@ -84,6 +104,28 @@ exports.updateProfile = wrap(async (req) => {
   ];
   const sanitized = {};
   for (const k of allowed) if (profileData[k] !== undefined) sanitized[k] = profileData[k];
+  // age <-> ageDecade sync
+  try {
+    if (sanitized.age && !sanitized.ageDecade) {
+      const m1 = String(sanitized.age).trim().match(/^(\d{2})\s*-\s*\d{2}$/);
+      if (m1) sanitized.ageDecade = `${m1[1]}대`;
+    }
+    if (sanitized.ageDecade && !sanitized.age) {
+      const m2 = String(sanitized.ageDecade).trim().match(/^(\d{2})\s*대$/);
+      if (m2) {
+        const start = parseInt(m2[1], 10);
+        if (!isNaN(start)) sanitized.age = `${start}-${start + 9}`;
+      }
+    }
+  } catch (_) {}
+
+  // Normalize gender input from client
+  if (sanitized.gender !== undefined && sanitized.gender !== null) {
+    const g = String(sanitized.gender).trim().toUpperCase();
+    if (g === 'M' || g === 'MALE' || g === '남' || g === '남자') sanitized.gender = '남성';
+    else if (g === 'F' || g === 'FEMALE' || g === '여' || g === '여자') sanitized.gender = '여성';
+    else sanitized.gender = String(sanitized.gender).trim();
+  }
 
   const userRef = db.collection('users').doc(uid);
   const currentDoc = await userRef.get();
@@ -167,7 +209,6 @@ exports.updateProfile = wrap(async (req) => {
   await userRef.set(
     {
       ...sanitized,
-      email: token?.email || null, // Firebase Auth에서 이메일 가져와서 저장
       isActive,
       districtKey: newKey ?? oldKey,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -183,7 +224,7 @@ exports.updateProfile = wrap(async (req) => {
  * 사용자 플랜 업데이트
  */
 exports.updateUserPlan = wrap(async (req) => {
-  const { uid, token } = auth(req);
+  const { uid, token } = await auth(req);
   const { plan } = req.data || {};
   
   if (!plan || typeof plan !== 'string') {
@@ -237,7 +278,7 @@ exports.checkDistrictAvailability = wrap(async (req) => {
  * 회원가입 + 선거구 중복 검사
  */
 exports.registerWithDistrictCheck = wrap(async (req) => {
-  const { uid, token } = auth(req);
+  const { uid, token } = await auth(req);
   const { profileData } = req.data || {};
   if (!profileData) throw new HttpsError('invalid-argument', '프로필 데이터가 필요합니다.');
 
@@ -266,7 +307,6 @@ exports.registerWithDistrictCheck = wrap(async (req) => {
   await db.collection('users').doc(uid).set(
     {
       ...sanitizedProfileData,
-      email: token?.email || null, // Firebase Auth에서 이메일 가져오기
       bio,
       isActive,
       districtKey: newKey,
@@ -309,5 +349,57 @@ exports.analyzeUserProfileOnUpdate = onDocumentUpdated('users/{userId}', async (
       console.error(`사용자 ${userId}의 스타일 프로필 분석 및 저장에 실패했습니다:`, error);
     }
   }
+  return null;
+});
+
+/**
+ * @trigger cleanupDistrictClaimsOnUserDelete
+ * @description 사용자가 삭제되면 해당 사용자의 선거구 점유 기록을 자동으로 정리합니다.
+ */
+const { onDocumentDeleted } = require('firebase-functions/v2/firestore');
+
+exports.cleanupDistrictClaimsOnUserDelete = onDocumentDeleted('users/{userId}', async (event) => {
+  const userId = event.params.userId;
+  const userData = event.data.data();
+
+  console.log(`🧹 사용자 삭제 감지 - 선거구 점유 기록 정리 시작:`, { userId });
+
+  try {
+    // 해당 사용자가 점유한 모든 선거구 찾기
+    const snapshot = await db.collection('district_claims').where('userId', '==', userId).get();
+
+    if (snapshot.empty) {
+      console.log(`ℹ️ 사용자 ${userId}의 선거구 점유 기록이 없습니다.`);
+      return;
+    }
+
+    // 배치로 모든 점유 기록 삭제
+    const batch = db.batch();
+    const deletedDistricts = [];
+
+    snapshot.forEach(doc => {
+      batch.delete(doc.ref);
+      deletedDistricts.push(doc.id);
+    });
+
+    await batch.commit();
+
+    console.log(`✅ 사용자 ${userId}의 선거구 점유 기록 정리 완료:`, {
+      deletedDistricts,
+      count: deletedDistricts.length
+    });
+
+    // bios 컬렉션도 정리
+    try {
+      await db.collection('bios').doc(userId).delete();
+      console.log(`✅ 사용자 ${userId}의 bio 기록도 정리 완료`);
+    } catch (bioError) {
+      console.warn(`⚠️ 사용자 ${userId}의 bio 정리 실패 (무시):`, bioError.message);
+    }
+
+  } catch (error) {
+    console.error(`❌ 사용자 ${userId}의 선거구 점유 기록 정리 실패:`, error);
+  }
+
   return null;
 });

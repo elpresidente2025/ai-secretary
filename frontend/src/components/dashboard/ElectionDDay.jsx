@@ -1,5 +1,5 @@
 // frontend/src/components/dashboard/ElectionDDay.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Paper,
   Box,
@@ -13,16 +13,7 @@ import {
   People,
   HowToVote
 } from '@mui/icons-material';
-
-// 색상 옵션
-const COLOR_OPTIONS = [
-  '#d22730', // 클래식 레드
-  '#152484', // 로얄 블루  
-  '#006261', // 티온 그린
-  '#f8c023', // 사이버펑크 옐로우
-  '#55207d', // 퍼플
-  '#ffffff'  // 화이트
-];
+import { useColor } from '../../contexts/ColorContext';
 
 // 7세그먼트 패턴
 const DIGIT_PATTERNS = {
@@ -51,15 +42,15 @@ const DIGIT_PATTERNS = {
 
 // 세그먼트 위치 정의
 const SEGMENT_POSITIONS = {
-  // 큰 디스플레이용 (45px x 85px)
+  // 큰 디스플레이용 (18px x 36px) - 1.5배로 키움
   large: {
-    a: { top: '2px', left: '7px', width: '31px', height: '6.5px' },
-    b: { top: '8.5px', right: '2px', width: '6.5px', height: '32.5px' },
-    c: { bottom: '8.5px', right: '2px', width: '6.5px', height: '32.5px' },
-    d: { bottom: '2px', left: '7px', width: '31px', height: '6.5px' },
-    e: { bottom: '8.5px', left: '2px', width: '6.5px', height: '32.5px' },
-    f: { top: '8.5px', left: '2px', width: '6.5px', height: '32.5px' },
-    g: { top: '50%', left: '7px', width: '31px', height: '6.5px', transform: 'translateY(-50%)' }
+    a: { top: '1.5px', left: '3px', width: '12px', height: '3px' },
+    b: { top: '4.5px', right: '1.5px', width: '3px', height: '12px' },
+    c: { bottom: '4.5px', right: '1.5px', width: '3px', height: '12px' },
+    d: { bottom: '1.5px', left: '3px', width: '12px', height: '3px' },
+    e: { bottom: '4.5px', left: '1.5px', width: '3px', height: '12px' },
+    f: { top: '4.5px', left: '1.5px', width: '3px', height: '12px' },
+    g: { top: '50%', left: '3px', width: '12px', height: '3px', transform: 'translateY(-50%)' }
   },
   // 반응형 큰 디스플레이용
   responsive: {
@@ -107,20 +98,20 @@ const SEGMENT_POSITIONS = {
       transform: 'translateY(-50%)' 
     }
   },
-  // 작은 디스플레이용 (10px x 22px)
+  // 작은 디스플레이용 (5px x 11px) - 0.5배로 축소
   small: {
-    a: { top: '1px', left: '2px', width: '6px', height: '1.5px' },
-    b: { top: '2.5px', right: '0.5px', width: '1.5px', height: '8px' },
-    c: { bottom: '2.5px', right: '0.5px', width: '1.5px', height: '8px' },
-    d: { bottom: '1px', left: '2px', width: '6px', height: '1.5px' },
-    e: { bottom: '2.5px', left: '0.5px', width: '1.5px', height: '8px' },
-    f: { top: '2.5px', left: '0.5px', width: '1.5px', height: '8px' },
-    g: { top: '50%', left: '2px', width: '6px', height: '1.5px', transform: 'translateY(-50%)' }
+    a: { top: '0.5px', left: '1px', width: '3px', height: '0.75px' },
+    b: { top: '1.25px', right: '0.25px', width: '0.75px', height: '4px' },
+    c: { bottom: '1.25px', right: '0.25px', width: '0.75px', height: '4px' },
+    d: { bottom: '0.5px', left: '1px', width: '3px', height: '0.75px' },
+    e: { bottom: '1.25px', left: '0.25px', width: '0.75px', height: '4px' },
+    f: { top: '1.25px', left: '0.25px', width: '0.75px', height: '4px' },
+    g: { top: '50%', left: '1px', width: '3px', height: '0.75px', transform: 'translateY(-50%)' }
   }
 };
 
 // 단일 세그먼트 컴포넌트
-const Segment = ({ isActive, segmentId, color, size = 'large' }) => {
+const Segment = ({ isActive, segmentId, color, size = 'large', scaleFactor = 1 }) => {
   const positions = SEGMENT_POSITIONS[size];
   
   // 반응형 border radius 설정
@@ -147,6 +138,18 @@ const Segment = ({ isActive, segmentId, color, size = 'large' }) => {
       : 'none';
   };
   
+  // scaleFactor가 있으면 위치도 스케일링
+  const scaledPositions = scaleFactor !== 1 && size === 'large' ?
+    Object.entries(positions[segmentId]).reduce((acc, [key, value]) => {
+      if (typeof value === 'string' && value.includes('px')) {
+        const numValue = parseFloat(value);
+        acc[key] = `${numValue * scaleFactor}px`;
+      } else {
+        acc[key] = value;
+      }
+      return acc;
+    }, {}) : positions[segmentId];
+
   return (
     <Box
       sx={{
@@ -156,27 +159,36 @@ const Segment = ({ isActive, segmentId, color, size = 'large' }) => {
         boxShadow: getBoxShadow(),
         opacity: isActive ? 1 : (size === 'large' || size === 'responsive' ? 0.15 : 0.2),
         transition: 'all 0.6s ease-out',
-        ...positions[segmentId]
+        ...scaledPositions
       }}
     />
   );
 };
 
 // 단일 문자/숫자 디스플레이
-const DigitDisplay = ({ character, color, size = 'large', responsive = false }) => {
+const DigitDisplay = ({ character, color, size = 'large', responsive = false, containerHeight }) => {
   const pattern = DIGIT_PATTERNS[character] || DIGIT_PATTERNS[' '];
   const segmentIds = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
-  
+
   let dimensions;
   if (responsive && size === 'large') {
     dimensions = {
       width: { xs: '28px', sm: '36px', md: '45px' },
       height: { xs: '55px', sm: '70px', md: '85px' }
     };
+  } else if (containerHeight && size === 'large') {
+    // 컨테이너 높이에 따라 동적으로 크기 조정
+    const scaleFactor = Math.max(0.5, Math.min(2, containerHeight / 60));
+    const baseWidth = 18 * scaleFactor;
+    const baseHeight = 36 * scaleFactor;
+    dimensions = {
+      width: `${baseWidth}px`,
+      height: `${baseHeight}px`
+    };
   } else {
-    dimensions = size === 'large' 
-      ? { width: '45px', height: '85px' }
-      : { width: '10px', height: '22px' };
+    dimensions = size === 'large'
+      ? { width: '18px', height: '36px' } // 1.5배로 키움 (12px->18px, 24px->36px)
+      : { width: '5px', height: '11px' }; // 0.5배로 줄임 (10px->5px, 22px->11px)
   }
 
   return (
@@ -194,6 +206,7 @@ const DigitDisplay = ({ character, color, size = 'large', responsive = false }) 
           segmentId={segmentId}
           color={color}
           size={responsive && size === 'large' ? 'responsive' : size}
+          scaleFactor={containerHeight ? Math.max(0.5, Math.min(2, containerHeight / 60)) : 1}
         />
       ))}
     </Box>
@@ -203,48 +216,36 @@ const DigitDisplay = ({ character, color, size = 'large', responsive = false }) 
 // 메인 7세그먼트 디스플레이 컴포넌트
 const SevenSegmentDisplay = ({ dDay, cardHeight = '140px', onColorChange }) => {
   const theme = useTheme();
-  const [currentColorIndex, setCurrentColorIndex] = useState(() => {
-    const saved = localStorage.getItem('electionDDayColorIndex');
-    return saved ? parseInt(saved) : 0;
-  });
+  const { currentColor, changeColor } = useColor();
+  const containerRef = useRef(null);
+  const [containerHeight, setContainerHeight] = useState(60);
 
-  const currentColor = COLOR_OPTIONS[currentColorIndex];
-
-  // localStorage 변경 감지
+  // 컨테이너 높이 측정
   useEffect(() => {
-    const handleStorageChange = () => {
-      const saved = localStorage.getItem('electionDDayColorIndex');
-      if (saved) {
-        const savedIndex = parseInt(saved);
-        if (savedIndex >= 0 && savedIndex < COLOR_OPTIONS.length) {
-          setCurrentColorIndex(savedIndex);
-          onColorChange && onColorChange(COLOR_OPTIONS[savedIndex]);
-        }
+    const measureHeight = () => {
+      if (containerRef.current) {
+        const height = containerRef.current.offsetHeight;
+        setContainerHeight(height);
       }
     };
 
-    // 초기 색상 설정
-    handleStorageChange();
+    measureHeight();
 
-    // 폴링으로 색상 변경 감지
-    const interval = setInterval(handleStorageChange, 100);
-    window.addEventListener('storage', handleStorageChange);
-
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, [onColorChange]);
-
-  const handleColorChange = (direction) => {
-    let newIndex;
-    if (direction === 'prev') {
-      newIndex = currentColorIndex === 0 ? COLOR_OPTIONS.length - 1 : currentColorIndex - 1;
-    } else {
-      newIndex = currentColorIndex === COLOR_OPTIONS.length - 1 ? 0 : currentColorIndex + 1;
+    const resizeObserver = new ResizeObserver(measureHeight);
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
     }
-    
-    localStorage.setItem('electionDDayColorIndex', newIndex.toString());
+
+    return () => resizeObserver.disconnect();
+  }, []);
+
+  // 색상 변경 시 부모 컴포넌트에 알림
+  useEffect(() => {
+    onColorChange && onColorChange(currentColor);
+  }, [currentColor, onColorChange]);
+
+  const handleColorChange = async (direction) => {
+    await changeColor(direction);
   };
 
   // D-Day 텍스트 생성
@@ -262,20 +263,22 @@ const SevenSegmentDisplay = ({ dDay, cardHeight = '140px', onColorChange }) => {
 
   return (
     <Box
+      ref={containerRef}
       sx={{
         backgroundColor: '#0a0a0a',
         border: '2px solid #333',
         borderRadius: 2,
-        padding: { xs: '12px 8px', sm: '16px 20px' },
-        minWidth: { xs: '200px', sm: '240px', md: '280px' },
-        maxWidth: { xs: '90vw', sm: '100%' },
-        height: { xs: '120px', sm: cardHeight },
+        padding: { xs: '8px', sm: '12px' },
+        width: '100%',
+        maxWidth: '100%',
+        height: '100%',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         boxShadow: 'inset 4px 4px 12px rgba(0,0,0,0.8), inset -2px -2px 6px rgba(255,255,255,0.1), 0 2px 8px rgba(0,0,0,0.2)',
-        gap: { xs: 1, sm: 2 }
+        gap: '4px', // 박스 높이의 5% 간격
+        overflow: 'hidden'
       }}
     >
       {/* 메인 디스플레이 */}
@@ -284,11 +287,15 @@ const SevenSegmentDisplay = ({ dDay, cardHeight = '140px', onColorChange }) => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: '0'
+          gap: '0',
+          width: '100%',
+          maxWidth: '100%',
+          flex: 1,
+          minHeight: 0
         }}
       >
         {displayText.split('').map((char, index) => (
-          <DigitDisplay key={index} character={char} color={currentColor} size="large" responsive={true} />
+          <DigitDisplay key={index} character={char} color={currentColor} size="large" responsive={false} containerHeight={containerHeight} />
         ))}
       </Box>
 
@@ -298,7 +305,9 @@ const SevenSegmentDisplay = ({ dDay, cardHeight = '140px', onColorChange }) => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: 1
+          gap: 1,
+          flex: 1,
+          minHeight: 0
         }}
       >
         {/* 왼쪽 화살표 */}
@@ -319,7 +328,7 @@ const SevenSegmentDisplay = ({ dDay, cardHeight = '140px', onColorChange }) => {
         {/* color 텍스트 (작은 7세그먼트) */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0 }}>
           {'color'.split('').map((char, index) => (
-            <DigitDisplay key={index} character={char} color={currentColor} size="small" />
+            <DigitDisplay key={index} character={char} color={currentColor} size="small" responsive={false} containerHeight={containerHeight * 0.3} />
           ))}
         </Box>
 
@@ -349,19 +358,12 @@ const SevenSegmentDisplay = ({ dDay, cardHeight = '140px', onColorChange }) => {
  * @param {string} props.status - ?�태 ('?�역', '?�비')
  */
 function ElectionDDay({ position, status }) {
-  const theme = useTheme(); // Hook??�??�로 ?�동
+
+  const theme = useTheme(); // Hook을 함수 최상단으로 이동
+  const { currentColor } = useColor();
   const [electionInfo, setElectionInfo] = useState(null);
   const [dDay, setDDay] = useState(null);
-  const [displayColor, setDisplayColor] = useState(() => {
-    const saved = localStorage.getItem('electionDDayColorIndex');
-    if (saved) {
-      const savedIndex = parseInt(saved);
-      if (savedIndex >= 0 && savedIndex < COLOR_OPTIONS.length) {
-        return COLOR_OPTIONS[savedIndex];
-      }
-    }
-    return COLOR_OPTIONS[0];
-  });
+  const [displayColor, setDisplayColor] = useState(currentColor);
 
   // 호버 시 랜덤 글로우 색상 생성 함수
   const getRandomGlowColor = () => {
@@ -489,7 +491,7 @@ function ElectionDDay({ position, status }) {
     return () => clearTimeout(timeout);
   }, [electionInfo]);
 
-  // ?�거 ?�보가 ?�으�??�더링하지 ?�음
+  // 선거 정보가 없으면 렌더링하지 않음
   if (!electionInfo || dDay === null) {
     return null;
   }
@@ -522,11 +524,13 @@ function ElectionDDay({ position, status }) {
   const Icon = electionInfo.icon;
 
   return (
-    <Paper 
+    <Paper
       elevation={1}
+      data-card-container="true"
       onMouseEnter={() => setCurrentGlowColor(getRandomGlowColor())}
-      sx={{ 
+      sx={{
         p: 2.5,
+        height: '100%',
         cursor: 'pointer',
         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         '&:hover': {
@@ -536,22 +540,22 @@ function ElectionDDay({ position, status }) {
         }
       }}
     >
-      {/* 상단: 제목과 D-Day를 좌우 배치 (모바일에서는 세로 배치) */}
-      <Box sx={{ 
-        display: 'flex', 
-        flexDirection: { xs: 'column', sm: 'row' },
-        alignItems: { xs: 'stretch', sm: 'flex-start' }, 
-        justifyContent: 'space-between', 
-        gap: { xs: 2, sm: 0 },
-        mb: 2 
+      {/* 1열 2행 배치 */}
+      <Box sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 2,
+        mb: 2,
+        flex: 1,
+        minHeight: 0
       }}>
-        {/* 좌측: 제목과 아이콘 */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0, flex: 1 }}>
-          <Box 
-            sx={{ 
-              p: { xs: 1, sm: 1.5 }, 
-              borderRadius: 2, 
-              bgcolor: electionInfo.color, 
+        {/* 1행: 텍스트 정보 */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0 }}>
+          <Box
+            sx={{
+              p: { xs: 1, sm: 1.5 },
+              borderRadius: 2,
+              bgcolor: electionInfo.color,
               color: 'white',
               display: 'flex',
               alignItems: 'center',
@@ -562,8 +566,8 @@ function ElectionDDay({ position, status }) {
             <Icon sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }} />
           </Box>
           <Box sx={{ minWidth: 0, flex: 1 }}>
-            <Typography variant="h6" sx={{ 
-              fontWeight: 600, 
+            <Typography variant="h6" sx={{
+              fontWeight: 600,
               mb: 0.5,
               fontSize: { xs: '1rem', sm: '1.25rem' }
             }}>
@@ -574,8 +578,8 @@ function ElectionDDay({ position, status }) {
             }}>
               {electionInfo.type}
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ 
-              display: 'block', 
+            <Typography variant="body2" color="text.secondary" sx={{
+              display: 'block',
               mt: 0.5,
               fontSize: { xs: '0.75rem', sm: '0.875rem' }
             }}>
@@ -589,18 +593,18 @@ function ElectionDDay({ position, status }) {
           </Box>
         </Box>
 
-        {/* 우측: 7-세그먼트 스타일 D-Day 카운터 */}
-        <Box sx={{ 
-          flexShrink: 0, 
-          minWidth: 0,
+        {/* 2행: 7-세그먼트 D-Day 카운터 */}
+        <Box sx={{
           display: 'flex',
-          justifyContent: { xs: 'center', sm: 'flex-end' },
-          alignItems: 'center'
+          justifyContent: 'center',
+          alignItems: 'center',
+          flex: 1,
+          minHeight: 0
         }}>
-          <SevenSegmentDisplay 
-            dDay={dDay} 
-            cardHeight="150px" 
-            color={displayColor} 
+          <SevenSegmentDisplay
+            dDay={dDay}
+            cardHeight="100px"
+            color={displayColor}
             onColorChange={setDisplayColor}
           />
         </Box>

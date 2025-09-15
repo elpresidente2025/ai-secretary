@@ -6,6 +6,9 @@ import { useAuth } from './hooks/useAuth';
 import { getSystemStatus } from './services/firebaseService';
 import MaintenancePage from './components/MaintenancePage';
 import { LoadingOverlay } from './components/loading';
+import { HelpProvider } from './contexts/HelpContext';
+import { ColorProvider } from './contexts/ColorContext';
+import BackgroundGrid from './components/BackgroundGrid';
 
 function App() {
   const { user, loading, logout } = useAuth();
@@ -13,13 +16,13 @@ function App() {
   const [statusLoading, setStatusLoading] = useState(true);
   const location = useLocation();
 
-  // 시스템 상태 확인 (타임아웃 1.5초로 단축)
+  // 시스템 상태 확인 (타임아웃 10초로 조정)
   const checkSystemStatus = useCallback(async () => {
     setStatusLoading(true);
     try {
-      // 1.5초 타임아웃 설정 (더 빠른 응답)
+      // 10초 타임아웃 설정 (Firebase Functions 응답 시간 고려)
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('타임아웃')), 1500)
+        setTimeout(() => reject(new Error('타임아웃')), 10000)
       );
       
       const status = await Promise.race([
@@ -132,285 +135,31 @@ function App() {
   }
 
   return (
-    <Box sx={{ position: 'relative', minHeight: '100vh' }}>
-      {/* Synthwave background image for top 50% */}
-      <Box
-        sx={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          height: '50vh',
-          backgroundImage: 'url(/background/synthwave_city.png)',
-          backgroundRepeat: 'no-repeat',
-          backgroundPosition: 'top center',
-          backgroundSize: 'cover',
-          zIndex: -1,
-        }}
-      />
-      {/* 시안색 가로선들 - 피보나치 수열 간격 (처음 3개 제외) */}
-      {(() => {
-        const fibonacci = [3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610];
-        let cumulativeOffset = 15;
-        const lines = [];
-        
-        fibonacci.forEach((fib, index) => {
-          lines.push(
-            <Box
-              key={index}
-              sx={{
-                position: 'fixed',
-                top: `calc(50vh + ${cumulativeOffset}px)`,
-                left: 0,
-                right: 0,
-                height: (index === 2 || index === 3 || index === 5 || index === 7) ? '0.8px' : '1px', // 3,4,6,8번째 선은 0.8px
-                backgroundColor: '#00ffff',
-                zIndex: -1,
-              }}
-            />
-          );
-          cumulativeOffset += fib;
-        });
-        
-        return lines;
-      })()}
-      
-      {/* 시안색 세로선들 - 지평선 원근감 그리드 (소실점: 상단 45%) */}
-      {(() => {
-        const verticalLines = [];
-        const baseSpacing = 300; // 화면 하단에서의 간격
-        const spacingRatio = 0.7; // 간격 감소 비율
-        const vanishingPointY = 45; // 소실점 Y: 상단에서 45%
-        const vanishingPointX = 50; // 소실점 X: 중앙
-        
-        // 중앙선 (수직 유지) - 첫 번째 가로선에서 1px 위에서 시작
-        verticalLines.push(
-          <Box
-            key="center"
-            sx={{
-              position: 'fixed',
-              top: 'calc(50vh + 14px)', // 첫 번째 가로선(15px)에서 1px 위
-              left: '50vw',
-              bottom: 0,
-              width: '0.8px',
-              backgroundColor: '#00ffff',
-              zIndex: -1,
-            }}
-          />
-        );
-        
-        // 우측 선들 - 지평선 원근법
-        for (let i = 1; i <= 10; i++) {
-          let bottomOffset = 0;
-          for (let j = 1; j <= i; j++) {
-            bottomOffset += baseSpacing * Math.pow(spacingRatio, j - 1);
-          }
-          
-          // 시작점 X 위치 (각 선의 실제 위치에서 시작)
-          const startX = 50 + (bottomOffset * 0.05); // 시작점은 실제 세로선 위치
-          // 화면 하단에서의 X 위치 (원근감으로 더 벌어짐)
-          const bottomX = 50 + (bottomOffset * 0.3); // 간격을 vw로 변환
-          
-          // SVG로 정확한 선 그리기
-          verticalLines.push(
-            <svg
-              key={`right-${i}`}
-              style={{
-                position: 'fixed',
-                top: 'calc(50vh + 14px)', // 첫 번째 가로선 1px 위에서 시작
-                left: 0,
-                width: '100vw',
-                height: 'calc(50vh - 14px)', // 첫 번째 가로선부터 화면 끝까지
-                zIndex: -1,
-                pointerEvents: 'none'
-              }}
-            >
-              <line
-                x1={`${startX}%`}
-                y1="0"
-                x2={`${bottomX}%`}
-                y2="100%"
-                stroke="#00ffff"
-                strokeWidth="0.5"
-              />
-            </svg>
-          );
+    <HelpProvider>
+      <ColorProvider>
+      <Box sx={{ position: 'relative', minHeight: '100vh' }}>
+        {/* Synthwave background image for top 50% */}
+        <Box
+          sx={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: '50vh',
+            backgroundImage: 'url(/background/synthwave_city.png)',
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'top center',
+            backgroundSize: 'cover',
+            zIndex: -0.2,
+          }}
+        />
 
-          // 중간선 추가 (중앙선과 첫 번째 선 사이, 그리고 각 선들 사이)
-          if (i === 1) {
-            // 중앙선(50%)과 첫 번째 우측선 사이
-            const midBottomOffset = bottomOffset / 2;
-            const midStartX = 50 + (midBottomOffset * 0.05);
-            const midBottomX = 50 + (midBottomOffset * 0.3);
-            
-            verticalLines.push(
-              <svg
-                key={`right-mid-center-${i}`}
-                style={{
-                  position: 'fixed',
-                  top: 'calc(50vh + 14px)',
-                  left: 0,
-                  width: '100vw',
-                  height: 'calc(50vh - 14px)',
-                  zIndex: -1,
-                  pointerEvents: 'none'
-                }}
-              >
-                <line
-                  x1={`${midStartX}%`}
-                  y1="0"
-                  x2={`${midBottomX}%`}
-                  y2="100%"
-                  stroke="#00ffff"
-                  strokeWidth="0.5"
-                />
-              </svg>
-            );
-          } else {
-            // 현재 선과 이전 선 사이
-            let prevBottomOffset = 0;
-            for (let j = 1; j < i; j++) {
-              prevBottomOffset += baseSpacing * Math.pow(spacingRatio, j - 1);
-            }
-            
-            const midBottomOffset = (prevBottomOffset + bottomOffset) / 2;
-            const midStartX = 50 + (midBottomOffset * 0.05);
-            const midBottomX = 50 + (midBottomOffset * 0.3);
-            
-            verticalLines.push(
-              <svg
-                key={`right-mid-${i}`}
-                style={{
-                  position: 'fixed',
-                  top: 'calc(50vh + 14px)',
-                  left: 0,
-                  width: '100vw',
-                  height: 'calc(50vh - 14px)',
-                  zIndex: -1,
-                  pointerEvents: 'none'
-                }}
-              >
-                <line
-                  x1={`${midStartX}%`}
-                  y1="0"
-                  x2={`${midBottomX}%`}
-                  y2="100%"
-                  stroke="#00ffff"
-                  strokeWidth="0.5"
-                />
-              </svg>
-            );
-          }
-        }
-        
-        // 좌측 선들 - 지평선 원근법
-        for (let i = 1; i <= 10; i++) {
-          let bottomOffset = 0;
-          for (let j = 1; j <= i; j++) {
-            bottomOffset += baseSpacing * Math.pow(spacingRatio, j - 1);
-          }
-          
-          // 시작점 X 위치 (각 선의 실제 위치에서 시작)
-          const startX = 50 - (bottomOffset * 0.05); // 시작점은 실제 세로선 위치
-          // 화면 하단에서의 X 위치 (원근감으로 더 벌어짐)
-          const bottomX = 50 - (bottomOffset * 0.3); // 간격을 vw로 변환
-          
-          // SVG로 정확한 선 그리기
-          verticalLines.push(
-            <svg
-              key={`left-${i}`}
-              style={{
-                position: 'fixed',
-                top: 'calc(50vh + 14px)', // 첫 번째 가로선 1px 위에서 시작
-                left: 0,
-                width: '100vw',
-                height: 'calc(50vh - 14px)', // 첫 번째 가로선부터 화면 끝까지
-                zIndex: -1,
-                pointerEvents: 'none'
-              }}
-            >
-              <line
-                x1={`${startX}%`}
-                y1="0"
-                x2={`${bottomX}%`}
-                y2="100%"
-                stroke="#00ffff"
-                strokeWidth="0.5"
-              />
-            </svg>
-          );
-
-          // 중간선 추가 (중앙선과 첫 번째 선 사이, 그리고 각 선들 사이)
-          if (i === 1) {
-            // 중앙선(50%)과 첫 번째 좌측선 사이
-            const midBottomOffset = bottomOffset / 2;
-            const midStartX = 50 - (midBottomOffset * 0.05);
-            const midBottomX = 50 - (midBottomOffset * 0.3);
-            
-            verticalLines.push(
-              <svg
-                key={`left-mid-center-${i}`}
-                style={{
-                  position: 'fixed',
-                  top: 'calc(50vh + 14px)',
-                  left: 0,
-                  width: '100vw',
-                  height: 'calc(50vh - 14px)',
-                  zIndex: -1,
-                  pointerEvents: 'none'
-                }}
-              >
-                <line
-                  x1={`${midStartX}%`}
-                  y1="0"
-                  x2={`${midBottomX}%`}
-                  y2="100%"
-                  stroke="#00ffff"
-                  strokeWidth="0.5"
-                />
-              </svg>
-            );
-          } else {
-            // 현재 선과 이전 선 사이
-            let prevBottomOffset = 0;
-            for (let j = 1; j < i; j++) {
-              prevBottomOffset += baseSpacing * Math.pow(spacingRatio, j - 1);
-            }
-            
-            const midBottomOffset = (prevBottomOffset + bottomOffset) / 2;
-            const midStartX = 50 - (midBottomOffset * 0.05);
-            const midBottomX = 50 - (midBottomOffset * 0.3);
-            
-            verticalLines.push(
-              <svg
-                key={`left-mid-${i}`}
-                style={{
-                  position: 'fixed',
-                  top: 'calc(50vh + 14px)',
-                  left: 0,
-                  width: '100vw',
-                  height: 'calc(50vh - 14px)',
-                  zIndex: -1,
-                  pointerEvents: 'none'
-                }}
-              >
-                <line
-                  x1={`${midStartX}%`}
-                  y1="0"
-                  x2={`${midBottomX}%`}
-                  y2="100%"
-                  stroke="#00ffff"
-                  strokeWidth="0.5"
-                />
-              </svg>
-            );
-          }
-        }
-        
-        return verticalLines;
-      })()}
-      <Outlet />
-    </Box>
+        {/* Background Grid */}
+        <BackgroundGrid />
+        <Outlet />
+      </Box>
+      </ColorProvider>
+    </HelpProvider>
   );
 }
 

@@ -160,6 +160,14 @@ export default function UserInfoForm({
             label="상태"
             onChange={handleSelectChange}
             disabled={disabled}
+            MenuProps={{
+              keepMounted: false,
+              PaperProps: {
+                style: {
+                  zIndex: 1400,
+                },
+              },
+            }}
           >
             <MenuItem value="현역">현역</MenuItem>
             <MenuItem value="후보">후보</MenuItem>
@@ -189,6 +197,14 @@ export default function UserInfoForm({
             label="직책"
             onChange={handleSelectChange}
             disabled={disabled}
+            MenuProps={{
+              keepMounted: false,
+              PaperProps: {
+                style: {
+                  zIndex: 1400,
+                },
+              },
+            }}
           >
             <MenuItem value="국회의원">국회의원</MenuItem>
             <MenuItem value="광역의원">광역의원(시/도의원)</MenuItem>
@@ -207,6 +223,14 @@ export default function UserInfoForm({
             label="광역자치단체"
             onChange={handleSelectChange}
             disabled={disabled || !position}
+            MenuProps={{
+              keepMounted: false,
+              PaperProps: {
+                style: {
+                  zIndex: 1400,
+                },
+              },
+            }}
           >
             {metroList.map((metro) => (
               <MenuItem key={metro} value={metro}>
@@ -227,6 +251,14 @@ export default function UserInfoForm({
             label="기초자치단체"
             onChange={handleSelectChange}
             disabled={disabled || !regionMetro}
+            MenuProps={{
+              keepMounted: false,
+              PaperProps: {
+                style: {
+                  zIndex: 1400,
+                },
+              },
+            }}
           >
             {localList.map((local) => (
               <MenuItem key={local} value={local}>
@@ -247,6 +279,14 @@ export default function UserInfoForm({
             label="선거구"
             onChange={handleSelectChange}
             disabled={disabled || !regionLocal || !position}
+            MenuProps={{
+              keepMounted: false,
+              PaperProps: {
+                style: {
+                  zIndex: 1400,
+                },
+              },
+            }}
           >
             {electoralList.map((district) => (
               <MenuItem key={district} value={district}>

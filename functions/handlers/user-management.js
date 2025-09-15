@@ -7,6 +7,7 @@
 
 const { HttpsError } = require('firebase-functions/v2/https');
 const { wrap } = require('../common/wrap');
+const { auth } = require('../common/auth');
 const { admin, db } = require('../utils/firebaseAdmin');
 
 /**
@@ -15,11 +16,7 @@ const { admin, db } = require('../utils/firebaseAdmin');
  * - Firebase Auth 계정 삭제
  */
 exports.deleteUserAccount = wrap(async (request) => {
-  const { uid } = request.auth;
-  
-  if (!uid) {
-    throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
-  }
+  const { uid } = await auth(request);
 
   try {
     console.log(`🗑️ 회원 탈퇴 시작: ${uid}`);
@@ -50,6 +47,22 @@ exports.deleteUserAccount = wrap(async (request) => {
     const bioQuery = await db.collection('bio').where('userId', '==', uid).get();
     const deleteBioPromises = bioQuery.docs.map(doc => doc.ref.delete());
     await Promise.all(deleteBioPromises);
+    // username 매핑 삭제 (해당 uid가 소유자인 경우에만)
+    try {
+      const currentUsername = userData?.username;
+      if (currentUsername) {
+        const unameRef = db.collection('usernames').doc(String(currentUsername));
+        const unameSnap = await unameRef.get();
+        if (unameSnap.exists && unameSnap.get('uid') === uid) {
+          await unameRef.delete();
+          console.log(`✅ username 매핑 삭제: ${currentUsername}`);
+        } else {
+          console.log('ℹ️ username 매핑 없음 또는 소유자 불일치, 건너뜀');
+        }
+      }
+    } catch (unameErr) {
+      console.warn('⚠️ username 매핑 삭제 실패(무시):', unameErr.message);
+    }
     console.log(`📋 Bio 엔트리 ${bioQuery.size}개 삭제 완료`);
 
     // 3. 사용자 프로필 삭제
@@ -63,9 +76,18 @@ exports.deleteUserAccount = wrap(async (request) => {
       console.log(`🗺️ 선거구 점유 해제: ${districtKey}`);
     }
 
-    // 5. Firebase Auth 계정 삭제
-    await admin.auth().deleteUser(uid);
-    console.log('🔥 Firebase Auth 계정 삭제 완료');
+    // 5. Firebase Auth 계정 삭제 (네이버 사용자가 아닌 경우만)
+    if (!userData?.provider || userData.provider !== 'naver') {
+      try {
+        await admin.auth().deleteUser(uid);
+        console.log('🔥 Firebase Auth 계정 삭제 완료');
+      } catch (authError) {
+        console.warn('⚠️ Firebase Auth 계정 삭제 실패 (계속 진행):', authError.message);
+        // Firebase Auth 계정이 없어도 탈퇴는 계속 진행
+      }
+    } else {
+      console.log('🔗 네이버 사용자이므로 Firebase Auth 계정 삭제 건너뜀');
+    }
 
     console.log(`✅ 회원 탈퇴 완료: ${uid}`);
     

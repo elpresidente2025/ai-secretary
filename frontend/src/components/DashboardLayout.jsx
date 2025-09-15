@@ -1,24 +1,17 @@
 // frontend/src/components/DashboardLayout.jsx
-import React, { useState } from 'react';
+import React from 'react';
 import {
   AppBar,
   Toolbar,
   Typography,
   IconButton,
-  Drawer,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemText,
-  ListItemIcon,
   Box,
   useTheme,
   useMediaQuery,
-  Avatar,
-  Button
+  Button,
+  Portal
 } from '@mui/material';
 import {
-  Menu as MenuIcon,
   Create,
   History,
   Settings,
@@ -27,24 +20,28 @@ import {
   AdminPanelSettings,
   MenuBook,
   DarkMode,
-  LightMode
+  LightMode,
+  Info
 } from '@mui/icons-material';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { getUserDisplayTitle, getUserRegionInfo, getUserStatusIcon } from '../utils/userUtils';
 import { useThemeMode } from '../contexts/ThemeContext';
+import { useHelp } from '../contexts/HelpContext';
+import HelpButton from './HelpButton';
+import HelpModal from './HelpModal';
+import MobileMenu from './MobileMenu';
 
 const DashboardLayout = ({ children }) => {
   const { user, logout } = useAuth();
   const { isDarkMode, toggleTheme } = useThemeMode();
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const { isHelpOpen, openHelp, closeHelp, getCurrentHelpConfig, hasHelp } = useHelp();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
   const navigate = useNavigate();
   const location = useLocation();
 
-  const handleDrawerToggle = () => setDrawerOpen(!drawerOpen);
-  const handleLogout = async () => { await logout(); setDrawerOpen(false); };
+  const handleLogout = async () => await logout();
   const handleLogoClick = () => navigate('/dashboard');
 
   const userIcon = getUserStatusIcon(user);
@@ -63,6 +60,9 @@ const DashboardLayout = ({ children }) => {
       { text: '가이드라인', icon: <MenuBook />, path: '/guidelines' }
     );
   }
+
+  // 소개 페이지는 항상 표시
+  menuItems.push({ text: '소개', icon: <Info />, path: '/about' });
   
   // 프로필과 결제는 항상 표시
   menuItems.push(
@@ -75,57 +75,16 @@ const DashboardLayout = ({ children }) => {
   }
 
   const isCurrentPath = (path) => location.pathname === path;
-  const handleNavigate = (path) => { navigate(path); setDrawerOpen(false); };
+  const handleNavigate = (path) => navigate(path);
 
-  const drawer = (
-    <Box sx={{ width: 280, pt: 2 }}>
-      <Box sx={{ px: 2, pb: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-          <Avatar sx={{ mr: 2, bgcolor: 'primary.main' }}>{userIcon}</Avatar>
-          <Box>
-            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-              {user?.name || '사용자'}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {getUserDisplayTitle(user)}
-            </Typography>
-          </Box>
-        </Box>
-        {regionInfo && (
-          <Typography variant="caption" sx={{ color: 'rgba(0, 0, 0, 0.7)' }}>
-            {regionInfo}
-          </Typography>
-        )}
-      </Box>
-
-      <List>
-        {menuItems.map((item) => (
-          <ListItem key={item.text} disablePadding>
-            <ListItemButton onClick={() => handleNavigate(item.path)} selected={isCurrentPath(item.path)}>
-              <ListItemIcon>{item.icon}</ListItemIcon>
-              <ListItemText primary={item.text} />
-            </ListItemButton>
-          </ListItem>
-        ))}
-        <ListItem disablePadding>
-          <ListItemButton onClick={toggleTheme}>
-            <ListItemIcon>{isDarkMode ? <LightMode /> : <DarkMode />}</ListItemIcon>
-            <ListItemText primary={isDarkMode ? "라이트 모드" : "다크 모드"} />
-          </ListItemButton>
-        </ListItem>
-        <ListItem disablePadding>
-          <ListItemButton onClick={handleLogout}>
-            <ListItemIcon><Logout /></ListItemIcon>
-            <ListItemText primary="로그아웃" />
-          </ListItemButton>
-        </ListItem>
-      </List>
-    </Box>
-  );
 
   return (
-    // 전체를 자연스러운 흐름으로: 헤더 + 본문 + 푸터
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+    // 자연스러운 문서 플로우: 스크롤은 실제 콘텐츠 길이만큼만
+    <Box sx={{
+      display: 'flex',
+      flexDirection: 'column',
+      minHeight: '100dvh'
+    }}>
       {/* 상단 헤더: 완전 고정 */}
       <AppBar 
         position="fixed" 
@@ -209,67 +168,39 @@ const DashboardLayout = ({ children }) => {
             </>
           )}
 
-          {/* 모바일: 다크모드 토글 + 햄버거 */}
-          {isMobile && (
-            <>
-              <IconButton 
-                color="inherit" 
-                onClick={toggleTheme}
-                sx={{ color: 'white', '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' }, mr: 1 }}
-              >
-                {isDarkMode ? <LightMode /> : <DarkMode />}
-              </IconButton>
-              <IconButton color="inherit" onClick={handleDrawerToggle} edge="end">
-                <MenuIcon />
-              </IconButton>
-            </>
-          )}
+          {/* 모바일: 헤더에는 아무것도 표시하지 않음 (햄버거 메뉴 내부에서 처리) */}
         </Toolbar>
       </AppBar>
 
-      <Drawer 
-        anchor="right" 
-        open={drawerOpen} 
-        onClose={handleDrawerToggle} 
-        ModalProps={{ 
-          keepMounted: true,
-          sx: { zIndex: (theme) => theme.zIndex.modal + 100 }
-        }}
-        PaperProps={{
-          sx: {
-            bgcolor: 'rgba(255, 255, 255, 0.65)',
-            color: 'black',
-            zIndex: (theme) => theme.zIndex.modal + 100
-          }
-        }}
-        sx={{ zIndex: (theme) => theme.zIndex.modal + 100 }}
-      >
-        {drawer}
-      </Drawer>
 
-      {/* 본문 */}
+      {/* 본문 - 콘텐츠에 맞는 자연스러운 높이 */}
       <Box
         component="main"
         sx={{
-          flex: 1,
           bgcolor: 'transparent', // 카본 질감이 보이도록 투명하게 설정
           display: 'flex',
           justifyContent: 'center',
           width: '100%',
+          flex: '1 0 auto',
+          position: 'relative',
           pt: '64px', // 고정 헤더 높이만큼 상단 여백
           pb: 4, // 푸터와의 간격
         }}
       >
-        <Box sx={{ width: '100%', maxWidth: '85vw' }}>
+        <Box sx={{ width: '100%' }}>
           {children}
         </Box>
+        {hasHelp() && (
+          <Portal container={document.body}>
+            <HelpButton onClick={openHelp} />
+          </Portal>
+        )}
       </Box>
 
-      {/* 푸터 - 콘텐츠 끝에 자연스럽게 배치 */}
+      {/* 푸터 - 콘텐츠 바로 아래에 자연스럽게 배치 */}
       <Box
         component="footer"
         sx={{
-          mt: 'auto', // 자동으로 하단에 밀어넣기
           py: 2,
           px: 2,
           bgcolor: '#152484',
@@ -277,6 +208,7 @@ const DashboardLayout = ({ children }) => {
           borderColor: 'divider',
           textAlign: 'center',
           position: 'relative',
+          mt: 'auto',
           '&::before': {
             content: '""',
             position: 'absolute',
@@ -296,6 +228,24 @@ const DashboardLayout = ({ children }) => {
           Copyright 2025. CyberBrain. All Rights Reserved.
         </Typography>
       </Box>
+
+      {/* 모바일 햄버거 메뉴 */}
+      {isMobile && <MobileMenu />}
+
+      {/* 전역 도움말 버튼 - 해당 페이지에 도움말이 있을 때만 표시 */}
+      {hasHelp() && (
+        <>
+          <HelpModal
+            open={isHelpOpen}
+            onClose={closeHelp}
+            title={getCurrentHelpConfig()?.title || '사용 가이드'}
+          >
+            <React.Suspense fallback={<Box sx={{ p: 2, textAlign: 'center' }}>로딩 중...</Box>}>
+              {getCurrentHelpConfig()?.component && React.createElement(getCurrentHelpConfig().component)}
+            </React.Suspense>
+          </HelpModal>
+        </>
+      )}
     </Box>
   );
 };

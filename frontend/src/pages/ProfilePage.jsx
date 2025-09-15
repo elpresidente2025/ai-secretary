@@ -30,25 +30,19 @@ import {
   Checkbox,
   useTheme
 } from '@mui/material';
-import { Add, Remove, AutoAwesome, DeleteForever, Warning } from '@mui/icons-material';
-import { httpsCallable } from 'firebase/functions';
-import { functions } from '../services/firebase';
+import { Add, Remove, AutoAwesome, DeleteForever, Warning, Settings } from '@mui/icons-material';
+import { callFunctionWithNaverAuth } from '../services/firebaseService';
 import DashboardLayout from '../components/DashboardLayout';
 import UserInfoForm from '../components/UserInfoForm';
 import { LoadingSpinner, LoadingButton } from '../components/loading';
 import { useAuth } from '../hooks/useAuth';
 import { BIO_ENTRY_TYPES, BIO_TYPE_ORDER, BIO_CATEGORIES, VALIDATION_RULES } from '../constants/bio-types';
-import HelpButton from '../components/HelpButton';
-import ProfileGuide from '../components/guides/ProfileGuide';
 
 export default function ProfilePage() {
   const { user, logout } = useAuth();
   const theme = useTheme();
   
-  // httpsCallable 메모이즈
-  const callGetProfile = useMemo(() => httpsCallable(functions, 'getUserProfile'), []);
-  const callUpdateProfile = useMemo(() => httpsCallable(functions, 'updateProfile'), []);
-  const callDeleteUserAccount = useMemo(() => httpsCallable(functions, 'deleteUserAccount'), []);
+  // 상태 관리
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -97,7 +91,7 @@ export default function ProfilePage() {
     setDeleting(true);
     try {
       console.log('회원탈퇴 시작...');
-      await callDeleteUserAccount();
+      await callFunctionWithNaverAuth('deleteUserAccount');
       
       setSnack({
         open: true,
@@ -170,20 +164,12 @@ export default function ProfilePage() {
       try {
         setLoading(true);
         
-        const res = await callGetProfile();
+        const res = await callFunctionWithNaverAuth('getUserProfile');
         
         if (!mounted) return;
 
-        // 응답 형식에 따른 데이터 추출
-        let profileData = {};
-        
-        if (res?.data?.success && res?.data?.data) {
-          profileData = res.data.data;
-        } else if (res?.data?.profile) {
-          profileData = res.data.profile;
-        } else if (res?.data) {
-          profileData = res.data.profile || res.data;
-        }
+        // callFunctionWithNaverAuth는 이미 .data를 반환하므로 직접 사용
+        let profileData = res?.profile || res || {};
 
 
         setProfile({
@@ -260,7 +246,7 @@ export default function ProfilePage() {
     return () => {
       mounted = false;
     };
-  }, [callGetProfile]);
+  }, []);
 
   // UserInfoForm 컴포넌트에서 오는 변경사항 처리
   const handleUserInfoChange = (name, value) => {
@@ -378,20 +364,30 @@ export default function ProfilePage() {
         regionLocal: profile.regionLocal,
         electoralDistrict: profile.electoralDistrict,
         bio: profile.bio,
+        // 개인화 정보 필드들 추가
+        ageDecade: profile.ageDecade,
+        ageDetail: profile.ageDetail,
+        familyStatus: profile.familyStatus,
+        backgroundCareer: profile.backgroundCareer,
+        localConnection: profile.localConnection,
+        politicalExperience: profile.politicalExperience,
+        gender: profile.gender,
+        twitterPremium: profile.twitterPremium,
+        committees: profile.committees,
+        customCommittees: profile.customCommittees,
+        constituencyType: profile.constituencyType,
       };
       
       console.log('전송할 데이터 (전체):', JSON.stringify(payload, null, 2));
       
-      const res = await callUpdateProfile(payload);
+      const res = await callFunctionWithNaverAuth('updateProfile', payload);
       console.log('updateProfile 응답:', res);
       
-      // 실제 성공 여부 확인 후 팝업 표시
-      if (res && res.data) {
+      // callFunctionWithNaverAuth는 이미 .data를 반환하므로 직접 사용
+      if (res) {
         let message = '프로필이 저장되었습니다.';
-        if (res.data.message) {
-          message = res.data.message;
-        } else if (res.data.data && res.data.data.message) {
-          message = res.data.data.message;
+        if (res.message) {
+          message = res.message;
         }
         
         setSnack({ open: true, message, severity: 'success' });
@@ -495,20 +491,30 @@ export default function ProfilePage() {
           }
         }}
       >
-        <Typography variant="h4" gutterBottom sx={{ 
-          color: theme.palette.mode === 'dark' ? 'white' : 'black' 
-        }}>
-          프로필 설정
-        </Typography>
-
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
-          프로필 정보를 바탕으로 맞춤형 원고가 생성됩니다.
-        </Typography>
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h4" sx={{ 
+            fontWeight: 'bold', 
+            mb: 1, 
+            color: theme.palette.mode === 'dark' ? 'white' : 'black', 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 1 
+          }}>
+            <Settings sx={{ color: theme.palette.mode === 'dark' ? 'white' : 'black' }} />
+            프로필 수정
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            프로필 정보를 바탕으로 맞춤형 원고가 생성됩니다.
+          </Typography>
+        </Box>
 
         <Grid container spacing={3}>
           {/* 좌측 컬럼: 기본 정보 */}
           <Grid item xs={12} xxl={6} xxxl={6}>
-            <Paper elevation={2} sx={{ p: 3, height: 'fit-content' }}>
+            <Paper elevation={0} sx={{ 
+              p: 3, 
+              height: 'fit-content'
+            }}>
               <Box component="form" onSubmit={handleSubmit}>
                 <Grid container spacing={3}>
               
@@ -742,7 +748,9 @@ export default function ProfilePage() {
                   
                   <Stack spacing={2}>
                     {profile.committees.map((committee, index) => (
-                      <Paper key={index} elevation={1} sx={{ p: 2, borderRadius: 2 }}>
+                      <Paper key={index} elevation={0} sx={{ 
+                        p: 2
+                      }}>
                         <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
                           <Box sx={{ flex: 1 }}>
                             <FormControl fullWidth>
@@ -855,7 +863,10 @@ export default function ProfilePage() {
 
           {/* 우측 컬럼: Bio 엔트리들 */}
           <Grid item xs={12} xxl={6} xxxl={6}>
-            <Paper elevation={2} sx={{ p: 3, height: 'fit-content' }}>
+            <Paper elevation={0} sx={{ 
+              p: 3, 
+              height: 'fit-content'
+            }}>
               <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                 <AutoAwesome sx={{ mr: 1, color: '#006261' }} />
                 자기소개 및 추가 정보
@@ -908,7 +919,9 @@ export default function ProfilePage() {
                     const isRequired = entry.type === 'self_introduction';
                     
                     return (
-                      <Paper key={entry.id} elevation={1} sx={{ p: 2, borderRadius: 2 }}>
+                      <Paper key={entry.id} elevation={0} sx={{ 
+                        p: 2
+                      }}>
                         <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
                           <Box sx={{ flex: 1 }}>
                             <TextField
@@ -1007,7 +1020,11 @@ export default function ProfilePage() {
                     
                     return (
                       <Grid item xs={12} sm={6} md={4} key={entry.id}>
-                        <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                        <Card elevation={0} sx={{ 
+                          height: '100%', 
+                          display: 'flex', 
+                          flexDirection: 'column'
+                        }}>
                           <CardContent sx={{ flex: 1 }}>
                             <Box sx={{ mb: 2 }}>
                               <Chip 
@@ -1208,10 +1225,6 @@ export default function ProfilePage() {
           </DialogActions>
         </Dialog>
 
-        {/* 도움말 버튼 */}
-        <HelpButton title="프로필 설정 가이드">
-          <ProfileGuide />
-        </HelpButton>
       </Container>
     </DashboardLayout>
   );

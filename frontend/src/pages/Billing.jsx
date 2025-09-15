@@ -143,16 +143,20 @@ const Billing = () => {
   };
 
   return (
-    <DashboardLayout title="인증 및 결제">
-      <Container maxWidth="lg">
+    <DashboardLayout>
+      <Container maxWidth="lg" sx={{ py: 4 }}>
         {/* 페이지 헤더 */}
         <Box sx={{ mb: 4 }}>
           <Typography variant="h4" sx={{ 
             fontWeight: 'bold', 
             mb: 1, 
-            color: theme.palette.mode === 'dark' ? 'white' : 'black' 
+            color: theme.palette.mode === 'dark' ? 'white' : 'black',
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 1 
           }}>
-            인증 및 결제 관리
+            <CreditCard sx={{ color: theme.palette.mode === 'dark' ? 'white' : 'black' }} />
+            인증 및 결제
           </Typography>
           <Typography variant="body1" color="text.secondary">
             요금제 변경과 당원 인증을 관리하세요
@@ -168,32 +172,43 @@ const Billing = () => {
           {/* 상단: 현재 플랜과 인증 상태 */}
           <Grid container spacing={3}>
             <Grid item xs={12} lg={4}>
-              <Paper sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
-              <Typography variant="h6" sx={{ mb: 1, display: 'flex', alignItems: 'center', fontSize: '1rem' }}>
+              <Paper elevation={0} sx={{ 
+                p: 3, 
+                height: '100%', 
+                display: 'flex', 
+                flexDirection: 'column'
+              }}>
+              <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', fontSize: '1rem' }}>
                 <CreditCard sx={{ mr: 1 }} />
                 현재 플랜 및 인증 상태
               </Typography>
               
-              <Card sx={{ bgcolor: '#f5f5f5', mb: 1, flex: 1 }}>
-                <CardContent>
-                  <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#55207d' }}>
-                    {currentPlan}
-                  </Typography>
-                  <Typography variant="h6" sx={{ mb: 1 }}>
-                    {plans.find(p => p.name === currentPlan)?.price.toLocaleString()}원/월 (VAT 포함)
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    다음 결제일: 2025년 2월 15일
-                  </Typography>
-                </CardContent>
+              <Card sx={{ 
+                bgcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : '#f5f5f5', 
+                mb: 3, 
+                p: 2 
+              }}>
+                <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#55207d', mb: 1 }}>
+                  {currentPlan}
+                </Typography>
+                <Typography variant="h6" sx={{ mb: 1 }}>
+                  {plans.find(p => p.name === currentPlan)?.price.toLocaleString()}원/월 (VAT 포함)
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  다음 결제일: {(() => {
+                    const now = new Date();
+                    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+                    return `${nextMonth.getFullYear()}년 ${String(nextMonth.getMonth() + 1).padStart(2, '0')}월 1일`;
+                  })()}
+                </Typography>
               </Card>
 
-              <Box sx={{ mt: 1, mb: 1, flex: 1 }}>
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
                   이번 달 사용량
                 </Typography>
                 <Box sx={{ mb: 1 }}>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                     원고 생성: 15/20회
                   </Typography>
                   <LinearProgress 
@@ -228,7 +243,12 @@ const Billing = () => {
             </Grid>
 
             <Grid item xs={12} lg={4}>
-              <Paper sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <Paper elevation={0} sx={{ 
+                p: 3, 
+                height: '100%', 
+                display: 'flex', 
+                flexDirection: 'column'
+              }}>
                 <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', fontSize: '1rem' }}>
                   <Payment sx={{ mr: 1 }} />
                   결제 내역
@@ -250,7 +270,12 @@ const Billing = () => {
             </Grid>
 
             <Grid item xs={12} lg={4}>
-              <Paper sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <Paper elevation={0} sx={{ 
+                p: 3, 
+                height: '100%', 
+                display: 'flex', 
+                flexDirection: 'column'
+              }}>
                 <Typography variant="h6" sx={{ mb: 2, color: '#152484', fontSize: '1rem' }}>
                   서비스 제공 방식 및 환불 정책
                 </Typography>
@@ -279,7 +304,9 @@ const Billing = () => {
           </Grid>
 
           {/* 중단: 플랜 선택 */}
-          <Paper sx={{ p: 3 }}>
+          <Paper elevation={0} sx={{ 
+            p: 3
+          }}>
             <Typography variant="h6" sx={{ mb: 3, fontSize: '1.25rem', fontWeight: 'bold' }}>
               플랜 선택
             </Typography>
@@ -295,12 +322,12 @@ const Billing = () => {
                     }}>
                       <Box sx={{ 
                         bgcolor: plan.color, 
-                        color: 'white', 
                         p: 2,
                         borderBottom: '1px solid #e0e0e0'
                       }}>
                         <Typography variant="h6" sx={{ 
                           fontWeight: 'bold',
+                          color: 'black !important',
                           textShadow: '1px 1px 0px white, -1px 1px 0px white, 1px -1px 0px white, -1px -1px 0px white'
                         }}>
                           {plan.name}
@@ -353,7 +380,9 @@ const Billing = () => {
           </Paper>
 
           {/* 하단: 애드온 서비스 */}
-          <Paper sx={{ p: 3 }}>
+          <Paper elevation={0} sx={{ 
+            p: 3
+          }}>
             <Typography variant="h6" sx={{ mb: 3, fontSize: '1.25rem', fontWeight: 'bold' }}>
               애드온 서비스
             </Typography>
@@ -443,7 +472,12 @@ const Billing = () => {
                     </Grid>
                   </Grid>
 
-                  <Box sx={{ mt: 4, p: 3, bgcolor: 'grey.50', borderRadius: 2 }}>
+                  <Box sx={{ 
+                    mt: 4, 
+                    p: 3, 
+                    bgcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'grey.50', 
+                    borderRadius: 2 
+                  }}>
                     <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 2, color: '#e89f2f' }}>
                       💡 SNS 원고 추가 생성 서비스
                     </Typography>
