@@ -1,249 +1,90 @@
-// frontend/src/services/firebaseService.js
+﻿// frontend/src/services/firebaseService.js
 import { httpsCallable } from 'firebase/functions';
-import { functions, auth } from './firebase';
+import { functions } from './firebase';
 
-/**
- * 네이버 사용자를 위한 Firebase Functions 호출 (onCall 방식)
- */
+// 네이버 전용 onCall 호출
 export const callFunctionWithNaverAuth = async (functionName, data = {}) => {
-  // 네이버 사용자 정보 확인
   const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
-  
-  console.log('🔍 callFunctionWithNaverAuth 호출:', {
-    functionName,
-    currentUser: currentUser ? {
-      uid: currentUser.uid,
-      provider: currentUser.provider,
-      displayName: currentUser.displayName
-    } : null,
-    originalData: { ...data }
-  });
-  
-  // 네이버 사용자의 경우 데이터에 인증 정보 추가
-  if (currentUser?.provider === 'naver' && currentUser?.uid) {
-    data.__naverAuth = {
-      uid: currentUser.uid,
-      provider: 'naver'
-    };
-    console.log('✅ 네이버 인증 데이터 추가됨:', data.__naverAuth);
-  } else {
-    console.log('⚠️ 네이버 사용자가 아니거나 필수 정보 누락:', {
-      hasCurrentUser: !!currentUser,
-      provider: currentUser?.provider,
-      hasUid: !!currentUser?.uid
-    });
+  if (!currentUser || currentUser.provider !== 'naver' || !currentUser.uid) {
+    throw new Error('로그인 정보가 없습니다.');
   }
-  
-  // 기존 onCall 방식으로 호출
+  const payload = { ...data, __naverAuth: { uid: currentUser.uid, provider: 'naver' } };
   const callable = httpsCallable(functions, functionName);
-  const result = await callable(data);
-  
-  console.log(`✅ callFunctionWithNaverAuth ${functionName} 성공:`, result.data);
+  const result = await callable(payload);
   return result.data;
 };
 
-/**
- * Firebase Functions 호출 래퍼 (토큰 갱신 포함)
- * @param {string} functionName - 호출할 함수명
- * @param {object} data - 전달할 데이터
- * @param {number} retries - 재시도 횟수
- * @returns {Promise} 함수 실행 결과
- */
+// 재시도 지원 onCall 호출 (네이버 전용)
 export const callFunctionWithRetry = async (functionName, data = {}, retries = 2) => {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      console.log(`🔥 Firebase Function 호출 (${attempt}/${retries}): ${functionName}`, data);
-      console.log('🔍 Functions 인스턴스:', functions);
-      console.log('🔍 Functions 설정:', {
-        projectId: functions.app.options.projectId,
-        region: functions._region,
-        customDomain: functions._customDomain,
-        url: functions._url
-      });
-      
+      const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+      if (!currentUser || currentUser.provider !== 'naver' || !currentUser.uid) {
+        throw new Error('로그인 정보가 없습니다.');
+      }
+      const payload = { ...data, __naverAuth: { uid: currentUser.uid, provider: 'naver' } };
       const callable = httpsCallable(functions, functionName);
-      console.log('🔍 Callable 인스턴스:', callable);
-      const result = await callable(data);
-      
-      console.log(`✅ ${functionName} 성공:`, result.data);
+      const result = await callable(payload);
       return result.data;
     } catch (error) {
-      console.error(`❌ ${functionName} 시도 ${attempt} 실패:`, error);
-      
-      // 함수가 존재하지 않는 경우 (404, not-found)
-      if (error.code === 'functions/not-found') {
-        console.warn(`⚠️ 함수 ${functionName}이 존재하지 않습니다.`);
-        throw new Error(`함수 ${functionName}이 구현되지 않았습니다.`);
-      }
-      
-      // 401/403 에러면 토큰 갱신 후 재시도
       if (attempt < retries && (
-        error.code === 'functions/unauthenticated' || 
-        error.code === 'functions/permission-denied' ||
-        error.message.includes('401') ||
-        error.message.includes('Unauthorized')
+        error?.code === 'functions/unauthenticated' ||
+        error?.code === 'functions/permission-denied'
       )) {
-        console.log('🔄 토큰 갱신 후 재시도...');
-        
-        // Firebase Auth 토큰 강제 갱신
-        try {
-          const user = auth.currentUser;
-          if (user) {
-            await user.getIdToken(true); // 강제 갱신
-            console.log('✅ 토큰 갱신 완료');
-          }
-        } catch (tokenError) {
-          console.error('❌ 토큰 갱신 실패:', tokenError);
-        }
-        
-        // 1초 대기 후 재시도
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise((r) => setTimeout(r, 800));
         continue;
       }
-      
-      // 마지막 시도였거나 다른 에러면 최종 실패
-      let errorMessage = '알 수 없는 오류가 발생했습니다.';
-      
-      if (error.code === 'functions/unauthenticated') {
-        errorMessage = '로그인이 필요합니다.';
-      } else if (error.code === 'functions/permission-denied') {
-        errorMessage = '권한이 없습니다.';
-      } else if (error.code === 'functions/not-found') {
-        errorMessage = '요청한 기능을 찾을 수 없습니다.';
-      } else if (error.code === 'functions/unavailable') {
-        errorMessage = '서비스가 일시적으로 이용 불가능합니다.';
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      throw new Error(errorMessage);
+      throw error;
     }
   }
+  throw new Error('호출 실패');
 };
 
-/**
- * HTTP 함수 호출 (generatePosts 전용)
- * @param {string} functionName - 함수명
- * @param {object} data - 전달할 데이터
- * @returns {Promise} 함수 실행 결과
- */
+// HTTP onRequest 호출 (네이버 전용)
 export const callHttpFunction = async (functionName, data = {}) => {
-  try {
-    console.log(`🔥 HTTP Function 호출: ${functionName}`, data);
-
-    // 사용자 인증 정보 확인 (모든 사용자는 네이버 로그인)
-    const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
-    console.log('🔍 사용자 정보:', { currentUser });
-
-    if (!currentUser?.uid || currentUser.provider !== 'naver') {
-      throw new Error('로그인 정보가 없습니다.');
-    }
-
-    // 백엔드에서 __naverAuth로 처리
-    data.__naverAuth = {
-      uid: currentUser.uid,
-      provider: 'naver'
-    };
-    const token = 'naver-auth'; // 임시 토큰
-
-    // HTTP 함수 URL 구성
-    const projectId = functions.app.options.projectId;
-    const region = 'asia-northeast3';
-    const url = `https://${region}-${projectId}.cloudfunctions.net/${functionName}`;
-
-    console.log('🔍 HTTP 요청 URL:', url);
-    console.log('🔍 요청 데이터:', { ...data, __naverAuth: data.__naverAuth ? '(있음)' : '(없음)' });
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify(data)
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ HTTP 함수 응답 오류:', {
-        status: response.status,
-        statusText: response.statusText,
-        errorText,
-        isNaver: currentUser?.provider === 'naver'
-      });
-      throw new Error(`HTTP ${response.status}: ${errorText}`);
-    }
-
-    const result = await response.json();
-    console.log(`✅ HTTP Function ${functionName} 성공:`, result);
-    return result;
-
-  } catch (error) {
-    console.error(`❌ HTTP Function ${functionName} 실패:`, error);
-    throw error;
+  const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+  if (!currentUser || currentUser.provider !== 'naver' || !currentUser.uid) {
+    throw new Error('로그인 정보가 없습니다.');
   }
-};
-
-/**
- * 에러 로그를 Firestore에 저장
- * @param {Error} error - 에러 객체
- * @param {string} context - 에러 발생 컨텍스트
- * @param {object} metadata - 추가 메타데이터
- */
-export const logError = async (error, context = '', metadata = {}) => {
-  try {
-    await callFunctionWithRetry('logError', {
-      message: error.message,
-      stack: error.stack,
-      context,
-      metadata,
-      timestamp: new Date().toISOString()
-    });
-  } catch (logError) {
-    console.error('에러 로그 저장 실패:', logError);
+  const payload = { ...data, __naverAuth: { uid: currentUser.uid, provider: 'naver' } };
+  const projectId = functions.app.options.projectId;
+  const region = 'asia-northeast3';
+  const url = 'https://' + region + '-' + projectId + '.cloudfunctions.net/' + functionName;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error('HTTP ' + response.status + ': ' + text);
   }
+  const raw = await response.json();
+  return (raw && typeof raw === 'object' && 'data' in raw) ? raw.data : raw;
 };
-
-/**
- * 시스템 상태 확인 (HTTP 요청으로 변경)
- * @returns {Promise<object>} 시스템 상태 정보
- */
 export const getSystemStatus = async () => {
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15초 타임아웃
-    
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
     const response = await fetch('https://asia-northeast3-ai-secretary-6e9c8.cloudfunctions.net/getSystemStatus', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
       signal: controller.signal
     });
-    
     clearTimeout(timeoutId);
-    
-    const result = await response.json();
-    
-    return result;
+    return await response.json();
   } catch (error) {
     if (error.name === 'AbortError') {
-      console.error('❌ 시스템 상태 확인 실패: 타임아웃');
-      throw new Error('타임아웃');
+      throw new Error('Request timeout');
     }
-    console.error('❌ 시스템 상태 확인 실패:', error);
-    return {
-      success: false,
-      status: 'unknown',
-      message: '상태를 확인할 수 없습니다.'
-    };
+    return { success: false, status: 'unknown', message: '상태 확인 실패' };
   }
 };
 
 /**
- * 관리자 통계 조회 (HTTP 요청으로 변경)
- * @returns {Promise<object>} 관리자 통계 데이터
+ * 愿由ъ옄 ?듦퀎 議고쉶 (HTTP ?붿껌?쇰줈 蹂寃?
+ * @returns {Promise<object>} 愿由ъ옄 ?듦퀎 ?곗씠??
  */
 export const getAdminStats = async () => {
   try {
@@ -256,11 +97,11 @@ export const getAdminStats = async () => {
     });
     
     const result = await response.json();
-    console.log('✅ getAdminStats HTTP 호출 성공:', result);
+    console.log('??getAdminStats HTTP ?몄텧 ?깃났:', result);
     
     return result;
   } catch (error) {
-    console.error('관리자 통계 조회 실패:', error);
+    console.error('愿由ъ옄 ?듦퀎 議고쉶 ?ㅽ뙣:', error);
     return {
       success: false,
       stats: {
@@ -275,8 +116,8 @@ export const getAdminStats = async () => {
 };
 
 /**
- * 에러 로그 조회 (HTTP 요청으로 변경)
- * @returns {Promise<object>} 에러 로그 데이터
+ * ?먮윭 濡쒓렇 議고쉶 (HTTP ?붿껌?쇰줈 蹂寃?
+ * @returns {Promise<object>} ?먮윭 濡쒓렇 ?곗씠??
  */
 export const getErrorLogs = async () => {
   try {
@@ -289,21 +130,21 @@ export const getErrorLogs = async () => {
     });
     
     const result = await response.json();
-    console.log('✅ getErrorLogs HTTP 호출 성공:', result);
+    console.log('??getErrorLogs HTTP ?몄텧 ?깃났:', result);
     
     return result;
   } catch (error) {
-    console.error('에러 로그 조회 실패:', error);
+    console.error('?먮윭 濡쒓렇 議고쉶 ?ㅽ뙣:', error);
     return {
       success: false,
-      message: '에러 로그를 불러올 수 없습니다.'
+      message: '?먮윭 濡쒓렇瑜?遺덈윭?????놁뒿?덈떎.'
     };
   }
 };
 
 /**
- * 공지사항 조회 (HTTP 요청으로 변경)
- * @returns {Promise<object>} 공지사항 데이터
+ * 怨듭??ы빆 議고쉶 (HTTP ?붿껌?쇰줈 蹂寃?
+ * @returns {Promise<object>} 怨듭??ы빆 ?곗씠??
  */
 export const getNotices = async () => {
   try {
@@ -316,11 +157,11 @@ export const getNotices = async () => {
     });
     
     const result = await response.json();
-    console.log('✅ getNotices HTTP 호출 성공:', result);
+    console.log('??getNotices HTTP ?몄텧 ?깃났:', result);
     
     return result;
   } catch (error) {
-    console.error('공지사항 조회 실패:', error);
+    console.error('怨듭??ы빆 議고쉶 ?ㅽ뙣:', error);
     return {
       success: false,
       notices: []
@@ -329,9 +170,9 @@ export const getNotices = async () => {
 };
 
 /**
- * 사용자 목록 조회 (HTTP 요청으로 변경)
- * @param {object} params - 조회 파라미터
- * @returns {Promise<object>} 사용자 목록
+ * ?ъ슜??紐⑸줉 議고쉶 (HTTP ?붿껌?쇰줈 蹂寃?
+ * @param {object} params - 議고쉶 ?뚮씪誘명꽣
+ * @returns {Promise<object>} ?ъ슜??紐⑸줉
  */
 export const getUsers = async (params = {}) => {
   try {
@@ -344,11 +185,11 @@ export const getUsers = async (params = {}) => {
     });
     
     const result = await response.json();
-    console.log('✅ getUsers HTTP 호출 성공:', result);
+    console.log('??getUsers HTTP ?몄텧 ?깃났:', result);
     
     return result;
   } catch (error) {
-    console.error('사용자 목록 조회 실패:', error);
+    console.error('?ъ슜??紐⑸줉 議고쉶 ?ㅽ뙣:', error);
     return {
       success: false,
       users: [],
@@ -358,35 +199,35 @@ export const getUsers = async (params = {}) => {
 };
 
 /**
- * 사용자 검색
- * @param {string} query - 검색어
- * @param {number} limit - 결과 제한
- * @returns {Promise<object>} 검색 결과
+ * ?ъ슜??寃??
+ * @param {string} query - 寃?됱뼱
+ * @param {number} limit - 寃곌낵 ?쒗븳
+ * @returns {Promise<object>} 寃??寃곌낵
  */
 export const searchUsers = async (query, limit = 20) => {
   return await callFunctionWithRetry('searchUsers', { query, limit });
 };
 
 /**
- * 원고 검색
- * @param {object} params - 검색 파라미터
- * @returns {Promise<object>} 검색 결과
+ * ?먭퀬 寃??
+ * @param {object} params - 寃???뚮씪誘명꽣
+ * @returns {Promise<object>} 寃??寃곌낵
  */
 export const searchPosts = async (params) => {
   return await callFunctionWithRetry('searchPosts', params);
 };
 
 /**
- * 에러 로그 조회
- * @param {object} params - 조회 파라미터
- * @returns {Promise<object>} 에러 로그 목록
+ * ?먮윭 濡쒓렇 議고쉶
+ * @param {object} params - 議고쉶 ?뚮씪誘명꽣
+ * @returns {Promise<object>} ?먮윭 濡쒓렇 紐⑸줉
  */
 export const getErrors = async (params = {}) => {
   try {
-    // 백엔드 함수명이 getErrorLogs임
+    // 諛깆뿏???⑥닔紐낆씠 getErrorLogs??
     const result = await callFunctionWithRetry('getErrorLogs', params);
     
-    // 응답 구조 정규화 { success: true, data: { errors: [...] } } -> { errors: [...] }
+    // ?묐떟 援ъ“ ?뺢퇋??{ success: true, data: { errors: [...] } } -> { errors: [...] }
     if (result.success && result.data) {
       return {
         errors: result.data.errors || [],
@@ -397,24 +238,24 @@ export const getErrors = async (params = {}) => {
     
     return { errors: [] };
   } catch (error) {
-    console.error('에러 로그 조회 실패:', error);
+    console.error('?먮윭 濡쒓렇 議고쉶 ?ㅽ뙣:', error);
     return { errors: [] };
   }
 };
 
 /**
- * 사용자 상세 정보 조회
- * @param {string} userEmail - 사용자 이메일
- * @returns {Promise<object>} 사용자 상세 정보
+ * ?ъ슜???곸꽭 ?뺣낫 議고쉶
+ * @param {string} userEmail - ?ъ슜???대찓??
+ * @returns {Promise<object>} ?ъ슜???곸꽭 ?뺣낫
  */
 export const getUserDetail = async (userEmail) => {
   return await callFunctionWithRetry('getUserDetail', { userEmail });
 };
 
 /**
- * 시스템 상태 업데이트 (HTTP 요청으로 변경)
- * @param {object} statusData - 상태 데이터
- * @returns {Promise<object>} 업데이트 결과
+ * ?쒖뒪???곹깭 ?낅뜲?댄듃 (HTTP ?붿껌?쇰줈 蹂寃?
+ * @param {object} statusData - ?곹깭 ?곗씠??
+ * @returns {Promise<object>} ?낅뜲?댄듃 寃곌낵
  */
 export const updateSystemStatus = async (statusData) => {
   try {
@@ -427,71 +268,76 @@ export const updateSystemStatus = async (statusData) => {
     });
     
     const result = await response.json();
-    console.log('✅ updateSystemStatus HTTP 호출 성공:', result);
+    console.log('??updateSystemStatus HTTP ?몄텧 ?깃났:', result);
     
     return result;
   } catch (error) {
-    console.error('시스템 상태 업데이트 실패:', error);
+    console.error('?쒖뒪???곹깭 ?낅뜲?댄듃 ?ㅽ뙣:', error);
     return {
       success: false,
-      message: '시스템 상태 업데이트에 실패했습니다: ' + error.message
+      message: '?쒖뒪???곹깭 ?낅뜲?댄듃???ㅽ뙣?덉뒿?덈떎: ' + error.message
     };
   }
 };
 
 /**
- * Gemini 상태 업데이트 (기존 호환성)
- * @param {string} newState - 새로운 상태
- * @returns {Promise<object>} 업데이트 결과
+ * Gemini ?곹깭 ?낅뜲?댄듃 (湲곗〈 ?명솚??
+ * @param {string} newState - ?덈줈???곹깭
+ * @returns {Promise<object>} ?낅뜲?댄듃 寃곌낵
  */
 export const updateGeminiStatus = async (newState) => {
   return await callFunctionWithRetry('updateGeminiStatus', { newState });
 };
 
 /**
- * 시스템 캐시 비우기
- * @returns {Promise<object>} 결과
+ * ?쒖뒪??罹먯떆 鍮꾩슦湲?
+ * @returns {Promise<object>} 寃곌낵
  */
 export const clearSystemCache = async () => {
   return await callFunctionWithRetry('clearSystemCache');
 };
 
 // ============================================================================
-// SNS 애드온 관련 함수들
+// SNS ?좊뱶??愿???⑥닔??
 // ============================================================================
 
 /**
- * 원고를 SNS용으로 변환
- * @param {string} postId - 원고 ID
- * @param {string} platform - SNS 플랫폼 ('facebook', 'instagram', 'x')
- * @returns {Promise<object>} 변환 결과
+ * ?먭퀬瑜?SNS?⑹쑝濡?蹂??
+ * @param {string} postId - ?먭퀬 ID
+ * @param {string} platform - SNS ?뚮옯??('facebook', 'instagram', 'x')
+ * @returns {Promise<object>} 蹂??寃곌낵
  */
 export const convertToSNS = async (postId) => {
-  // 관리자 테스트 모드에서 모델 선택
+  // 愿由ъ옄 ?뚯뒪??紐⑤뱶?먯꽌 紐⑤뜽 ?좏깮
   const modelName = localStorage.getItem('gemini_model') || 'gemini-1.5-flash';
 
   return await callHttpFunction('convertToSNS', { postId, modelName });
 };
 
 /**
- * SNS 테스트 함수
+ * SNS ?뚯뒪???⑥닔
  */
 export const testSNS = async () => {
   return await callFunctionWithRetry('testSNS');
 };
 
 /**
- * SNS 애드온 사용량 조회
- * @returns {Promise<object>} 사용량 정보
+ * SNS ?좊뱶???ъ슜??議고쉶
+ * @returns {Promise<object>} ?ъ슜???뺣낫
  */
 export const getSNSUsage = async () => {
   return await callHttpFunction('getSNSUsage', {});
 };
 
 /**
- * SNS 애드온 구매/활성화
- * @returns {Promise<object>} 구매 결과
+ * SNS ?좊뱶??援щℓ/?쒖꽦??
+ * @returns {Promise<object>} 援щℓ 寃곌낵
  */
 export const purchaseSNSAddon = async () => {
   return await callFunctionWithNaverAuth('purchaseSNSAddon');
 };
+
+
+
+
+

@@ -36,11 +36,18 @@ export default function PreviewPane({ draft }) {
 
   return (
     <>
-      <Paper 
+      <Paper
         elevation={0}
-        sx={{ 
+        sx={{
           p: { xs: 1, sm: 2 },
           backgroundColor: '#f5f5f5',
+          // 제목과 글자수를 강제로 검은색으로
+          '& .MuiTypography-h6': {
+            color: '#000000 !important'
+          },
+          '& .MuiTypography-body2': {
+            color: '#000000 !important'
+          },
           '.article-content h1': {
             fontSize: '1.75rem',
             fontWeight: 700,
@@ -80,19 +87,24 @@ export default function PreviewPane({ draft }) {
           justifyContent: 'space-between', 
           mb: 2 
         }}>
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+          <Typography
+            variant="h6"
+            sx={{ fontWeight: 600, color: '#000000 !important' }}
+            style={{ color: '#000000 !important' }}
+          >
             {draft.title || '제목 없음'}
           </Typography>
-          <Typography 
-            variant="body2" 
-            color="text.secondary"
+          <Typography
+            variant="body2"
             sx={{
               backgroundColor: 'grey.100',
               px: 1.5,
               py: 0.5,
               borderRadius: 1,
-              fontWeight: 500
+              fontWeight: 500,
+              color: '#000000 !important'
             }}
+            style={{ color: '#000000 !important' }}
           >
             {characterCount.toLocaleString()}자
           </Typography>

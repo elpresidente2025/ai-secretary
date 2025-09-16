@@ -1,6 +1,6 @@
-/**
- * functions/index.js (간소화된 진입점)
- * 기존 핸들러 구조를 사용하여 안정적인 배포를 위한 진입점입니다.
+﻿/**
+ * functions/index.js (媛꾩냼?붾맂 吏꾩엯??
+ * 湲곗〈 ?몃뱾??援ъ“瑜??ъ슜?섏뿬 ?덉젙?곸씤 諛고룷瑜??꾪븳 吏꾩엯?먯엯?덈떎.
  */
 
 'use strict';
@@ -9,10 +9,10 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const { setGlobalOptions } = require('firebase-functions/v2');
 
-// 전역 설정
+// ?꾩뿭 ?ㅼ젙
 setGlobalOptions({ region: 'asia-northeast3' });
 
-// 각 핸들러 모듈 임포트
+// 媛??몃뱾??紐⑤뱢 ?꾪룷??
 const postsHandler = require('./handlers/posts');
 const profileHandler = require('./handlers/profile');
 const bioHandler = require('./handlers/bio');
@@ -34,27 +34,27 @@ const tossPaymentsHandler = require('./handlers/toss-payments');
 const naverLoginHandler = require('./handlers/naver-login2');
 const usernameHandler = require('./handlers/username');
 
-// 스크래핑 테스트 함수들
+// ?ㅽ겕?섑븨 ?뚯뒪???⑥닔??
 const { testElectionScraping, checkCacheStatus, refreshCache } = require('./handlers/test-scraper');
 const { debugElection } = require('./handlers/debug-election');
 
-// 게시물 관련 함수들 (이미 wrap으로 onCall이 적용됨)
+// 寃뚯떆臾?愿???⑥닔??(?대? wrap?쇰줈 onCall???곸슜??
 exports.getUserPosts = postsHandler.getUserPosts;
 exports.getPost = postsHandler.getPost;
 exports.updatePost = postsHandler.updatePost;
-// deletePost는 HTTP 함수로 별도 구현 (CORS 문제 해결)
+// deletePost??HTTP ?⑥닔濡?蹂꾨룄 援ы쁽 (CORS 臾몄젣 ?닿껐)
 exports.checkUsageLimit = postsHandler.checkUsageLimit;
-// generatePosts는 HTTP 함수로 별도 구현됨
+// generatePosts??HTTP ?⑥닔濡?蹂꾨룄 援ы쁽??
 exports.generatePosts = postsHandler.generatePosts;
 
-// 프로필 관련 함수들 (이미 wrap으로 onCall이 적용됨)
+// ?꾨줈??愿???⑥닔??(?대? wrap?쇰줈 onCall???곸슜??
 exports.getUserProfile = profileHandler.getUserProfile;
 exports.updateProfile = profileHandler.updateProfile;
 exports.updateUserPlan = profileHandler.updateUserPlan;
 exports.checkDistrictAvailability = profileHandler.checkDistrictAvailability;
 exports.registerWithDistrictCheck = profileHandler.registerWithDistrictCheck;
 
-// 관리자용 선거구 관리 함수들
+// 愿由ъ옄???좉굅援?愿由??⑥닔??
 const { forceReleaseDistrict, getDistrictStatus } = require('./services/district');
 const { wrap } = require('./common/wrap');
 
@@ -69,20 +69,20 @@ exports.getDistrictStatus = wrap(async (req) => {
   return getDistrictStatus(districtKey);
 });
 
-// 고아 선거구 기록 일괄 정리 (관리자용)
+// 怨좎븘 ?좉굅援?湲곕줉 ?쇨큵 ?뺣━ (愿由ъ옄??
 exports.cleanupOrphanedDistricts = wrap(async (req) => {
   const { uid } = await require('./common/auth').auth(req);
-  console.log('🧹 고아 선거구 기록 정리 시작:', { requestedBy: uid });
+  
 
   try {
     const claimsSnapshot = await db.collection('district_claims').get();
     const usersSnapshot = await db.collection('users').get();
 
-    // 현재 존재하는 사용자 UID 목록
+    // ?꾩옱 議댁옱?섎뒗 ?ъ슜??UID 紐⑸줉
     const existingUsers = new Set();
     usersSnapshot.forEach(doc => existingUsers.add(doc.id));
 
-    // 삭제할 고아 기록들
+    // ??젣??怨좎븘 湲곕줉??
     const orphanedClaims = [];
     const batch = db.batch();
 
@@ -99,12 +99,9 @@ exports.cleanupOrphanedDistricts = wrap(async (req) => {
 
     if (orphanedClaims.length > 0) {
       await batch.commit();
-      console.log('✅ 고아 선거구 기록 정리 완료:', {
-        cleanedCount: orphanedClaims.length,
-        orphanedClaims
-      });
+      
     } else {
-      console.log('ℹ️ 정리할 고아 선거구 기록이 없습니다.');
+      
     }
 
     return {
@@ -114,18 +111,18 @@ exports.cleanupOrphanedDistricts = wrap(async (req) => {
     };
 
   } catch (error) {
-    console.error('❌ 고아 선거구 기록 정리 실패:', error);
+    /* log removed */
     throw error;
   }
 });
 
-// Bio 관련 함수들 (새로 추가)
+// Bio 愿???⑥닔??(?덈줈 異붽?)
 exports.getUserBio = bioHandler.getUserBio;
 exports.updateUserBio = bioHandler.updateUserBio;
 exports.updateBioEntry = bioHandler.updateBioEntry;
 exports.deleteBioEntry = bioHandler.deleteBioEntry;
 
-// 사용자 계정 관리 함수들
+// ?ъ슜??怨꾩젙 愿由??⑥닔??
 const userManagementHandler = require('./handlers/user-management');
 exports.deleteUserAccount = userManagementHandler.deleteUserAccount;
 exports.sendPasswordResetEmail = userManagementHandler.sendPasswordResetEmail;
@@ -133,54 +130,54 @@ exports.deleteUserBio = bioHandler.deleteUserBio;
 exports.reanalyzeBioMetadata = bioHandler.reanalyzeBioMetadata;
 exports.onBioUpdate = bioHandler.onBioUpdate;
 
-// 대시보드 관련 함수들 (이미 wrap으로 onCall이 적용됨)
+// ??쒕낫??愿???⑥닔??(?대? wrap?쇰줈 onCall???곸슜??
 exports.getDashboardData = dashboardHandler.getDashboardData;
 
-// 공지사항 관련 함수들 (이미 wrap으로 onCall이 적용됨)
+// 怨듭??ы빆 愿???⑥닔??(?대? wrap?쇰줈 onCall???곸슜??
 exports.getActiveNotices = noticesHandler.getActiveNotices;
 
-// 관리자 관련 함수들 (이미 wrap으로 onCall이 적용됨)
+// 愿由ъ옄 愿???⑥닔??(?대? wrap?쇰줈 onCall???곸슜??
 exports.syncDistrictKey = adminHandler.syncDistrictKey;
 
-// 스크래핑 테스트 함수들 (개발/테스트용)
+// ?ㅽ겕?섑븨 ?뚯뒪???⑥닔??(媛쒕컻/?뚯뒪?몄슜)
 exports.testElectionScraping = testElectionScraping;
 exports.checkCacheStatus = checkCacheStatus;
 exports.refreshCache = refreshCache;
 exports.debugElection = debugElection;
 
-// 성능 모니터링 관련 함수들
+// ?깅뒫 紐⑤땲?곕쭅 愿???⑥닔??
 exports.getPerformanceMetrics = performanceHandler.getPerformanceMetrics;
 
-// 발행 및 게이미피케이션 관련 함수들
+// 諛쒗뻾 諛?寃뚯씠誘명뵾耳?댁뀡 愿???⑥닔??
 exports.publishPost = publishingHandler.publishPost;
 exports.getPublishingStats = publishingHandler.getPublishingStats;
 exports.checkBonusEligibility = publishingHandler.checkBonusEligibility;
 exports.useBonusGeneration = publishingHandler.useBonusGeneration;
 
-// 관리자 사용자 관리 함수들
+// 愿由ъ옄 ?ъ슜??愿由??⑥닔??
 exports.getAllUsers = adminUsersHandler.getAllUsers;
 exports.deactivateUser = adminUsersHandler.deactivateUser;
 exports.reactivateUser = adminUsersHandler.reactivateUser;
 exports.deleteUser = adminUsersHandler.deleteUser;
 
-// SNS 애드온 관련 함수들
+// SNS ?좊뱶??愿???⑥닔??
 exports.testSNS = snsAddonHandler.testSNS;
 exports.convertToSNS = snsAddonHandler.convertToSNS;
 exports.getSNSUsage = snsAddonHandler.getSNSUsage;
 exports.purchaseSNSAddon = snsAddonHandler.purchaseSNSAddon;
 
-// 토스페이먼츠 결제 관련 함수들
+// ?좎뒪?섏씠癒쇱툩 寃곗젣 愿???⑥닔??
 exports.confirmTossPayment = tossPaymentsHandler.confirmTossPayment;
 exports.getUserPayments = tossPaymentsHandler.getUserPayments;
 
-// 네이버 로그인 관련 함수들 (HTTP 함수)
+// ?ㅼ씠踰?濡쒓렇??愿???⑥닔??(HTTP ?⑥닔)
 exports.naverLogin = naverLoginHandler.naverLogin;
 exports.naverLoginHTTP = naverLoginHandler.naverLoginHTTP;
 exports.naverCompleteRegistration = naverLoginHandler.naverCompleteRegistration;
 exports.checkUsername = usernameHandler.checkUsername;
 exports.claimUsername = usernameHandler.claimUsername;
 
-// 네이버 로그인 테스트 함수 (디버깅용)
+// ?ㅼ씠踰?濡쒓렇???뚯뒪???⑥닔 (?붾쾭源낆슜)
 exports.naverTest = require('firebase-functions/v2/https').onRequest({
   region: 'asia-northeast3',
   cors: true
@@ -194,8 +191,8 @@ exports.naverTest = require('firebase-functions/v2/https').onRequest({
       return res.status(204).end();
     }
     
-    console.log('🧪 네이버 테스트 함수 호출됨');
     
+
     const testData = {
       timestamp: new Date().toISOString(),
       environment: {
@@ -210,16 +207,16 @@ exports.naverTest = require('firebase-functions/v2/https').onRequest({
       }
     };
     
-    console.log('🧪 테스트 데이터:', testData);
+    
     
     res.json({ 
       success: true, 
-      message: '네이버 테스트 함수 정상 동작',
+      message: '?ㅼ씠踰??뚯뒪???⑥닔 ?뺤긽 ?숈옉',
       data: testData
     });
     
   } catch (error) {
-    console.error('🧪 테스트 함수 오류:', error);
+    /* log removed */
     res.status(500).json({ 
       success: false, 
       error: error.message,
@@ -228,11 +225,11 @@ exports.naverTest = require('firebase-functions/v2/https').onRequest({
   }
 });
 
-// 네이버 연결 끊기 콜백 함수
+// ?ㅼ씠踰??곌껐 ?딄린 肄쒕갚 ?⑥닔
 const naverDisconnectHandler = require('./handlers/naver-disconnect');
 exports.naverDisconnect = naverDisconnectHandler.naverDisconnect;
 
-// 관리자 전용 함수들 (HTTP 함수로 변경하여 CORS 문제 해결)
+// 愿由ъ옄 ?꾩슜 ?⑥닔??(HTTP ?⑥닔濡?蹂寃쏀븯??CORS 臾몄젣 ?닿껐)
 const { onRequest } = require('firebase-functions/v2/https');
 const { districtKey } = require('./services/district');
 
@@ -241,7 +238,7 @@ exports.getAdminStats = onRequest({
   cors: true
 }, async (req, res) => {
   try {
-    // CORS 헤더 명시적 설정
+    // CORS ?ㅻ뜑 紐낆떆???ㅼ젙
     res.set('Access-Control-Allow-Origin', '*');
     res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -251,7 +248,7 @@ exports.getAdminStats = onRequest({
       return;
     }
 
-    console.log('🔥 getAdminStats 시작');
+    
 
     const { admin, db } = require('./utils/firebaseAdmin');
     const now = new Date();
@@ -259,28 +256,28 @@ exports.getAdminStats = onRequest({
     const last30mStart = new Date(now.getTime() - 30 * 60 * 1000);
     const last7dStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-    // 병렬로 모든 통계 데이터 수집
+    // 蹂묐젹濡?紐⑤뱺 ?듦퀎 ?곗씠???섏쭛
     const [todayPostsSnapshot, last30mErrorsSnapshot, last7dUsersSnapshot, geminiStatusDoc] = await Promise.all([
-      // 오늘 생성된 문서
+      // ?ㅻ뒛 ?앹꽦??臾몄꽌
       db.collection('posts')
         .where('createdAt', '>=', todayStart)
         .get(),
 
-      // 최근 30분 에러 로그
+      // 理쒓렐 30遺??먮윭 濡쒓렇
       db.collection('error_logs')
         .where('timestamp', '>=', last30mStart)
         .get(),
 
-      // 최근 7일 활성 사용자 (로그인한 사용자)
+      // 理쒓렐 7???쒖꽦 ?ъ슜??(濡쒓렇?명븳 ?ъ슜??
       db.collection('users')
         .where('lastLoginAt', '>=', last7dStart)
         .get(),
 
-      // Gemini API 상태
+      // Gemini API ?곹깭
       db.collection('system_status').doc('gemini').get()
     ]);
 
-    // 오늘 문서 생성 성공/실패 통계
+    // ?ㅻ뒛 臾몄꽌 ?앹꽦 ?깃났/?ㅽ뙣 ?듦퀎
     let todaySuccess = 0;
     let todayFail = 0;
 
@@ -293,8 +290,8 @@ exports.getAdminStats = onRequest({
       }
     });
 
-    // Gemini 상태 처리
-    let geminiStatus = { state: 'active' }; // 기본값을 active로 변경
+    // Gemini ?곹깭 泥섎━
+    let geminiStatus = { state: 'active' }; // 湲곕낯媛믪쓣 active濡?蹂寃?
     if (geminiStatusDoc.exists) {
       const statusData = geminiStatusDoc.data();
       geminiStatus = {
@@ -303,7 +300,7 @@ exports.getAdminStats = onRequest({
         message: statusData.message || null
       };
     } else {
-      // 문서가 없으면 자동으로 active 상태로 초기화
+      // 臾몄꽌媛 ?놁쑝硫??먮룞?쇰줈 active ?곹깭濡?珥덇린??
       await db.collection('system_status').doc('gemini').set({
         state: 'active',
         lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
@@ -325,19 +322,19 @@ exports.getAdminStats = onRequest({
       timestamp: now.toISOString()
     };
 
-    console.log('✅ getAdminStats 완료:', stats);
+    
     res.json({
       success: true,
       data: stats
     });
 
   } catch (error) {
-    console.error('❌ getAdminStats 오류:', error);
+    /* log removed */
     res.status(500).json({
       success: false,
       error: 'internal',
-      message: '서버 내부 오류가 발생했습니다.',
-      // 에러 시 기본값 반환
+      message: '?쒕쾭 ?대? ?ㅻ쪟媛 諛쒖깮?덉뒿?덈떎.',
+      // ?먮윭 ??湲곕낯媛?諛섑솚
       data: {
         todaySuccess: 0,
         todayFail: 0,
@@ -349,7 +346,7 @@ exports.getAdminStats = onRequest({
   }
 });
 
-// 시스템 상태 관련 (Gemini 상태 수동 업데이트 - onCall)
+// ?쒖뒪???곹깭 愿??(Gemini ?곹깭 ?섎룞 ?낅뜲?댄듃 - onCall)
 exports.updateGeminiStatus = systemHandler.updateGeminiStatus;
 
 exports.getErrorLogs = onRequest({
@@ -357,7 +354,7 @@ exports.getErrorLogs = onRequest({
   cors: true
 }, async (req, res) => {
   try {
-    // CORS 헤더 명시적 설정
+    // CORS ?ㅻ뜑 紐낆떆???ㅼ젙
     res.set('Access-Control-Allow-Origin', '*');
     res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -367,24 +364,24 @@ exports.getErrorLogs = onRequest({
       return;
     }
     
-    console.log('🔥 getErrorLogs 시작');
+    
     
     const { db } = require('./utils/firebaseAdmin');
     
-    // 요청 파라미터 파싱
+    // ?붿껌 ?뚮씪誘명꽣 ?뚯떛
     const reqData = req.body || {};
-    const limit = Math.min(reqData.limit || 50, 200); // 최대 200개까지
-    const severity = reqData.severity; // 'critical', 'error', 'warning' 필터
-    const functionName = reqData.functionName; // 특정 함수 필터
+    const limit = Math.min(reqData.limit || 50, 200); // 理쒕? 200媛쒓퉴吏
+    const severity = reqData.severity; // 'critical', 'error', 'warning' ?꾪꽣
+    const functionName = reqData.functionName; // ?뱀젙 ?⑥닔 ?꾪꽣
     
-    console.log('📊 에러 로그 조회 파라미터:', { limit, severity, functionName });
     
-    // Firestore에서 에러 로그 조회
+    
+    // Firestore?먯꽌 ?먮윭 濡쒓렇 議고쉶
     let query = db.collection('error_logs')
       .orderBy('timestamp', 'desc')
       .limit(limit);
     
-    // 필터 적용
+    // ?꾪꽣 ?곸슜
     if (severity) {
       query = query.where('severity', '==', severity);
     }
@@ -396,7 +393,7 @@ exports.getErrorLogs = onRequest({
     const snapshot = await query.get();
     
     if (snapshot.empty) {
-      console.log('✅ 에러 로그 없음');
+      
       return res.json({
         success: true,
         data: {
@@ -410,35 +407,35 @@ exports.getErrorLogs = onRequest({
     snapshot.forEach(doc => {
       const data = doc.data();
       
-      // 타임스탬프 변환
+      // ??꾩뒪?ы봽 蹂??
       let timestamp = null;
       if (data.timestamp) {
         try {
-          // Firestore Timestamp 객체인 경우
+          // Firestore Timestamp 媛앹껜??寃쎌슦
           if (data.timestamp.toDate) {
             timestamp = data.timestamp.toDate().toISOString();
           } 
-          // 이미 ISO 문자열인 경우
+          // ?대? ISO 臾몄옄?댁씤 寃쎌슦
           else if (typeof data.timestamp === 'string') {
             timestamp = data.timestamp;
           }
-          // 밀리초 숫자인 경우
+          // 諛由ъ큹 ?レ옄??寃쎌슦
           else if (typeof data.timestamp === 'number') {
             timestamp = new Date(data.timestamp).toISOString();
           }
         } catch (e) {
-          console.warn('타임스탬프 변환 실패:', doc.id, e.message);
-          timestamp = new Date().toISOString(); // 현재 시간으로 fallback
+          /* log removed */
+          timestamp = new Date().toISOString(); // ?꾩옱 ?쒓컙?쇰줈 fallback
         }
       }
       
       errors.push({
         id: doc.id,
-        message: data.message || '메시지 없음',
+        message: data.message || '硫붿떆吏 ?놁쓬',
         stack: data.stack || '',
         code: data.code || 'UNKNOWN',
         severity: data.severity || 'error',
-        functionName: data.functionName || '알 수 없음',
+        functionName: data.functionName || '?????놁쓬',
         userId: data.userId || null,
         userAgent: data.userAgent || null,
         ipAddress: data.ipAddress || null,
@@ -449,7 +446,7 @@ exports.getErrorLogs = onRequest({
       });
     });
     
-    console.log('✅ 에러 로그 조회 성공:', { count: errors.length });
+    
     
     res.json({
       success: true,
@@ -461,11 +458,11 @@ exports.getErrorLogs = onRequest({
     });
     
   } catch (error) {
-    console.error('❌ getErrorLogs 오류:', error);
+    /* log removed */
     res.status(500).json({ 
       success: false, 
       error: 'internal', 
-      message: '에러 로그 조회에 실패했습니다: ' + error.message 
+      message: '?먮윭 濡쒓렇 議고쉶???ㅽ뙣?덉뒿?덈떎: ' + error.message 
     });
   }
 });
@@ -475,7 +472,7 @@ exports.getNotices = onRequest({
   cors: true  
 }, async (req, res) => {
   try {
-    // CORS 헤더 명시적 설정
+    // CORS ?ㅻ뜑 紐낆떆???ㅼ젙
     res.set('Access-Control-Allow-Origin', '*');
     res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -485,11 +482,11 @@ exports.getNotices = onRequest({
       return;
     }
     
-    console.log('🔥 getNotices 시작');
+    
     res.json({ success: true, notices: [] });
   } catch (error) {
-    console.error('❌ getNotices 오류:', error);
-    res.status(500).json({ success: false, error: 'internal', message: '서버 내부 오류가 발생했습니다.' });
+    /* log removed */
+    res.status(500).json({ success: false, error: 'internal', message: '?쒕쾭 ?대? ?ㅻ쪟媛 諛쒖깮?덉뒿?덈떎.' });
   }
 });
 
@@ -498,7 +495,7 @@ exports.getUsers = onRequest({
   cors: true  
 }, async (req, res) => {
   try {
-    // CORS 헤더 명시적 설정
+    // CORS ?ㅻ뜑 紐낆떆???ㅼ젙
     res.set('Access-Control-Allow-Origin', '*');
     res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -508,9 +505,9 @@ exports.getUsers = onRequest({
       return;
     }
     
-    console.log('🔥 getUsers 시작');
     
-    // 실제 Firestore에서 사용자 데이터 가져오기
+    
+    // ?ㅼ젣 Firestore?먯꽌 ?ъ슜???곗씠??媛?몄삤湲?
     const { db } = require('./utils/firebaseAdmin');
     
     const reqData = req.body || {};
@@ -518,11 +515,11 @@ exports.getUsers = onRequest({
     const orderBy = reqData.orderBy || 'createdAt';
     const orderDirection = reqData.orderDirection || 'desc';
     
-    console.log('📊 사용자 목록 조회 파라미터:', { limit, orderBy, orderDirection });
+    
     
     const query = db.collection('users')
       .orderBy(orderBy, orderDirection)
-      .limit(Math.min(limit, 200)); // 최대 200명까지 제한
+      .limit(Math.min(limit, 200)); // 理쒕? 200紐낃퉴吏 ?쒗븳
     
     const snapshot = await query.get();
     
@@ -530,25 +527,25 @@ exports.getUsers = onRequest({
     snapshot.forEach(doc => {
       const data = doc.data();
       
-      // 디버깅을 위해 첫 번째 사용자의 전체 데이터 구조 로깅
+      // ?붾쾭源낆쓣 ?꾪빐 泥?踰덉㎏ ?ъ슜?먯쓽 ?꾩껜 ?곗씠??援ъ“ 濡쒓퉭
       if (users.length === 0) {
-        console.log('🔍 첫 번째 사용자 데이터 구조:', JSON.stringify(data, null, 2));
-        console.log('🔍 사용 가능한 필드들:', Object.keys(data));
+        /* log removed */
+        /* log removed */
       }
       
       users.push({
         uid: doc.id,
-        name: data.name || data.displayName || '이름 없음',
-        electoralDistrict: data.electoralDistrict || data.district || '선거구 미설정',
-        status: data.status || '상태 미설정',
+        name: data.name || data.displayName || 'Unknown',
+        electoralDistrict: data.electoralDistrict || data.district || 'Not set',
+        status: data.status || 'Not set',
         createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
-        // 추가 정보
+        // 異붽? ?뺣낫
         phone: data.phone || data.phoneNumber || '',
         role: data.role || 'user',
         isActive: data.isActive !== false,
         lastLoginAt: data.lastLoginAt?.toDate?.()?.toISOString(),
         profileComplete: data.profileComplete || false,
-        // 디버깅용 원본 데이터 일부 포함
+        // ?붾쾭源낆슜 ?먮낯 ?곗씠???쇰? ?ы븿
         _debug: {
           docId: doc.id,
           allFields: Object.keys(data).sort()
@@ -556,7 +553,7 @@ exports.getUsers = onRequest({
       });
     });
     
-    console.log('✅ 사용자 목록 조회 성공:', { count: users.length });
+    
     
     res.json({ 
       success: true, 
@@ -565,22 +562,22 @@ exports.getUsers = onRequest({
       limit: limit
     });
   } catch (error) {
-    console.error('❌ getUsers 오류:', error);
+    /* log removed */
     res.status(500).json({ 
       success: false, 
       error: 'internal', 
-      message: '사용자 목록 조회에 실패했습니다: ' + error.message 
+      message: '?ъ슜??紐⑸줉 議고쉶???ㅽ뙣?덉뒿?덈떎: ' + error.message 
     });
   }
 });
 
-// 중복 선거구 진단 및 수정 함수
+// 以묐났 ?좉굅援?吏꾨떒 諛??섏젙 ?⑥닔
 exports.fixDuplicateDistricts = onRequest({
   region: 'asia-northeast3',
   cors: true
 }, async (req, res) => {
   try {
-    // CORS 헤더 명시적 설정
+    // CORS ?ㅻ뜑 紐낆떆???ㅼ젙
     res.set('Access-Control-Allow-Origin', '*');
     res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -590,16 +587,16 @@ exports.fixDuplicateDistricts = onRequest({
       return;
     }
     
-    console.log('🔥 중복 선거구 진단 및 수정 시작');
+    
     
     const { admin, db } = require('./utils/firebaseAdmin');
     
-    // 모든 사용자 가져오기
+    // 紐⑤뱺 ?ъ슜??媛?몄삤湲?
     const usersSnapshot = await db.collection('users').get();
     const usersByDistrict = {};
     const duplicates = [];
     
-    // 선거구별로 사용자 그룹핑
+    // ?좉굅援щ퀎濡??ъ슜??洹몃９??
     usersSnapshot.forEach(doc => {
       const data = doc.data();
       if (data.electoralDistrict && data.position && data.regionMetro && data.regionLocal) {
@@ -608,7 +605,7 @@ exports.fixDuplicateDistricts = onRequest({
             position: data.position,
             regionMetro: data.regionMetro,
             regionLocal: data.regionLocal,
-            electoralDistrict: data.electoralDistrict
+            electoralDistrict: data.electoralDistrict || data.district || 'Not set',
           });
           
           if (!usersByDistrict[key]) {
@@ -618,18 +615,18 @@ exports.fixDuplicateDistricts = onRequest({
           usersByDistrict[key].push({
             uid: doc.id,
             name: data.name,
-            email: data.email || '이메일 없음',
+            email: data.email || '?대찓???놁쓬',
             createdAt: data.createdAt?.toDate?.()?.getTime() || 0,
             districtKey: key,
-            electoralDistrict: data.electoralDistrict
+            electoralDistrict: data.electoralDistrict || data.district || 'Not set',
           });
         } catch (error) {
-          console.warn('선거구 키 생성 실패:', doc.id, error.message);
+          /* log removed */
         }
       }
     });
     
-    // 중복 찾기
+    // 以묐났 李얘린
     for (const [key, users] of Object.entries(usersByDistrict)) {
       if (users.length > 1) {
         duplicates.push({
@@ -640,56 +637,56 @@ exports.fixDuplicateDistricts = onRequest({
       }
     }
     
-    console.log('📊 중복 선거구 발견:', duplicates.length);
     
-    // district_claims 상태 확인
+    
+    // district_claims ?곹깭 ?뺤씤
     const claimsSnapshot = await db.collection('district_claims').get();
     const claims = {};
     claimsSnapshot.forEach(doc => {
       claims[doc.id] = doc.data();
     });
     
-    console.log('📋 district_claims 현황:', Object.keys(claims).length + '개');
+    /* log removed */
     
-    // 수정 모드인 경우 실제 수정 수행
+    // ?섏젙 紐⑤뱶??寃쎌슦 ?ㅼ젣 ?섏젙 ?섑뻾
     const shouldFix = req.body?.fix === true;
     const fixResults = [];
     
     if (shouldFix && duplicates.length > 0) {
-      console.log('🔧 선착순 원칙으로 중복 선거구 수정 시작');
+      
       
       for (const duplicate of duplicates) {
         const { districtKey: key, users } = duplicate;
         
-        // 선착순 정렬 (createdAt 기준 오름차순)
+        // ?좎갑???뺣젹 (createdAt 湲곗? ?ㅻ쫫李⑥닚)
         const sortedUsers = users.sort((a, b) => a.createdAt - b.createdAt);
-        const keeper = sortedUsers[0]; // 가장 먼저 가입한 사용자
-        const toRemove = sortedUsers.slice(1); // 나머지 사용자들
+        const keeper = sortedUsers[0]; // 媛??癒쇱? 媛?낇븳 ?ъ슜??
+        const toRemove = sortedUsers.slice(1); // ?섎㉧吏 ?ъ슜?먮뱾
         
-        console.log(`📍 ${key}:`, {
+        console.log(`?뱧 ${key}:`, {
           keeper: keeper.name,
           toRemove: toRemove.map(u => u.name)
         });
         
         try {
-          // 1. district_claims에서 선착순 사용자로 업데이트
+          // 1. district_claims?먯꽌 ?좎갑???ъ슜?먮줈 ?낅뜲?댄듃
           await db.collection('district_claims').doc(key).set({
             userId: keeper.uid,
             claimedAt: admin.firestore.FieldValue.serverTimestamp(),
             lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
             fixedAt: admin.firestore.FieldValue.serverTimestamp(),
-            fixReason: '선착순 원칙 적용'
+            fixReason: '?좎갑???먯튃 ?곸슜'
           });
           
-          // 2. 제거될 사용자들의 선거구 정보 초기화
+          // 2. ?쒓굅???ъ슜?먮뱾???좉굅援??뺣낫 珥덇린??
           const batch = db.batch();
           for (const user of toRemove) {
             const userRef = db.collection('users').doc(user.uid);
             batch.update(userRef, {
-              electoralDistrict: '',
+              electoralDistrict: data.electoralDistrict || data.district || 'Not set',
               districtKey: null,
               districtConflictAt: admin.firestore.FieldValue.serverTimestamp(),
-              districtConflictReason: `선착순 원칙에 의해 ${keeper.name}에게 양보됨`
+              districtConflictReason: `?좎갑???먯튃???섑빐 ${keeper.name}?먭쾶 ?묐낫??
             });
           }
           await batch.commit();
@@ -702,7 +699,7 @@ exports.fixDuplicateDistricts = onRequest({
           });
           
         } catch (error) {
-          console.error(`❌ ${key} 수정 실패:`, error);
+          /* log removed */
           fixResults.push({
             districtKey: key,
             error: error.message,
@@ -711,12 +708,12 @@ exports.fixDuplicateDistricts = onRequest({
         }
       }
       
-      console.log('✅ 중복 선거구 수정 완료:', fixResults.length);
+      
     }
 
     res.json({
       success: true,
-      message: shouldFix ? '중복 선거구 수정 완료' : '중복 선거구 진단 완료',
+      message: shouldFix ? '以묐났 ?좉굅援??섏젙 ?꾨즺' : '以묐났 ?좉굅援?吏꾨떒 ?꾨즺',
       duplicates: duplicates,
       districtClaims: claims,
       totalUsers: usersSnapshot.size,
@@ -726,23 +723,23 @@ exports.fixDuplicateDistricts = onRequest({
     });
     
   } catch (error) {
-    console.error('❌ fixDuplicateDistricts 오류:', error);
+    /* log removed */
     res.status(500).json({
       success: false,
       error: 'internal',
-      message: '중복 선거구 진단 실패: ' + error.message
+      message: '以묐났 ?좉굅援?吏꾨떒 ?ㅽ뙣: ' + error.message
     });
   }
 });
 
-// 시스템 상태 함수 (HTTP 함수로 변경)
+// ?쒖뒪???곹깭 ?⑥닔 (HTTP ?⑥닔濡?蹂寃?
 exports.getSystemStatus = onRequest({
   region: 'asia-northeast3',
   cors: true,
   timeoutSeconds: 30
 }, async (req, res) => {
   try {
-    // CORS 헤더 명시적 설정
+    // CORS ?ㅻ뜑 紐낆떆???ㅼ젙
     res.set('Access-Control-Allow-Origin', '*');
     res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -752,13 +749,13 @@ exports.getSystemStatus = onRequest({
       return;
     }
     
-    console.log('🔥 getSystemStatus 시작');
+    
     
     const { db } = require('./utils/firebaseAdmin');
     
-    // Firestore에서 시스템 상태 조회
+    // Firestore?먯꽌 ?쒖뒪???곹깭 議고쉶
     const systemStatusDoc = await db.collection('system_status').doc('current').get();
-    let status = 'operational'; // 기본값
+    let status = 'operational'; // 湲곕낯媛?
     let maintenanceInfo = null;
     let reason = '';
     
@@ -767,9 +764,9 @@ exports.getSystemStatus = onRequest({
       status = data.status || 'operational';
       maintenanceInfo = data.maintenanceInfo || null;
       reason = data.reason || '';
-      console.log('📋 Firestore에서 상태 조회:', { status, hasMaintenanceInfo: !!maintenanceInfo });
+      
     } else {
-      console.log('⚠️ 시스템 상태 문서가 존재하지 않음 - 기본값 사용');
+      
     }
     
     res.json({
@@ -786,22 +783,22 @@ exports.getSystemStatus = onRequest({
     });
     
   } catch (error) {
-    console.error('❌ getSystemStatus 오류:', error);
+    /* log removed */
     res.status(500).json({
       success: false,
       error: 'internal',
-      message: '시스템 상태 확인에 실패했습니다: ' + error.message
+      message: '?쒖뒪???곹깭 ?뺤씤???ㅽ뙣?덉뒿?덈떎: ' + error.message
     });
   }
 });
 
-// 시스템 상태 업데이트 함수 (HTTP 함수로 변경)
+// ?쒖뒪???곹깭 ?낅뜲?댄듃 ?⑥닔 (HTTP ?⑥닔濡?蹂寃?
 exports.updateSystemStatus = onRequest({
   region: 'asia-northeast3',
   cors: true
 }, async (req, res) => {
   try {
-    // CORS 헤더 명시적 설정
+    // CORS ?ㅻ뜑 紐낆떆???ㅼ젙
     res.set('Access-Control-Allow-Origin', '*');
     res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -811,25 +808,25 @@ exports.updateSystemStatus = onRequest({
       return;
     }
     
-    console.log('🔥 updateSystemStatus 시작');
-    console.log('📊 요청 데이터:', JSON.stringify(req.body, null, 2));
+    
+    /* log removed */
     
     const { admin, db } = require('./utils/firebaseAdmin');
     const reqData = req.body || {};
     const { status, reason, maintenanceInfo } = reqData;
     
-    console.log('🔍 파싱된 데이터:', { status, reason, hasStatus: !!status });
+    
     
     if (!status) {
-      console.log('❌ 상태 필드 누락');
+      
       return res.status(400).json({
         success: false,
         error: 'invalid-argument',
-        message: '상태가 필요합니다.'
+        message: '?곹깭媛 ?꾩슂?⑸땲??'
       });
     }
     
-    // 시스템 상태 업데이트 (system_status 컬렉션에 저장)
+    // ?쒖뒪???곹깭 ?낅뜲?댄듃 (system_status 而щ젆?섏뿉 ???
     const statusUpdate = {
       status: status,
       reason: reason || '',
@@ -837,103 +834,102 @@ exports.updateSystemStatus = onRequest({
       timestamp: new Date().toISOString()
     };
 
-    // 점검 중인 경우 추가 정보 저장
+    // ?먭? 以묒씤 寃쎌슦 異붽? ?뺣낫 ???
     if (status === 'maintenance' && maintenanceInfo) {
       statusUpdate.maintenanceInfo = maintenanceInfo;
     }
 
     await db.collection('system_status').doc('current').set(statusUpdate, { merge: true });
     
-    console.log('✅ 시스템 상태 업데이트 완료:', { status, reason });
+    
     
     res.json({
       success: true,
-      message: '시스템 상태가 업데이트되었습니다.',
+      message: '?쒖뒪???곹깭媛 ?낅뜲?댄듃?섏뿀?듬땲??',
       status: status,
       timestamp: new Date().toISOString()
     });
     
   } catch (error) {
-    console.error('❌ updateSystemStatus 오류:', error);
+    /* log removed */
     res.status(500).json({
       success: false,
       error: 'internal',
-      message: '시스템 상태 업데이트에 실패했습니다: ' + error.message
+      message: '?쒖뒪???곹깭 ?낅뜲?댄듃???ㅽ뙣?덉뒿?덈떎: ' + error.message
     });
   }
 });
 
-// 기존 함수들의 호환성을 위한 간단한 구현
+// 湲곗〈 ?⑥닔?ㅼ쓽 ?명솚?깆쓣 ?꾪븳 媛꾨떒??援ы쁽
 exports.generatePost = postsHandler.generatePosts;
 exports.regeneratePost = postsHandler.generatePosts;
 exports.saveSelectedPost = postsHandler.saveSelectedPost;
-exports.savePost = postsHandler.saveSelectedPost; // 프론트엔드에서 savePost로 호출하므로 추가
+exports.savePost = postsHandler.saveSelectedPost; // ?꾨줎?몄뿏?쒖뿉??savePost濡??몄텧?섎?濡?異붽?
 
 exports.getUserMetadata = onCall({
   cors: true,
   memory: '256MiB',
   timeoutSeconds: 60
 },(req) => {
-  throw new HttpsError('unimplemented', '가챠뽑기 시스템으로 재구현 예정입니다.');
+  throw new HttpsError('unimplemented', '媛梨좊퐨湲??쒖뒪?쒖쑝濡??ш뎄???덉젙?낅땲??');
 });
 
-// deletePost HTTP 함수 (CORS 문제 해결)
+// deletePost HTTP ?⑥닔 (CORS 臾몄젣 ?닿껐)
 const { httpWrap } = require('./common/http-wrap');
 
 exports.deletePost = httpWrap(async (request) => {
   const { admin, db } = require('./utils/firebaseAdmin');
   const { HttpsError } = require('firebase-functions/v2/https');
   
-  console.log('🔥 deletePost HTTP 시작');
-  console.log('📋 Request data:', JSON.stringify(request.data));
-  console.log('📋 Raw request body:', JSON.stringify(request.rawRequest.body));
   
-  // Authorization 헤더에서 토큰 추출
-  const authHeader = request.rawRequest.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  /* log removed */
+  /* log removed */
+  
+  // Naver-only 인증: __naverAuth에서 uid 추출
+  let reqData = request.data || request.rawRequest?.body || {};
+  if (reqData && typeof reqData === 'object' && reqData.data && typeof reqData.data === 'object') {
+    reqData = reqData.data;
+  }
+  if (!reqData || !reqData.__naverAuth || reqData.__naverAuth.provider !== 'naver' || !reqData.__naverAuth.uid) {
     throw new HttpsError('unauthenticated', '인증이 필요합니다.');
   }
+  const uid = reqData.__naverAuth.uid;
+  delete reqData.__naverAuth;
+  // postId 추출
+  const postId = reqData?.postId || request.data?.data?.postId || request.data?.postId;
   
-  const idToken = authHeader.split('Bearer ')[1];
-  let decodedToken;
   
-  try {
-    decodedToken = await admin.auth().verifyIdToken(idToken);
-  } catch (authError) {
-    console.error('토큰 검증 실패:', authError);
-    throw new HttpsError('unauthenticated', '유효하지 않은 토큰입니다.');
-  }
-  
-  const uid = decodedToken.uid;
-  // Firebase SDK 스타일 응답에서 data 필드를 추출
-  const postId = request.data?.data?.postId || request.data?.postId;
-  
-  console.log('📋 Extracted postId:', postId);
   
   if (!postId) {
-    throw new HttpsError('invalid-argument', 'postId가 필요합니다.');
+    throw new HttpsError('invalid-argument', 'postId媛 ?꾩슂?⑸땲??');
   }
   
-  // 게시물 조회 및 소유자 확인
+  // 寃뚯떆臾?議고쉶 諛??뚯쑀???뺤씤
   const postDoc = await db.collection('posts').doc(postId).get();
   
   if (!postDoc.exists) {
-    throw new HttpsError('not-found', '게시물을 찾을 수 없습니다.');
+    throw new HttpsError('not-found', '寃뚯떆臾쇱쓣 李얠쓣 ???놁뒿?덈떎.');
   }
   
   const postData = postDoc.data();
   if (postData.userId !== uid) {
-    throw new HttpsError('permission-denied', '삭제 권한이 없습니다.');
+    throw new HttpsError('permission-denied', '??젣 沅뚰븳???놁뒿?덈떎.');
   }
   
-  // 게시물 삭제
+  // 寃뚯떆臾???젣
   await db.collection('posts').doc(postId).delete();
   
-  console.log('✅ deletePost 성공:', postId);
+  
   
   return { success: true, postId };
 });
 
-// Firestore 트리거들
+// Firestore ?몃━嫄곕뱾
 exports.analyzeUserProfileOnUpdate = profileHandler.analyzeUserProfileOnUpdate;
 exports.cleanupDistrictClaimsOnUserDelete = profileHandler.cleanupDistrictClaimsOnUserDelete;
+
+
+
+
+
+

@@ -95,7 +95,7 @@ const MobileMenu = () => {
           position: 'fixed',
           top: 16,
           right: 16,
-          zIndex: 9999,
+          zIndex: 1102,
           color: 'white',
           '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.1)' },
           width: 48,
@@ -118,7 +118,7 @@ const MobileMenu = () => {
               ? 'rgba(18, 18, 18, 0.8)'
               : 'rgba(255, 255, 255, 0.8)',
             backdropFilter: 'blur(10px)',
-            zIndex: 9998,
+            zIndex: 1101,
             boxShadow: isDarkMode
               ? '-2px 0 10px rgba(0,0,0,0.5)'
               : '-2px 0 10px rgba(0,0,0,0.1)',
@@ -188,7 +188,7 @@ const MobileMenu = () => {
             width: '100vw',
             height: '100vh',
             bgcolor: 'rgba(0, 0, 0, 0.3)',
-            zIndex: 9997,
+            zIndex: 1100,
             overflow: 'hidden'
           }}
         />

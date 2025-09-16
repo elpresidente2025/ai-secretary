@@ -124,15 +124,18 @@ export default function PostViewerModal({
             }}
           >
             {/* 제목을 텍스트박스 안에 포함 */}
-            <Typography 
-              variant="h6" 
-              sx={{ 
+            <Typography
+              variant="h6"
+              sx={{
                 fontWeight: 700,
-                color: 'primary.main',
+                color: '#000000 !important',
                 marginBottom: '1rem',
                 paddingBottom: '0.5rem',
                 borderBottom: '2px solid',
-                borderColor: 'primary.main'
+                borderColor: 'primary.main',
+                '&, & *': {
+                  color: '#000000 !important'
+                }
               }}
             >
               제목: {post?.title || '제목 없음'}

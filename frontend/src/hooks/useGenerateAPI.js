@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../services/firebase';
+import { callHttpFunction } from '../services/firebaseService';
 import { useAuth } from './useAuth';
 
 export function useGenerateAPI() {
@@ -131,7 +132,6 @@ export function useGenerateAPI() {
       console.log('📝 요청 데이터:', requestData);
 
       // generatePosts는 HTTP 함수이므로 HTTP 호출 사용
-      const { callHttpFunction } = await import('../services/firebaseService');
       const result = await callHttpFunction('generatePosts', requestData);
       console.log('✅ generatePosts 응답 수신:', result);
 
@@ -249,6 +249,8 @@ export function useGenerateAPI() {
       });
 
       console.log('✅ savePost 응답 수신:', result);
+      console.log('🔍 응답 타입:', typeof result);
+      console.log('🔍 응답 success 필드:', result?.success);
 
       if (result?.success) {
         // 🆕 저장 시에도 메타데이터 수집

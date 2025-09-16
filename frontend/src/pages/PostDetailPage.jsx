@@ -13,7 +13,7 @@ import {
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { useParams, useNavigate } from "react-router-dom";
-import { httpsCallable } from "firebase/functions";
+import { callFunctionWithNaverAuth } from '../services/firebaseService';
 import DashboardLayout from "../components/DashboardLayout";
 import { functions } from '../services/firebase';
 
@@ -49,9 +49,8 @@ export default function PostDetailPage() {
     const load = async () => {
       setLoading(true);
       try {
-        const call = httpsCallable(functions, "getUserPosts");
-        const { data } = await call();
-        const found = (data?.posts || []).find((p) => p.id === id) || null;
+        const res = await callFunctionWithNaverAuth('getUserPosts');
+        const found = (res?.posts || []).find((p) => p.id === id) || null;
         setPost(found);
         if (!found) {
           setSnack({ open: true, severity: "warning", msg: "해당 원고를 찾을 수 없습니다." });

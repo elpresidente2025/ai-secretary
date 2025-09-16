@@ -119,7 +119,10 @@ export default function DraftGrid({
                 <Typography variant="subtitle1" sx={{
                   color: '#000000 !important',
                   fontWeight: 'bold',
-                  mb: 1
+                  mb: 1,
+                  '&, & *': {
+                    color: '#000000 !important'
+                  }
                 }}>
                   제목: {draft.title || `${draft.category} - ${draft.subCategory || '일반'}`}
                 </Typography>
