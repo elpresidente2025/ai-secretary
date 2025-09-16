@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+﻿import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 export const useNaverLogin = () => {
@@ -32,7 +32,7 @@ export const useNaverLogin = () => {
     setError(null);
     try {
       const naverLogin = initializeNaverLogin();
-      if (!naverLogin) throw new Error('네이버 SDK를 불러오지 못했습니다.');
+      if (!naverLogin) throw new Error('?ㅼ씠踰?SDK瑜?遺덈윭?ㅼ? 紐삵뻽?듬땲??');
       naverLogin.authorize();
     } catch (e) {
       setError(e.message);
@@ -63,7 +63,7 @@ export const useNaverLogin = () => {
 
       // Call Cloud Function with either accessToken or code
       const payload = accessToken ? { accessToken } : code ? { code, state } : null;
-      if (!payload) throw new Error('네이버 콜백 파라미터가 없습니다. 다시 시도해 주세요.');
+      if (!payload) throw new Error('?ㅼ씠踰?肄쒕갚 ?뚮씪誘명꽣媛 ?놁뒿?덈떎. ?ㅼ떆 ?쒕룄??二쇱꽭??');
 
       const resp = await fetch('https://asia-northeast3-ai-secretary-6e9c8.cloudfunctions.net/naverLoginHTTP', {
         method: 'POST',
@@ -72,23 +72,22 @@ export const useNaverLogin = () => {
       });
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const json = await resp.json();
-      const result = json.result;
-      if (!result?.success) throw new Error('네이버 로그인 처리 실패');
+      const result = json.result; if (!result?.success) throw new Error('네이버 로그인 처리 실패');
 
-      const { registrationRequired, user, naver } = result;
+      const { registrationRequired, user, naver, customToken } = result;
       
       if (registrationRequired) {
-        // 미가입 회원 - 회원가입 페이지로 이동 (네이버 데이터와 함께)
-        // localStorage를 설정하지 않아야 useAuth에서 프로필 조회를 시도하지 않음
-        console.log('미가입 회원 - 회원가입 페이지로 이동:', naver);
+        // 誘멸????뚯썝 - ?뚯썝媛???섏씠吏濡??대룞 (?ㅼ씠踰??곗씠?곗? ?④퍡)
+        // localStorage瑜??ㅼ젙?섏? ?딆븘??useAuth?먯꽌 ?꾨줈??議고쉶瑜??쒕룄?섏? ?딆쓬
+        console.log('誘멸????뚯썝 - ?뚯썝媛???섏씠吏濡??대룞:', naver);
         navigate('/register', { 
           state: { 
             naverUserData: naver,
-            showNaverConsent: true // 네이버 동의 팝업 표시 플래그
+            showNaverConsent: true // ?ㅼ씠踰??숈쓽 ?앹뾽 ?쒖떆 ?뚮옒洹?
           } 
         });
       } else {
-        // 기존 회원 - localStorage에 저장하고 대시보드로 이동
+        // 湲곗〈 ?뚯썝 - localStorage????ν븯怨???쒕낫?쒕줈 ?대룞
         const currentUserData = {
           uid: user.uid,
           naverUserId: user.naverUserId,
@@ -101,7 +100,7 @@ export const useNaverLogin = () => {
         
         localStorage.setItem('currentUser', JSON.stringify(currentUserData));
         
-        // 백그라운드에서 프로필 정보 조회 (메인 스레드 차단 방지)
+        // 諛깃렇?쇱슫?쒖뿉???꾨줈???뺣낫 議고쉶 (硫붿씤 ?ㅻ젅??李⑤떒 諛⑹?)
         setTimeout(async () => {
           try {
             const { callFunctionWithNaverAuth } = await import('../services/firebaseService');
@@ -115,19 +114,19 @@ export const useNaverLogin = () => {
                 ...profileResponse.profile
               };
               localStorage.setItem('currentUser', JSON.stringify(updatedUserData));
-              console.log('✅ 네이버 사용자 프로필 정보 업데이트 완료:', updatedUserData);
+              console.log('???ㅼ씠踰??ъ슜???꾨줈???뺣낫 ?낅뜲?댄듃 ?꾨즺:', updatedUserData);
               
-              // CustomEvent로 프로필 업데이트 알림
+              // CustomEvent濡??꾨줈???낅뜲?댄듃 ?뚮┝
               window.dispatchEvent(new CustomEvent('userProfileUpdated', { 
                 detail: updatedUserData 
               }));
             }
           } catch (profileError) {
-            console.warn('프로필 정보 조회 실패 (무시):', profileError.message);
+            console.warn('?꾨줈???뺣낫 議고쉶 ?ㅽ뙣 (臾댁떆):', profileError.message);
           }
         }, 100);
         
-        window.location.href = '/dashboard';
+        navigate('/dashboard', { replace: true });
       }
     } catch (e) {
       setError(e.message);
@@ -138,3 +137,4 @@ export const useNaverLogin = () => {
 
   return { loginWithNaver, handleNaverCallback, isLoading, error, initializeNaverLogin };
 };
+

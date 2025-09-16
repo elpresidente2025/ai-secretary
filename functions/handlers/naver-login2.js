@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
@@ -12,8 +12,8 @@ const NAVER_CLIENT_SECRET = defineSecret('NAVER_CLIENT_SECRET');
 function mapGender(g) {
   if (!g) return '';
   const s = String(g).trim().toUpperCase();
-  if (s === 'M' || s === 'MALE' || s === '남' || s === '남자') return '남성';
-  if (s === 'F' || s === 'FEMALE' || s === '여' || s === '여자') return '여성';
+  if (s === 'M' || s === 'MALE' || s === '?? || s === '?⑥옄') return '?⑥꽦';
+  if (s === 'F' || s === 'FEMALE' || s === '?? || s === '?ъ옄') return '?ъ꽦';
   return String(g).trim();
 }
 function getSecretValue(secretObj, envName) {
@@ -115,7 +115,7 @@ const naverLoginHTTP = onRequest({ region: 'asia-northeast3', cors: true, timeou
     const snap = await db.collection('users').where('naverUserId', '==', naver.id).limit(1).get();
 
     if (snap.empty) {
-      // 미가입 회원 - 회원가입 필요
+      // 誘멸????뚯썝 - ?뚯썝媛???꾩슂
       stage = 'registration_required';
       return res.status(200).json({
         result: {
@@ -134,11 +134,11 @@ const naverLoginHTTP = onRequest({ region: 'asia-northeast3', cors: true, timeou
       });
     }
 
-    // 기존 회원 - 로그인 성공
+    // 湲곗〈 ?뚯썝 - 濡쒓렇???깃났 (Firebase Custom Token 諛쒓툒)
     const docSnap = snap.docs[0];
     const userData = docSnap.data();
     
-    // 관리자 권한 확인 및 업데이트
+    // 愿由ъ옄 沅뚰븳 ?뺤씤 諛??낅뜲?댄듃
     const adminNaverIds = (process.env.ADMIN_NAVER_IDS || 'kjk6206').split(',').map(id => id.trim());
     const shouldBeAdmin = adminNaverIds.includes(naver.id);
     const isCurrentlyAdmin = userData.isAdmin === true;
@@ -154,13 +154,27 @@ const naverLoginHTTP = onRequest({ region: 'asia-northeast3', cors: true, timeou
     // (removed duplicate raw gender assignment)
     
     if (shouldBeAdmin && !isCurrentlyAdmin) {
-      console.log(`🔑 기존 사용자를 관리자로 승격: ${naver.id}`);
+      console.log(`?뵎 湲곗〈 ?ъ슜?먮? 愿由ъ옄濡??밴꺽: ${naver.id}`);
       updateData.isAdmin = true;
       updateData.role = 'admin';
       updateData.updatedAt = admin.firestore.FieldValue.serverTimestamp();
     }
     
     await docSnap.ref.update(updateData);
+
+    // Ensure Firebase Auth user exists for this uid (use Firestore doc id as Auth uid)
+    const uid = docSnap.id;
+    try {
+      await admin.auth().getUser(uid);
+    } catch (_e) {
+      await admin.auth().createUser({
+        uid,
+        displayName: userData.name || userData.displayName || null,
+        photoURL: userData.profileImage || naver.profile_image || null,
+        disabled: false
+      }).catch(() => {});
+    }
+    const customToken = await admin.auth().createCustomToken(uid, { provider: 'naver' });
     
     // backfill username if missing
     try { if (!userData.username) await claimUsernameForUid(docSnap.id, naver.id); } catch (e) { console.warn('username backfill failed:', e.message); }
@@ -170,7 +184,7 @@ const naverLoginHTTP = onRequest({ region: 'asia-northeast3', cors: true, timeou
         success: true, 
         registrationRequired: false,
         user: { 
-          uid: docSnap.id, 
+          uid: uid, 
           naverUserId: userData.naverUserId, 
           displayName: userData.name || userData.displayName, 
           photoURL: userData.profileImage || naver.profile_image, 
@@ -178,6 +192,7 @@ const naverLoginHTTP = onRequest({ region: 'asia-northeast3', cors: true, timeou
           profileComplete: userData.profileComplete || false,
           isAdmin: shouldBeAdmin || isCurrentlyAdmin
         },
+        customToken: customToken,
         naver: { 
           id: naver.id, 
           name: naver.name || naver.nickname || null, 
@@ -209,17 +224,17 @@ const naverCompleteRegistration = onRequest({ region: 'asia-northeast3', cors: t
     const { naverUserData, profileData } = req.body || {};
     
     if (!naverUserData?.id || typeof profileData !== 'object') {
-      return res.status(400).json({ error: { code: 'invalid-argument', message: 'naverUserData와 profileData가 필요합니다.' } });
+      return res.status(400).json({ error: { code: 'invalid-argument', message: 'naverUserData? profileData媛 ?꾩슂?⑸땲??' } });
     }
     
     const required = ['name', 'position', 'regionMetro', 'regionLocal', 'electoralDistrict'];
     for (const k of required) { 
       if (!profileData[k] || String(profileData[k]).trim() === '') {
-        return res.status(400).json({ error: { code: 'invalid-argument', message: `${k} 필드가 필요합니다.` } });
+        return res.status(400).json({ error: { code: 'invalid-argument', message: `${k} ?꾨뱶媛 ?꾩슂?⑸땲??` } });
       }
     }
     
-    // 새 사용자 문서 생성
+    // ???ъ슜??臾몄꽌 ?앹꽦
     const ref = db.collection('users').doc();
     const adminNaverIds = (process.env.ADMIN_NAVER_IDS || 'kjk6206').split(',').map(id => id.trim());
     const isAdmin = adminNaverIds.includes(naverUserData.id);
@@ -234,7 +249,7 @@ const naverCompleteRegistration = onRequest({ region: 'asia-northeast3', cors: t
       regionMetro: profileData.regionMetro,
       regionLocal: profileData.regionLocal,
       electoralDistrict: profileData.electoralDistrict,
-      status: profileData.status || '현역',
+      status: profileData.status || '?꾩뿭',
       bio: profileData.bio || '',
       provider: 'naver',
       isNaverUser: true,
@@ -245,7 +260,7 @@ const naverCompleteRegistration = onRequest({ region: 'asia-northeast3', cors: t
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     };
     
-    // 선택 필드들
+    // ?좏깮 ?꾨뱶??
     const optionalFields = ['ageDecade', 'ageDetail', 'familyStatus', 'backgroundCareer', 'localConnection', 'politicalExperience', 'committees', 'customCommittees', 'constituencyType', 'twitterPremium'];
     for (const field of optionalFields) {
       if (profileData[field] !== undefined) {
@@ -254,8 +269,21 @@ const naverCompleteRegistration = onRequest({ region: 'asia-northeast3', cors: t
     }
     
     await ref.set(doc);
+
+    // Ensure Firebase Auth user exists and issue custom token
+    try {
+      await admin.auth().getUser(ref.id);
+    } catch (_e) {
+      await admin.auth().createUser({
+        uid: ref.id,
+        displayName: doc.name,
+        photoURL: doc.profileImage || null,
+        disabled: false
+      }).catch(() => {});
+    }
+    const customToken = await admin.auth().createCustomToken(ref.id, { provider: 'naver' });
     
-    // username 자동 할당
+    // username ?먮룞 ?좊떦
     try { 
       await claimUsernameForUid(ref.id, naverUserData.id); 
     } catch (e) { 
@@ -263,17 +291,17 @@ const naverCompleteRegistration = onRequest({ region: 'asia-northeast3', cors: t
     }
     
     if (isAdmin) {
-      console.log(`🔑 관리자 네이버 사용자 등록: ${naverUserData.id}`);
+      console.log(`?뵎 愿由ъ옄 ?ㅼ씠踰??ъ슜???깅줉: ${naverUserData.id}`);
     }
     
     return res.status(200).json({ 
       result: { 
         success: true, 
-        message: '회원가입이 완료되었습니다. 로그인 페이지에서 네이버로 로그인해주세요.',
+        message: '?뚯썝媛?낆씠 ?꾨즺?섏뿀?듬땲?? 濡쒓렇???섏씠吏?먯꽌 ?ㅼ씠踰꾨줈 濡쒓렇?명빐二쇱꽭??',
         user: { 
           uid: ref.id, 
           naverUserId: naverUserData.id, 
-          // displayName은 저장하지 않지만, 호환성을 위해 응답에는 name을 내려줍니다.
+          // displayName? ??ν븯吏 ?딆?留? ?명솚?깆쓣 ?꾪빐 ?묐떟?먮뒗 name???대젮以띾땲??
           displayName: doc.name,
           isAdmin: isAdmin
         }
@@ -286,3 +314,5 @@ const naverCompleteRegistration = onRequest({ region: 'asia-northeast3', cors: t
 });
 
 module.exports = { naverLogin, naverLoginHTTP, naverCompleteRegistration };
+
+
