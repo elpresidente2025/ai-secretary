@@ -2,14 +2,14 @@
 import { httpsCallable } from 'firebase/functions';
 import { functions, auth } from './firebase';
 
-// onCall ÇÔ¼ö È£Ãâ (±âº»)
+// onCall ï¿½Ô¼ï¿½ È£ï¿½ï¿½ (ï¿½âº»)
 export const callFunction = async (functionName, data = {}) => {
   const callable = httpsCallable(functions, functionName);
   const result = await callable(data);
   return result.data;
 };
 
-// onCall + Àç½Ãµµ (401/403 µî Á¦ÇÑÀûÀÎ °æ¿ì)
+// onCall + ï¿½ï¿½Ãµï¿½ (401/403 ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½)
 export const callFunctionWithRetry = async (functionName, data = {}, retries = 2) => {
   let lastError;
   for (let attempt = 1; attempt <= retries; attempt++) {
@@ -34,24 +34,39 @@ export const callFunctionWithRetry = async (functionName, data = {}, retries = 2
   throw lastError || new Error('Function call failed');
 };
 
-// HTTP(onRequest) ÇÔ¼ö È£Ãâ: Authorization Bearer »ç¿ë
+// HTTP(onRequest) í•¨ìˆ˜ í˜¸ì¶œ: ë„¤ì´ë²„ ì¸ì¦ ì „ìš©
 export const callHttpFunction = async (functionName, data = {}) => {
-  const user = auth.currentUser;
-  if (!user) throw new Error('·Î±×ÀÎÀÌ ÇÊ¿äÇÕ´Ï´Ù.');
-  const idToken = await user.getIdToken(false);
+  // localStorageì—ì„œ ë„¤ì´ë²„ ì‚¬ìš©ìž ì •ë³´ í™•ì¸
+  const storedUser = localStorage.getItem('currentUser');
+  if (!storedUser) {
+    throw new Error('ë¡œê·¸ì¸ì´ í•„ìš”í•©ë‹ˆë‹¤.');
+  }
+
+  let userData;
+  try {
+    userData = JSON.parse(storedUser);
+  } catch (e) {
+    throw new Error('ì‚¬ìš©ìž ì •ë³´ë¥¼ ì½ì„ ìˆ˜ ì—†ìŠµë‹ˆë‹¤.');
+  }
+
+  if (!userData.uid || userData.provider !== 'naver') {
+    throw new Error('ìœ íš¨í•˜ì§€ ì•Šì€ ì‚¬ìš©ìž ì •ë³´ìž…ë‹ˆë‹¤.');
+  }
 
   const projectId = functions.app.options.projectId;
   const region = 'asia-northeast3';
   const url = `https://${region}-${projectId}.cloudfunctions.net/${functionName}`;
 
-  const response = await fetch(url, {
+  const requestOptions = {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${idToken}`,
-    },
-    body: JSON.stringify(data),
-  });
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ...data,
+      __naverAuth: { uid: userData.uid, provider: 'naver' }
+    })
+  };
+
+  const response = await fetch(url, requestOptions);
   if (!response.ok) {
     const text = await response.text();
     throw new Error(`HTTP ${response.status}: ${text}`);
@@ -60,13 +75,36 @@ export const callHttpFunction = async (functionName, data = {}) => {
   return raw && typeof raw === 'object' && 'data' in raw ? raw.data : raw;
 };
 
-// À¯Áö È£È¯: ¿¹Àü ÀÌ¸§À» »õ ·¡ÆÛ·Î ¿¬°á
+// ï¿½ï¿½ï¿½ï¿½ È£È¯: ï¿½ï¿½ï¿½ï¿½ ï¿½Ì¸ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½Û·ï¿½ ï¿½ï¿½ï¿½ï¿½
 export const callFunctionWithNaverAuth = async (functionName, data = {}) => {
-  return await callFunctionWithRetry(functionName, data);
+  // localStorageì—ì„œ ë„¤ì´ë²„ ì‚¬ìš©ìž ì •ë³´ í™•ì¸
+  const storedUser = localStorage.getItem('currentUser');
+  if (!storedUser) {
+    throw new Error('ë¡œê·¸ì¸ì´ í•„ìš”í•©ë‹ˆë‹¤.');
+  }
+
+  let userData;
+  try {
+    userData = JSON.parse(storedUser);
+  } catch (e) {
+    throw new Error('ì‚¬ìš©ìž ì •ë³´ë¥¼ ì½ì„ ìˆ˜ ì—†ìŠµë‹ˆë‹¤.');
+  }
+
+  if (!userData.uid || userData.provider !== 'naver') {
+    throw new Error('ìœ íš¨í•˜ì§€ ì•Šì€ ì‚¬ìš©ìž ì •ë³´ìž…ë‹ˆë‹¤.');
+  }
+
+  // __naverAuth ê°ì²´ë¥¼ ë°ì´í„°ì— ì¶”ê°€
+  const dataWithAuth = {
+    ...data,
+    __naverAuth: { uid: userData.uid, provider: 'naver' }
+  };
+
+  return await callFunctionWithRetry(functionName, dataWithAuth);
 };
 
 // ----------------------------------------------------------------------------
-// ÀÌÇÏÀÇ ±âÁ¸ HTTP À¯Æ¿/°ü¸®ÀÚ/SNS ÇÔ¼ö´Â ÇÊ¿ä ½Ã Bearer ÅäÅ« ±â¹ÝÀ¸·Î À¯Áö
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ HTTP ï¿½ï¿½Æ¿/ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½/SNS ï¿½Ô¼ï¿½ï¿½ï¿½ ï¿½Ê¿ï¿½ ï¿½ï¿½ Bearer ï¿½ï¿½Å« ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 // ----------------------------------------------------------------------------
 
 export const getSystemStatus = async () => {
@@ -83,7 +121,7 @@ export const getSystemStatus = async () => {
     return await response.json();
   } catch (error) {
     if (error.name === 'AbortError') throw new Error('Request timeout');
-    return { success: false, status: 'unknown', message: '»óÅÂ È®ÀÎ ½ÇÆÐ' };
+    return { success: false, status: 'unknown', message: 'ï¿½ï¿½ï¿½ï¿½ È®ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½' };
   }
 };
 
@@ -109,7 +147,7 @@ export const getErrorLogs = async () => {
     });
     return await response.json();
   } catch (error) {
-    return { success: false, message: '¿¡·¯ ·Î±×¸¦ ºÒ·¯¿ÀÁö ¸øÇß½À´Ï´Ù.' };
+    return { success: false, message: 'ï¿½ï¿½ï¿½ï¿½ ï¿½Î±×¸ï¿½ ï¿½Ò·ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ß½ï¿½ï¿½Ï´ï¿½.' };
   }
 };
 
@@ -172,7 +210,7 @@ export const updateSystemStatus = async (statusData) => {
     });
     return await response.json();
   } catch (error) {
-    return { success: false, message: '½Ã½ºÅÛ »óÅÂ ¾÷µ¥ÀÌÆ® ½ÇÆÐ: ' + error.message };
+    return { success: false, message: 'ï¿½Ã½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ® ï¿½ï¿½ï¿½ï¿½: ' + error.message };
   }
 };
 

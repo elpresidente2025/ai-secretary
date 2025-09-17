@@ -1,7 +1,4 @@
 import React, { useState, useEffect, createContext, useContext } from 'react';
-import { getAuth, onAuthStateChanged, signOut } from 'firebase/auth';
-import { getFirestore, doc, getDoc } from 'firebase/firestore';
-import { app } from '../services/firebase';
 
 const AuthContext = createContext();
 
@@ -16,50 +13,74 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const auth = getAuth(app);
-  const db = getFirestore(app);
-
-  const fetchUserProfile = async (uid) => {
+  // 네이버 사용자 정보 확인
+  const checkNaverUser = () => {
     try {
-      if (!uid) return null;
-      const ref = doc(db, 'users', uid);
-      const snap = await getDoc(ref);
-      return snap.exists() ? snap.data() : null;
+      const storedUser = localStorage.getItem('currentUser');
+      if (storedUser) {
+        const userData = JSON.parse(storedUser);
+        if (userData.uid && userData.provider === 'naver') {
+          return userData;
+        }
+      }
     } catch (e) {
-      console.warn('fetchUserProfile failed:', e.message);
-      return null;
+      console.warn('localStorage 사용자 정보 읽기 실패:', e);
     }
+    return null;
   };
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (currentUser) => {
+    // 네이버 로그인 전용 - localStorage 기반 인증 확인
+    const checkAuth = () => {
       try {
-        if (currentUser) {
-          const profile = await fetchUserProfile(currentUser.uid);
-          setUser({
-            uid: currentUser.uid,
-            email: currentUser.email,
-            displayName: currentUser.displayName,
-            emailVerified: currentUser.emailVerified,
-            ...profile,
-            _firebaseUser: currentUser,
-          });
+        const naverUser = checkNaverUser();
+        if (naverUser) {
+          console.log('🔍 useAuth: 네이버 사용자 인증됨:', naverUser);
+          setUser(naverUser);
         } else {
+          console.log('🔍 useAuth: 네이버 사용자 없음');
           setUser(null);
         }
       } catch (e) {
+        console.error('🔍 useAuth 에러:', e);
         setError(e.message);
         setUser(null);
       } finally {
         setLoading(false);
       }
-    });
-    return unsub;
+    };
+
+    // 초기 인증 확인
+    checkAuth();
+
+    // localStorage 변경 감지
+    const handleStorageChange = (e) => {
+      if (e.key === 'currentUser') {
+        console.log('🔍 useAuth: localStorage 변경 감지');
+        checkAuth();
+      }
+    };
+
+    // 커스텀 이벤트 리스너 (네이버 로그인 콜백에서 발생)
+    const handleNaverAuthUpdate = (e) => {
+      console.log('🔍 useAuth: 네이버 인증 업데이트 이벤트:', e.detail);
+      checkAuth();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('userProfileUpdated', handleNaverAuthUpdate);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('userProfileUpdated', handleNaverAuthUpdate);
+    };
   }, []);
 
   const logout = async () => {
-    await signOut(auth).catch(() => {});
+    // 네이버 로그인은 localStorage만 정리
+    localStorage.removeItem('currentUser');
     setUser(null);
+    console.log('🔍 useAuth: 네이버 로그아웃 완료');
   };
 
   return (

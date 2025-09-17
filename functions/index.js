@@ -6,6 +6,22 @@ const { onRequest } = require('firebase-functions/v2/https');
 // Set region for all functions
 setGlobalOptions({ region: 'asia-northeast3' });
 
+// Add profile handlers for getUserProfile debug
+try {
+  const profileHandlers = require('./handlers/profile');
+  Object.assign(exports, profileHandlers);
+} catch (e) {
+  console.warn('[index] profile handler warning:', e?.message);
+}
+
+// Add getUserPosts handler
+try {
+  const postsUserHandler = require('./handlers/posts-getUserPosts');
+  Object.assign(exports, postsUserHandler);
+} catch (e) {
+  console.warn('[index] posts-getUserPosts handler warning:', e?.message);
+}
+
 // Delete post (HTTP onRequest, Naver-only via __naverAuth)
 exports.deletePost = onRequest({ region: 'asia-northeast3', cors: true }, async (req, res) => {
   try {

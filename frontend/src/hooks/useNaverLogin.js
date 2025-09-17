@@ -65,14 +65,23 @@ export const useNaverLogin = () => {
       const payload = accessToken ? { accessToken } : code ? { code, state } : null;
       if (!payload) throw new Error('?ㅼ씠踰?肄쒕갚 ?뚮씪誘명꽣媛 ?놁뒿?덈떎. ?ㅼ떆 ?쒕룄??二쇱꽭??');
 
+      console.log('🔵 네이버 콜백 디버그 - payload:', payload);
+
       const resp = await fetch('https://asia-northeast3-ai-secretary-6e9c8.cloudfunctions.net/naverLoginHTTP', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
+
+      console.log('🔵 네이버 로그인 HTTP 응답 상태:', resp.status);
+
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const json = await resp.json();
-      const result = json.result; if (!result?.success) throw new Error('네이버 로그인 처리 실패');
+
+      console.log('🔵 네이버 로그인 응답 데이터:', json);
+
+      const result = json.result;
+      if (!result?.success) throw new Error('네이버 로그인 처리 실패');
 
       const { registrationRequired, user, naver, customToken } = result;
       
@@ -80,14 +89,16 @@ export const useNaverLogin = () => {
         // 誘멸????뚯썝 - ?뚯썝媛???섏씠吏濡??대룞 (?ㅼ씠踰??곗씠?곗? ?④퍡)
         // localStorage瑜??ㅼ젙?섏? ?딆븘??useAuth?먯꽌 ?꾨줈??議고쉶瑜??쒕룄?섏? ?딆쓬
         console.log('誘멸????뚯썝 - ?뚯썝媛???섏씠吏濡??대룞:', naver);
-        navigate('/register', { 
-          state: { 
+        console.log('🟡 신규 사용자 - 회원가입 페이지로 이동');
+        navigate('/register', {
+          state: {
             naverUserData: naver,
-            showNaverConsent: true // ?ㅼ씠踰??숈쓽 ?앹뾽 ?쒖떆 ?뚮옒洹?
-          } 
+            showNaverConsent: true
+          }
         });
       } else {
         // 湲곗〈 ?뚯썝 - localStorage????ν븯怨???쒕낫?쒕줈 ?대룞
+        console.log('🟢 기존 사용자 - 대시보드로 이동. user 데이터:', user);
         const currentUserData = {
           uid: user.uid,
           naverUserId: user.naverUserId,
@@ -99,6 +110,11 @@ export const useNaverLogin = () => {
         };
         
         localStorage.setItem('currentUser', JSON.stringify(currentUserData));
+
+        // useAuth에 즉시 알림
+        window.dispatchEvent(new CustomEvent('userProfileUpdated', {
+          detail: currentUserData
+        }));
         
         // 諛깃렇?쇱슫?쒖뿉???꾨줈???뺣낫 議고쉶 (硫붿씤 ?ㅻ젅??李⑤떒 諛⑹?)
         setTimeout(async () => {
@@ -116,9 +132,9 @@ export const useNaverLogin = () => {
               localStorage.setItem('currentUser', JSON.stringify(updatedUserData));
               console.log('???ㅼ씠踰??ъ슜???꾨줈???뺣낫 ?낅뜲?댄듃 ?꾨즺:', updatedUserData);
               
-              // CustomEvent濡??꾨줈???낅뜲?댄듃 ?뚮┝
-              window.dispatchEvent(new CustomEvent('userProfileUpdated', { 
-                detail: updatedUserData 
+              // CustomEvent로 프로필 업데이트 알림
+              window.dispatchEvent(new CustomEvent('userProfileUpdated', {
+                detail: updatedUserData
               }));
             }
           } catch (profileError) {
@@ -129,6 +145,7 @@ export const useNaverLogin = () => {
         navigate('/dashboard', { replace: true });
       }
     } catch (e) {
+      console.error('❌ 네이버 콜백 처리 에러:', e);
       setError(e.message);
     } finally {
       setIsLoading(false);

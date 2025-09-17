@@ -270,15 +270,16 @@ const Dashboard = () => {
     const ok = window.confirm('정말 이 원고를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.');
     if (!ok) return;
     try {
-      // HTTP 요청으로 변경 (CORS 문제 해결)
-      const token = await user.getIdToken();
+      // 네이버 인증으로 삭제 요청
       const response = await fetch('https://asia-northeast3-ai-secretary-6e9c8.cloudfunctions.net/deletePost', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ postId })
+        body: JSON.stringify({
+          postId,
+          __naverAuth: { uid: user.uid, provider: 'naver' }
+        })
       });
       
       const result = await response.json();
