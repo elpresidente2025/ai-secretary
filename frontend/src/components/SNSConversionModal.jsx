@@ -24,7 +24,7 @@ import {
 } from '@mui/material';
 import {
   ContentCopy,
-  Share,
+  Transform,
   Close
 } from '@mui/icons-material';
 import { convertToSNS, getSNSUsage, testSNS } from '../services/firebaseService';
@@ -111,7 +111,7 @@ const PLATFORMS = {
     iconSrc: '/icons/icon-threads.png',
     color: '#000000',
     maxLength: 400,
-    recommendedLength: 400
+    recommendedLength: 350
   }
 };
 
@@ -228,7 +228,7 @@ function SNSConversionModal({ open, onClose, post }) {
     >
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Share color="primary" />
+          <Transform color="primary" />
           <Typography variant="h6">SNS 변환</Typography>
         </Box>
         <IconButton onClick={handleClose} size="small">
@@ -260,14 +260,15 @@ function SNSConversionModal({ open, onClose, post }) {
 
         {/* 원본 원고 미리보기 */}
         <Typography variant="h6" sx={{ mb: 1 }}>원본 원고</Typography>
-        <Paper sx={{ p: 2, mb: 3, maxHeight: '150px', overflow: 'auto', bgcolor: 'grey.50' }}>
-          <Typography variant="body2" color="text.secondary">
+        <Paper sx={{ p: 2, mb: 3, maxHeight: '150px', overflow: 'auto', bgcolor: 'white' }}>
+          <Typography variant="body2" style={{ color: '#000000' }}>
             {post?.title && <><strong>제목: {post.title}</strong><br /><br /></>}
           </Typography>
-          <Typography 
-            variant="body2" 
-            sx={{ 
-              mt: 1, 
+          <Typography
+            variant="body2"
+            style={{ color: '#000000' }}
+            sx={{
+              mt: 1,
               whiteSpace: 'pre-wrap',
               lineHeight: 1.6
             }}
@@ -366,7 +367,7 @@ function SNSConversionModal({ open, onClose, post }) {
                           border: '1px solid',
                           borderColor: 'divider',
                           borderRadius: 1,
-                          backgroundColor: 'grey.50',
+                          backgroundColor: 'white',
                           mb: 1,
                           '&::-webkit-scrollbar': {
                             width: '6px',
@@ -383,13 +384,13 @@ function SNSConversionModal({ open, onClose, post }) {
                           }
                         }}
                       >
-                        <Typography 
-                          variant="body2" 
-                          sx={{ 
-                            whiteSpace: 'pre-wrap', 
+                        <Typography
+                          variant="body2"
+                          style={{ color: '#000000' }}
+                          sx={{
+                            whiteSpace: 'pre-wrap',
                             lineHeight: 1.6,
-                            fontSize: '0.875rem',
-                            color: 'text.primary'
+                            fontSize: '0.875rem'
                           }}
                         >
                           {content}
@@ -469,7 +470,7 @@ function SNSConversionModal({ open, onClose, post }) {
             variant="contained"
             onClick={handleConvert}
             disabled={loading || !canConvert}
-            startIcon={loading ? <CircularProgress size={20} /> : <Share />}
+            startIcon={loading ? <CircularProgress size={20} /> : <Transform />}
           >
             {loading ? '모든 플랫폼 변환 중...' : '모든 SNS 플랫폼으로 변환'}
           </Button>

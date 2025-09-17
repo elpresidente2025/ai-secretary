@@ -66,7 +66,7 @@ const MobileMenu = () => {
   if (hasBio || isAdmin) {
     menuItems.push(
       { text: '새 원고 생성', icon: <Create />, path: '/generate' },
-      { text: '히스토리', icon: <History />, path: '/posts' },
+      { text: '내 원고 목록', icon: <History />, path: '/posts' },
       { text: '가이드라인', icon: <MenuBook />, path: '/guidelines' }
     );
   }
@@ -91,15 +91,17 @@ const MobileMenu = () => {
       {/* 햄버거 메뉴 버튼 - 고정 위치 */}
       <IconButton
         onClick={handleToggle}
+        disableRipple
         sx={{
           position: 'fixed',
-          top: 16,
+          top: 0,
           right: 16,
+          height: 64, // 헤더 높이와 동일
+          display: 'flex',
+          alignItems: 'center',
           zIndex: 1102,
           color: 'white',
-          '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.1)' },
-          width: 48,
-          height: 48
+          width: 48
         }}
       >
         <MenuIcon />

@@ -56,7 +56,7 @@ const DashboardLayout = ({ children }) => {
     // 자기소개가 있거나 관리자인 경우 전체 메뉴 표시
     menuItems.push(
       { text: '새 원고 생성', icon: <Create />, path: '/generate' },
-      { text: '히스토리', icon: <History />, path: '/posts' },
+      { text: '내 원고 목록', icon: <History />, path: '/posts' },
       { text: '가이드라인', icon: <MenuBook />, path: '/guidelines' }
     );
   }
@@ -86,13 +86,14 @@ const DashboardLayout = ({ children }) => {
       minHeight: '100dvh'
     }}>
       {/* 상단 헤더: 완전 고정 */}
-      <AppBar 
-        position="fixed" 
-        elevation={0} 
-        sx={{ 
-          bgcolor: '#152484', 
-          top: 0, 
+      <AppBar
+        position="fixed"
+        elevation={0}
+        sx={{
+          bgcolor: '#152484',
+          top: 0,
           zIndex: (t) => t.zIndex.appBar + 1,
+          borderRadius: 0,
           '&::before': {
             content: '""',
             position: 'absolute',

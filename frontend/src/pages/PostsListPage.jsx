@@ -25,7 +25,7 @@ import {
   Divider,
   TextField,
 } from '@mui/material';
-import { ContentCopy, DeleteOutline, Assignment, Publish, Link, Share } from '@mui/icons-material';
+import { DeleteOutline, Assignment, Publish, Link, Transform, AddLink } from '@mui/icons-material';
 import DashboardLayout from '../components/DashboardLayout';
 import SNSConversionModal from '../components/SNSConversionModal';
 import { LoadingSpinner } from '../components/loading';
@@ -145,17 +145,6 @@ export default function PostsListPage() {
     return () => { mounted = false; };
   }, [user?.uid]);
 
-  const handleCopy = (content, e) => {
-    if (e) e.stopPropagation();
-    try {
-      const text = stripHtml(content);
-      navigator.clipboard.writeText(text);
-      setSnack({ open: true, message: '클립보드에 복사되었습니다!', severity: 'success' });
-    } catch (err) {
-      console.error(err);
-      setSnack({ open: true, message: '복사에 실패했습니다.', severity: 'error' });
-    }
-  };
 
   const handleDelete = async (postId, e) => {
     if (e) e.stopPropagation();
@@ -274,7 +263,7 @@ export default function PostsListPage() {
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Typography variant="body1" color="text.secondary">
-              생성한 원고를 관리하고 복사할 수 있습니다
+              생성한 원고를 관리할 수 있습니다
             </Typography>
             <Chip 
               label={`총 ${posts.length}개`} 
@@ -293,7 +282,7 @@ export default function PostsListPage() {
         }}>
 
           <Typography variant="body2" sx={{ mb: 2, color: 'grey.100', fontStyle: 'italic' }}>
-            이 화면은 읽기 전용입니다. 카드를 터치/클릭하면 원고가 열립니다. 복사 후 메모장 등 외부 편집기에서 직접 수정하세요.
+            이 화면은 읽기 전용입니다. 카드를 터치/클릭하면 원고가 열립니다.
           </Typography>
 
           {loading ? (
@@ -379,36 +368,31 @@ export default function PostsListPage() {
                           {p.publishUrl && (
                             <Chip 
                               size="small" 
-                              label="발행완료" 
+                              label="URL등록완료" 
                               color="primary" 
                               variant="outlined"
-                              icon={<Publish />}
+                              icon={<AddLink />}
                               sx={{ fontSize: '0.7rem' }}
                             />
                           )}
                         </Box>
                         <Box>
                           <Tooltip title="SNS 변환">
-                            <IconButton 
-                              size="small" 
+                            <IconButton
+                              size="small"
                               onClick={(e) => handleSNSConvert(p, e)}
-                              sx={{ color: '#d22730' }}
+                              sx={{ color: '#152484' }}
                             >
-                              <Share fontSize="small" />
+                              <Transform fontSize="small" />
                             </IconButton>
                           </Tooltip>
-                          <Tooltip title="발행">
+                          <Tooltip title="URL 등록">
                             <IconButton 
                               size="small" 
                               onClick={(e) => handlePublish(p, e)}
                               sx={{ color: p.publishUrl ? '#006261' : '#152484' }}
                             >
-                              <Publish fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="복사">
-                            <IconButton size="small" onClick={(e) => handleCopy(p.content, e)}>
-                              <ContentCopy fontSize="small" />
+                              <AddLink fontSize="small" />
                             </IconButton>
                           </Tooltip>
                           <Tooltip title="삭제">

@@ -44,6 +44,7 @@ import NoticeBanner from '../components/dashboard/NoticeBanner';
 import ElectionDDay from '../components/dashboard/ElectionDDay';
 import PublishingProgress from '../components/dashboard/PublishingProgress';
 import PostViewerModal from '../components/PostViewerModal';
+import OnboardingWelcomeModal from '../components/onboarding/OnboardingWelcomeModal';
 import { useAuth } from '../hooks/useAuth';
 import { getUserFullTitle, getUserDisplayTitle, getUserRegionInfo, getUserStatusIcon } from '../utils/userUtils';
 import { functions } from '../services/firebase';
@@ -68,6 +69,7 @@ const Dashboard = () => {
   // 모달 관리
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerPost, setViewerPost] = useState(null);
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
 
   // 사용자 정보
   const userTitle = getUserFullTitle(user);
@@ -140,10 +142,30 @@ const Dashboard = () => {
     }
   };
 
+  // bio 체크 및 온보딩 로직
+  const checkBioAndShowOnboarding = () => {
+    if (!user) return;
+
+    const hasSufficientBio = user.bio && user.bio.trim().length >= 200;
+    const shouldShowOnboarding = !hasSufficientBio;
+
+    if (shouldShowOnboarding) {
+      console.log('🎯 Bio 부족 - 온보딩 모달 표시');
+      setOnboardingOpen(true);
+    }
+  };
+
   // 실제 데이터 로딩
   useEffect(() => {
     fetchDashboardData();
   }, [user]);
+
+  // bio 체크 (사용자 로그인 후)
+  useEffect(() => {
+    if (user && !isLoading) {
+      checkBioAndShowOnboarding();
+    }
+  }, [user, isLoading]);
 
   // 페이지 포커스 시 데이터 새로고침 (새 포스트 생성 후 대시보드 복귀 시)
   useEffect(() => {
@@ -1167,6 +1189,13 @@ const Dashboard = () => {
           {snack.message}
         </Alert>
       </Snackbar>
+
+      {/* 온보딩 환영 모달 */}
+      <OnboardingWelcomeModal
+        open={onboardingOpen}
+        onClose={() => setOnboardingOpen(false)}
+        userName={user?.name}
+      />
 
     </DashboardLayout>
   );

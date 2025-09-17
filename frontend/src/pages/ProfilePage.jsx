@@ -34,6 +34,8 @@ import { Add, Remove, AutoAwesome, DeleteForever, Warning, Settings } from '@mui
 import { callFunctionWithNaverAuth } from '../services/firebaseService';
 import DashboardLayout from '../components/DashboardLayout';
 import UserInfoForm from '../components/UserInfoForm';
+import ProfileBioGuideModal from '../components/onboarding/ProfileBioGuideModal';
+import CongratulationsModal from '../components/onboarding/CongratulationsModal';
 import { LoadingSpinner, LoadingButton } from '../components/loading';
 import { useAuth } from '../hooks/useAuth';
 import { BIO_ENTRY_TYPES, BIO_TYPE_ORDER, BIO_CATEGORIES, VALIDATION_RULES } from '../constants/bio-types';
@@ -53,6 +55,11 @@ export default function ProfilePage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
+
+  // 온보딩 가이드 모달 상태
+  const [bioGuideOpen, setBioGuideOpen] = useState(false);
+  const [congratulationsOpen, setCongratulationsOpen] = useState(false);
+  const [isFirstTimeBioSave, setIsFirstTimeBioSave] = useState(false);
 
   const [profile, setProfile] = useState({
     name: '',
@@ -234,6 +241,27 @@ export default function ProfilePage() {
               weight: 1.0
             }
           ]);
+
+        }
+
+        // bio가 없는 경우 가이드 모달 표시 (온보딩에서 넘어온 경우)
+        const hasSufficientBio = profileData.bio && profileData.bio.trim().length >= 200;
+        if (!hasSufficientBio) {
+          console.log('🎯 Profile 페이지 - Bio 가이드 모달 표시', {
+            bio: profileData.bio,
+            length: profileData.bio?.length || 0,
+            hasSufficientBio
+          });
+          // 페이지 로딩 완료 후 잠시 뒤에 글로우 효과와 함께 모달 표시 (자연스러운 UX)
+          setTimeout(() => {
+            console.log('🎯 Bio 가이드 - 글로우 효과 시작');
+            focusBioTextarea();
+          }, 800);
+        } else {
+          console.log('🎯 충분한 Bio가 있어서 가이드 모달 표시하지 않음', {
+            bio: profileData.bio?.substring(0, 50) + '...',
+            length: profileData.bio?.length || 0
+          });
         }
         
       } catch (e) {
@@ -254,14 +282,68 @@ export default function ProfilePage() {
     setProfile((prev) => ({ ...prev, [name]: value }));
   };
 
+  // 자기소개 카드에 순차적으로 스크롤->글로우 2회->팝업 효과를 주는 함수
+  const focusBioTextarea = () => {
+    // 첫 번째 bio 엔트리의 카드 찾기 (자기소개 섹션)
+    const bioCard = document.querySelector('[data-bio-section="personal"]');
+    if (bioCard) {
+      // 1단계: 카드를 화면 중앙으로 스크롤
+      bioCard.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center'
+      });
+
+      // 2단계: 스크롤 완료 직후 글로우 효과 2회 반복 (0.5초 후 시작)
+      setTimeout(() => {
+        let glowCount = 0;
+        const maxGlows = 2;
+
+        const glowCycle = () => {
+          if (glowCount >= maxGlows) {
+            // 모든 글로우 완료 후 모달 표시
+            setBioGuideOpen(true);
+            return;
+          }
+
+          // 글로우 효과 적용 (시안색, 부드러운 강도)
+          bioCard.style.position = 'relative';
+          bioCard.style.zIndex = '100';
+          bioCard.style.boxShadow = '0 0 15px 3px rgba(0, 188, 212, 0.5), 0 0 25px 8px rgba(0, 188, 212, 0.2)';
+          bioCard.style.borderRadius = '12px';
+          bioCard.style.transition = 'all 0.3s ease';
+          bioCard.style.transform = 'scale(1.01)';
+
+          // 0.3초 후 글로우 제거
+          setTimeout(() => {
+            bioCard.style.position = '';
+            bioCard.style.zIndex = '';
+            bioCard.style.boxShadow = '';
+            bioCard.style.transform = '';
+
+            glowCount++;
+
+            // 0.2초 후 다음 글로우 또는 완료
+            setTimeout(glowCycle, 200);
+          }, 300);
+        };
+
+        // 첫 번째 글로우 시작
+        glowCycle();
+      }, 500);
+    } else {
+      // 카드를 찾지 못한 경우 바로 모달 표시
+      setBioGuideOpen(true);
+    }
+  };
+
   // 자기소개 변경 처리 (기존 호환성)
   const handleBioChange = (e) => {
     const { value } = e.target;
     setError('');
     setProfile((prev) => ({ ...prev, bio: value }));
-    
+
     // Bio 엔트리의 첫 번째 항목(자기소개)도 동기화
-    setBioEntries(prev => prev.map((entry, index) => 
+    setBioEntries(prev => prev.map((entry, index) =>
       index === 0 ? { ...entry, content: value } : entry
     ));
   };
@@ -356,6 +438,17 @@ export default function ProfilePage() {
 
     try {
       setSaving(true);
+
+      // 첫 번째 bio 저장인지 체크 (기존에 bio가 없었고, 새로 200자 이상 작성한 경우)
+      const hadSufficientBio = user?.bio && user.bio.trim().length >= 200;
+      const willHaveSufficientBio = profile.bio && profile.bio.trim().length >= 200;
+      const isFirstBioCompletion = !hadSufficientBio && willHaveSufficientBio;
+
+      if (isFirstBioCompletion) {
+        console.log('🎯 첫 번째 자기소개 완성 감지');
+        setIsFirstTimeBioSave(true);
+      }
+
       const payload = {
         name: profile.name,
         status: profile.status,
@@ -390,7 +483,13 @@ export default function ProfilePage() {
           message = res.message;
         }
         
-        setSnack({ open: true, message, severity: 'success' });
+        // 첫 번째 bio 완성인 경우 축하 모달 표시
+        if (isFirstBioCompletion) {
+          console.log('🎉 첫 번째 bio 완성 - 축하 모달 표시');
+          setCongratulationsOpen(true);
+        } else {
+          setSnack({ open: true, message, severity: 'success' });
+        }
       } else {
         throw new Error('서버 응답이 올바르지 않습니다.');
       }
@@ -527,6 +626,7 @@ export default function ProfilePage() {
                 regionLocal={profile.regionLocal}
                 electoralDistrict={profile.electoralDistrict}
                 onChange={handleUserInfoChange}
+                nameDisabled={true}
                 disabled={saving}
                 showTitle={true}
               />
@@ -876,11 +976,11 @@ export default function ProfilePage() {
               </Typography>
 
               {/* 1. 자기소개 섹션 */}
-              <Box sx={{ mb: 4 }}>
+              <Box sx={{ mb: 4 }} data-bio-section="personal">
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                  <Typography variant="h6" sx={{ 
-                    color: theme.palette.mode === 'dark' ? '#81d4fa' : '#003A87', 
-                    fontWeight: 600 
+                  <Typography variant="h6" sx={{
+                    color: theme.palette.mode === 'dark' ? '#81d4fa' : '#003A87',
+                    fontWeight: 600
                   }}>
                     👤 자기소개
                   </Typography>
@@ -1224,6 +1324,75 @@ export default function ProfilePage() {
             </LoadingButton>
           </DialogActions>
         </Dialog>
+
+        {/* 온보딩 Bio 가이드 모달 */}
+        <ProfileBioGuideModal
+          open={bioGuideOpen}
+          onClose={() => setBioGuideOpen(false)}
+          onStartWriting={() => {
+            setBioGuideOpen(false);
+            // 모달 닫힌 후 글로우 2회 반복하고 텍스트박스로 포커스 이동
+            setTimeout(() => {
+              const bioCard = document.querySelector('[data-bio-section="personal"]');
+              if (bioCard) {
+                let glowCount = 0;
+                const maxGlows = 2;
+
+                const glowCycle = () => {
+                  if (glowCount >= maxGlows) {
+                    // 모든 글로우 완료 후 텍스트박스 포커스
+                    const bioTextarea = document.querySelector('textarea[placeholder*="자기소개"]');
+                    if (bioTextarea) {
+                      bioTextarea.focus();
+                      bioTextarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                    return;
+                  }
+
+                  // 글로우 효과 적용 (시안색, 부드러운 강도)
+                  bioCard.style.position = 'relative';
+                  bioCard.style.zIndex = '100';
+                  bioCard.style.boxShadow = '0 0 15px 3px rgba(0, 188, 212, 0.5), 0 0 25px 8px rgba(0, 188, 212, 0.2)';
+                  bioCard.style.borderRadius = '12px';
+                  bioCard.style.transition = 'all 0.3s ease';
+                  bioCard.style.transform = 'scale(1.01)';
+
+                  // 0.3초 후 글로우 제거
+                  setTimeout(() => {
+                    bioCard.style.position = '';
+                    bioCard.style.zIndex = '';
+                    bioCard.style.boxShadow = '';
+                    bioCard.style.transform = '';
+
+                    glowCount++;
+
+                    // 0.2초 후 다음 글로우 또는 완료
+                    setTimeout(glowCycle, 200);
+                  }, 300);
+                };
+
+                // 첫 번째 글로우 시작
+                glowCycle();
+              } else {
+                // 카드를 찾지 못한 경우 바로 텍스트박스 포커스
+                const bioTextarea = document.querySelector('textarea[placeholder*="자기소개"]');
+                if (bioTextarea) {
+                  bioTextarea.focus();
+                  bioTextarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+              }
+            }, 300);
+          }}
+          userName={user?.name}
+        />
+
+        {/* 축하 모달 */}
+        <CongratulationsModal
+          open={congratulationsOpen}
+          onClose={() => setCongratulationsOpen(false)}
+          userName={user?.name}
+          bioContent={profile.bio}
+        />
 
       </Container>
     </DashboardLayout>
