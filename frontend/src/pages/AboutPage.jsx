@@ -1,185 +1,190 @@
 // frontend/src/pages/AboutPage.jsx
-import React, { useEffect, useState, useRef } from 'react';
-import { Box, Container, Typography, Card, CardContent, Button, Grid, Chip } from '@mui/material';
-import { styled, keyframes } from '@mui/material/styles';
+import React from 'react';
+import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Chip,
+  Container,
+  Divider,
+  Grid,
+  Stack,
+  Typography,
+} from '@mui/material';
+import { styled } from '@mui/material/styles';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
-// Animation keyframes
-const fadeIn = keyframes`
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-`;
-
-// Preloader Component
-const PreloaderWrapper = styled(Box)(({ theme }) => ({
-  position: 'fixed',
-  top: 0,
-  left: 0,
-  width: '100vw',
-  height: '100vh',
-  backgroundColor: '#0a0a1a',
-  zIndex: 9999,
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  justifyContent: 'center',
-  '&.fade-out': {
-    opacity: 0,
-    transition: 'opacity 0.6s ease-out',
-  }
+const PageWrapper = styled(Box)(({ theme }) => ({
+  backgroundColor: '#05070f',
+  color: 'rgba(255, 255, 255, 0.92)',
+  minHeight: '100vh',
 }));
 
-const Logo = styled('img')({
-  width: '60px',
-  height: '60px',
-  marginBottom: '20px',
-});
+const Section = styled(Box)(({ theme }) => ({
+  paddingTop: theme.spacing(12),
+  paddingBottom: theme.spacing(12),
+  [theme.breakpoints.down('sm')]: {
+    paddingTop: theme.spacing(8),
+    paddingBottom: theme.spacing(8),
+  },
+}));
 
-const ScrollHint = styled(Typography)(({ theme }) => ({
-  position: 'absolute',
-  bottom: '30px',
-  left: '50%',
-  transform: 'translateX(-50%)',
+const HeroSection = styled(Section)(({ theme }) => ({
+  paddingTop: theme.spacing(16),
+  paddingBottom: theme.spacing(14),
+  background: 'linear-gradient(135deg, #0b1e4c 0%, #0a1530 45%, #05070f 100%)',
+}));
+
+const Accent = styled('span')(() => ({
   color: '#00d4ff',
-  fontSize: '14px',
-  animation: `${fadeIn} 0.6s ease-out 0.5s both`,
-  '@media (prefers-reduced-motion: reduce)': {
-    animation: 'none',
-  }
 }));
 
-// Main sections - 높이 조정
-const Section = styled(Box)({
-  position: 'relative',
-  minHeight: '120vh', // 120vh로 증가하여 여백 확보
-  display: 'flex',
-  alignItems: 'center',
-  overflow: 'hidden',
-  paddingTop: '10vh', // 상단 여백 추가
-  paddingBottom: '10vh', // 하단 여백 추가
-});
-
-const LastSection = styled(Box)({
-  position: 'relative',
-  minHeight: '140vh', // 마지막 섹션은 더 크게
-  display: 'flex',
-  alignItems: 'center',
-  overflow: 'hidden',
-  paddingTop: '10vh',
-  paddingBottom: '20vh', // 하단 여백 더 크게
-});
-
-const ParallaxLayer = styled(Box)(({ speed = 1 }) => ({
-  position: 'absolute',
-  top: 0,
-  left: 0,
-  width: '100%',
+const HighlightCard = styled(Card)(() => ({
+  backgroundColor: 'rgba(0, 212, 255, 0.08)',
+  border: '1px solid rgba(0, 212, 255, 0.3)',
+  boxShadow: '0 24px 45px rgba(0, 212, 255, 0.08)',
   height: '100%',
-  willChange: 'transform',
-  pointerEvents: 'none',
 }));
 
-const FixedContent = styled(Container)({
-  position: 'relative',
-  zIndex: 10,
-  color: 'white',
-  width: '100%',
-  maxWidth: '1200px',
-});
-
-// Scene styling
-const HeroSection = styled(Section)({
-  background: 'linear-gradient(180deg, #0a0a2e 0%, #16213e 50%, #1a1a3a 100%)',
-  minHeight: '100vh', // Hero는 100vh 유지
-  paddingTop: 0,
-  paddingBottom: 0,
-});
-
-const ProblemSection = styled(Section)({
-  background: 'linear-gradient(180deg, #1a1a3a 0%, #2a2a4a 100%)',
-});
-
-const SolutionSection = styled(Section)({
-  background: 'linear-gradient(180deg, #2a2a4a 0%, #1e3a5f 100%)',
-});
-
-const HowItWorksSection = styled(Section)({
-  background: 'linear-gradient(180deg, #1e3a5f 0%, #2d4a6b 100%)',
-});
-
-const PricingSection = styled(LastSection)({
-  background: 'linear-gradient(180deg, #2d4a6b 0%, #3a5f8b 100%)',
-});
-
-// Pricing card component
-const PricingCard = styled(Card)(({ popular }) => ({
-  background: popular ?
-    'linear-gradient(135deg, rgba(0, 212, 255, 0.15) 0%, rgba(0, 150, 255, 0.1) 100%)' :
-    'rgba(255, 255, 255, 0.05)',
-  border: popular ? '2px solid #00d4ff' : '1px solid rgba(255, 255, 255, 0.1)',
+const NeutralCard = styled(Card)(() => ({
+  backgroundColor: 'rgba(10, 16, 35, 0.78)',
+  border: '1px solid rgba(255, 255, 255, 0.08)',
   backdropFilter: 'blur(10px)',
-  color: 'white',
-  position: 'relative',
-  transform: popular ? 'scale(1.05)' : 'scale(1)',
-  transition: 'transform 0.3s ease',
-  '&:hover': {
-    transform: popular ? 'scale(1.08)' : 'scale(1.02)',
-  }
+  height: '100%',
 }));
 
-const PopularBadge = styled(Chip)({
-  position: 'absolute',
-  top: '-12px',
-  left: '50%',
-  transform: 'translateX(-50%)',
-  background: 'linear-gradient(45deg, #ff6b6b, #ee5a24)',
-  color: 'white',
-  fontWeight: 'bold',
-});
+const heroHighlights = [
+  {
+    value: '92%',
+    label: '콘텐츠 승인율',
+    description: '최근 3개월 중앙선관위 심의 결과 기준',
+  },
+  {
+    value: '48시간',
+    label: '캠페인 가이드 제작',
+    description: '전략 수립부터 검수까지 평균 리드타임',
+  },
+  {
+    value: '30%',
+    label: '광고 효율 개선',
+    description: '실제 캠페인 CPM 기준 평균 절감 폭',
+  },
+  {
+    value: '70+',
+    label: '축적된 캠페인 레퍼런스',
+    description: '지방·국회 선거 포함 누적 협업 사례',
+  },
+];
+
+const differentiators = [
+  {
+    title: '선거법 준수형 언어 모델',
+    description:
+      '최근 위반 판례 1만+건을 분석한 민감 키워드 필터와 문장 단위 검수를 통해 안심하고 콘텐츠를 배포할 수 있습니다.',
+  },
+  {
+    title: '행동 데이터 기반 인사이트',
+    description:
+      'SNS·커뮤니티 반응, 지역 이슈 데이터를 통합해 후보별 우선 메시지와 필요한 채널 전략을 추천합니다.',
+  },
+  {
+    title: '캠페인 운영 자동화',
+    description:
+      '캘린더, 성과 리포트, 실시간 알림까지 통합해 팀 전체가 같은 속도로 움직일 수 있도록 워크플로를 정리했습니다.',
+  },
+];
+
+const workflowSteps = [
+  {
+    title: '캠페인 진단 워크숍',
+    description: '핵심 의제, 타깃 유권자, 기존 자산을 분석해 우선순위를 설정합니다.',
+    deliverable: '산출물: Kickoff 리포트 · 리스크 매트릭스',
+  },
+  {
+    title: 'AI 콘텐츠 생성 & 검수',
+    description: '시나리오별 템플릿을 통해 메시지를 생성하고, 선거법 필터로 즉시 검수합니다.',
+    deliverable: '산출물: 채널별 콘텐츠 패키지',
+  },
+  {
+    title: '성과 측정 & 최적화',
+    description: '성과 데이터와 피드백을 반영해 메시지를 조정하고, 주간 리포트를 제공합니다.',
+    deliverable: '산출물: 주간 리포트 · 개선 제안',
+  },
+];
+
+const pricingPlans = [
+  {
+    name: 'Starter',
+    price: '월 99,000원',
+    description: '첫 캠페인을 준비하는 후보자를 위한 기본 플랜',
+    features: [
+      'AI 콘텐츠 생성 50건/월',
+      '선거법 위반 키워드 사전 필터',
+      '캠페인 캘린더 & 체크리스트',
+    ],
+    cta: '시작하기',
+    action: 'start',
+  },
+  {
+    name: 'Growth',
+    price: '월 199,000원',
+    description: '온라인 여론 관리를 본격화하려는 팀을 위한 추천 구성',
+    features: [
+      'AI 콘텐츠 생성 150건/월',
+      '전문 에디터 1:1 검수',
+      '실시간 이슈 모니터링 알림',
+      '주간 성과 리포트',
+    ],
+    cta: '상담 요청',
+    action: 'contact',
+    popular: true,
+  },
+  {
+    name: 'Campaign Suite',
+    price: '맞춤 견적',
+    description: '대규모 선거 또는 연중 상시 캠페인 운영을 위한 맞춤 서비스',
+    features: [
+      '무제한 콘텐츠 생성 워크플로',
+      '지역별/이슈별 데이터 분석',
+      '현장 운영 컨설턴트 파견',
+      '통합 대시보드 구축',
+    ],
+    cta: '맞춤 제안 받기',
+    action: 'contact',
+  },
+];
+
+const faqItems = [
+  {
+    question: '생성된 콘텐츠는 선거법을 준수하나요?',
+    answer:
+      '모든 문장은 중앙선관위 가이드라인을 반영한 규칙 기반 필터와 전문가 검수를 거칩니다. 필요 시 법률 자문 연결도 지원합니다.',
+  },
+  {
+    question: '우리 캠페인 데이터는 안전하게 관리되나요?',
+    answer:
+      '캠페인 자료는 암호화 저장되며 프로젝트별 접근 권한을 분리합니다. 요청 시 계약 종료와 함께 즉시 파기합니다.',
+  },
+  {
+    question: '온보딩에 얼마나 걸리나요?',
+    answer:
+      '계약 후 3일 이내에 기초 워크숍과 시스템 세팅을 마치고, 최대 1주 안에 첫 주간 운영을 시작합니다.',
+  },
+  {
+    question: '기존 팀과 함께 사용해도 되나요?',
+    answer:
+      '내부 팀 또는 외부 대행사와 협업할 수 있도록 역할별 계정과 코멘트 워크플로를 제공합니다.',
+  },
+];
 
 const AboutPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [showPreloader, setShowPreloader] = useState(true);
-  const [scrollY, setScrollY] = useState(0);
-  const containerRef = useRef(null);
-
-  // Preloader effect
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowPreloader(false);
-    }, 1500);
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  // Parallax scroll effect
-  useEffect(() => {
-    const handleScroll = () => {
-      const scrolled = window.pageYOffset;
-      setScrollY(scrolled);
-
-      // Check for reduced motion preference
-      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      if (prefersReducedMotion) return;
-
-      // Update CSS custom properties for parallax effects
-      document.documentElement.style.setProperty('--scroll', scrolled * -0.5);
-      document.documentElement.style.setProperty('--search-scale', 1 + scrolled * 0.0002);
-      document.documentElement.style.setProperty('--cards-y', `${scrolled * 0.3}px`);
-      document.documentElement.style.setProperty('--stamp-y', `${scrolled * 0.5}px`);
-      document.documentElement.style.setProperty('--tech-y', `${scrolled * 0.2}px`);
-      document.documentElement.style.setProperty('--keyword-y', `${scrolled * -0.4}px`);
-      document.documentElement.style.setProperty('--dot-x', `${Math.sin(scrolled * 0.01) * 20}px`);
-      document.documentElement.style.setProperty('--dot-y', `${Math.cos(scrolled * 0.01) * 15}px`);
-      document.documentElement.style.setProperty('--dot-x2', `${Math.sin(scrolled * 0.008) * -25}px`);
-      document.documentElement.style.setProperty('--dot-y2', `${Math.cos(scrolled * 0.008) * -20}px`);
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
 
   const handleGetStarted = () => {
     if (user) {
@@ -189,490 +194,371 @@ const AboutPage = () => {
     }
   };
 
-  if (showPreloader) {
-    return (
-      <PreloaderWrapper className={showPreloader ? '' : 'fade-out'}>
-        <Logo src="/logo.png" alt="전뇌비서관" />
-        <Typography variant="h6" color="white" sx={{ mb: 2 }}>
-          전뇌비서관
-        </Typography>
-        <ScrollHint>스크롤하세요 ↓</ScrollHint>
-      </PreloaderWrapper>
-    );
-  }
+  const handleContact = () => {
+    window.location.href = 'mailto:hello@aisecretary.co';
+  };
 
   return (
-    <Box ref={containerRef} sx={{ position: 'relative' }}>
-      {/* Scene 1: HERO */}
+    <PageWrapper component="main">
       <HeroSection>
-        <ParallaxLayer speed={0.3}>
-          <Box sx={{
-            position: 'absolute',
-            width: '100%',
-            height: '100%',
-            opacity: 0.1,
-            background: `
-              radial-gradient(circle at 20% 30%, rgba(0, 212, 255, 0.3) 1px, transparent 1px),
-              radial-gradient(circle at 80% 70%, rgba(0, 212, 255, 0.3) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(0, 212, 255, 0.1) 1px, transparent 1px)
-            `,
-            backgroundSize: '100px 100px, 120px 120px, 50px 50px',
-            transform: `translateY(${scrollY * 0.3}px)`,
-          }} />
-        </ParallaxLayer>
-        <ParallaxLayer speed={0.6}>
-          <Box sx={{
-            position: 'absolute',
-            top: '30%',
-            left: '10%',
-            width: '300px',
-            height: '50px',
-            background: 'rgba(255, 255, 255, 0.05)',
-            border: '2px solid rgba(0, 212, 255, 0.3)',
-            borderRadius: '25px',
-            display: 'flex',
-            alignItems: 'center',
-            paddingLeft: '20px',
-            fontSize: '14px',
-            color: 'rgba(255, 255, 255, 0.7)',
-            transform: `scale(${1 + scrollY * 0.0002}) translateY(${scrollY * 0.6}px)`,
-            willChange: 'transform',
-          }}>
-            네이버 검색 최적화...
-          </Box>
-        </ParallaxLayer>
-        <ParallaxLayer speed={0.9}>
-          <Box sx={{
-            position: 'absolute',
-            width: '100%',
-            height: '100%',
-            '&::before, &::after': {
-              content: '""',
-              position: 'absolute',
-              width: '4px',
-              height: '4px',
-              background: '#00d4ff',
-              borderRadius: '50%',
-              boxShadow: '0 0 10px rgba(0, 212, 255, 0.5)',
-            },
-            '&::before': {
-              top: '40%',
-              left: '15%',
-              transform: `translate(${Math.sin(scrollY * 0.01) * 20}px, ${Math.cos(scrollY * 0.01) * 15}px)`,
-            },
-            '&::after': {
-              top: '60%',
-              right: '20%',
-              transform: `translate(${Math.sin(scrollY * 0.008) * -25}px, ${Math.cos(scrollY * 0.008) * -20}px)`,
-            },
-          }} />
-        </ParallaxLayer>
-        <FixedContent maxWidth="lg">
-          <Typography variant="h2" component="h1" sx={{
-            fontWeight: 'bold',
-            mb: 3,
-            fontSize: { xs: '2rem', md: '3.5rem' },
-            lineHeight: 1.2
-          }}>
-            의원님, 혹시 '정치인'이 아니라<br />
-            '홍보 담당자'로 살고 계십니까?
-          </Typography>
-          <Typography variant="h5" sx={{
-            mb: 4,
-            color: 'rgba(255, 255, 255, 0.8)',
-            fontSize: { xs: '1.1rem', md: '1.5rem' }
-          }}>
-            전뇌비서관이 반복 업무에서 해방시켜,<br />
-            본질인 '정치'에 집중하게 합니다.
-          </Typography>
-          <Button
-            variant="contained"
-            size="large"
-            onClick={handleGetStarted}
-            sx={{
-              background: 'linear-gradient(45deg, #00d4ff, #0099cc)',
-              px: 4,
-              py: 2,
-              fontSize: '1.2rem',
-              '&:hover': {
-                background: 'linear-gradient(45deg, #00b8e6, #007799)',
-              }
-            }}
-          >
-            무료 원고 체험
-          </Button>
-        </FixedContent>
-      </HeroSection>
-
-      {/* Scene 2: PROBLEM */}
-      <ProblemSection>
-        <ParallaxLayer speed={0.5}>
-          <Box sx={{
-            position: 'absolute',
-            width: '100%',
-            height: '100%',
-            '& > div': {
-              position: 'absolute',
-              width: '200px',
-              height: '250px',
-              background: 'rgba(200, 200, 200, 0.1)',
-              borderRadius: '8px',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              transform: `translateY(${scrollY * 0.3}px)`,
-              '&:nth-of-type(1)': { top: '10%', left: '10%' },
-              '&:nth-of-type(2)': { top: '30%', right: '15%' },
-              '&:nth-of-type(3)': { top: '50%', left: '5%' },
-            }
-          }}>
-            <div />
-            <div />
-            <div />
-          </Box>
-        </ParallaxLayer>
-        <ParallaxLayer speed={0.8}>
-          <Box sx={{
-            position: 'absolute',
-            top: '20%',
-            right: '10%',
-            fontSize: '24px',
-            color: 'rgba(255, 100, 100, 0.6)',
-            transform: `translateY(${scrollY * 0.5}px) rotate(-15deg)`,
-            fontWeight: 'bold',
-          }}>
-            ...했습니다
-          </Box>
-        </ParallaxLayer>
-        <FixedContent maxWidth="lg">
-          <Typography variant="h3" component="h2" sx={{
-            fontWeight: 'bold',
-            mb: 4,
-            fontSize: { xs: '1.8rem', md: '2.5rem' }
-          }}>
-            의원님의 마지막 블로그 글,<br />
-            '...했습니다'로 끝나지 않았습니까?
-          </Typography>
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="h6" sx={{ mb: 2, color: 'rgba(255, 255, 255, 0.9)' }}>
-              주민은 '업무일지'보다 '비전과 약속'을 원합니다.
-            </Typography>
-            <Typography variant="h6" sx={{ color: 'rgba(255, 255, 255, 0.9)' }}>
-              SNS 활동 지수, 공천에 반영(정책 환경 변화).
-            </Typography>
-          </Box>
-        </FixedContent>
-      </ProblemSection>
-
-      {/* Scene 3: SOLUTION */}
-      <SolutionSection>
-        <ParallaxLayer speed={0.4}>
-          <Grid container spacing={2} sx={{
-            position: 'absolute',
-            width: '100%',
-            height: '100%',
-            padding: '20px',
-            '& .tech-card': {
-              background: 'rgba(0, 212, 255, 0.05)',
-              border: '1px solid rgba(0, 212, 255, 0.2)',
-              borderRadius: '12px',
-              padding: '20px',
-              textAlign: 'center',
-              transform: `translateY(${scrollY * 0.2}px)`,
-            }
-          }}>
-            <Grid item xs={12} sm={4}>
-              <Box className="tech-card">
-                <Typography variant="h6" sx={{ color: '#00d4ff', mb: 1 }}>
-                  AI 원고 생성
+        <Container maxWidth="lg">
+          <Grid container spacing={6} alignItems="center">
+            <Grid item xs={12} md={6}>
+              <Stack spacing={3}>
+                <Chip
+                  label="AI Secretary 소개"
+                  sx={{
+                    alignSelf: 'flex-start',
+                    backgroundColor: 'rgba(0, 212, 255, 0.12)',
+                    color: '#00d4ff',
+                    fontWeight: 600,
+                    letterSpacing: '0.04em',
+                  }}
+                />
+                <Typography variant="h2" component="h1" sx={{ fontWeight: 700, lineHeight: 1.15 }}>
+                  선거 캠페인을 위한 <Accent>AI 전략 파트너</Accent>
                 </Typography>
-                <Typography variant="body2">
-                  개인 맞춤형 정치 콘텐츠
+                <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.72)' }}>
+                  AI Secretary는 복잡한 선거 메시지를 빠르게 정리하고, 법적 리스크 없이 커뮤니케이션을 운영하도록 돕는 캠페인 운영 솔루션입니다.
                 </Typography>
-              </Box>
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <Box className="tech-card">
-                <Typography variant="h6" sx={{ color: '#00d4ff', mb: 1 }}>
-                  네이버 최적화
-                </Typography>
-                <Typography variant="body2">
-                  검색 노출률 극대화
-                </Typography>
-              </Box>
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <Box className="tech-card">
-                <Typography variant="h6" sx={{ color: '#00d4ff', mb: 1 }}>
-                  지역구 독점
-                </Typography>
-                <Typography variant="body2">
-                  1인 1지역 전략
-                </Typography>
-              </Box>
-            </Grid>
-          </Grid>
-        </ParallaxLayer>
-        <FixedContent maxWidth="lg">
-          <Typography variant="h3" component="h2" sx={{
-            fontWeight: 'bold',
-            mb: 4,
-            fontSize: { xs: '1.8rem', md: '2.5rem' }
-          }}>
-            정치인을 위한 완전한 디지털 솔루션
-          </Typography>
-          <Typography variant="h6" sx={{
-            mb: 4,
-            color: 'rgba(255, 255, 255, 0.8)',
-            fontSize: { xs: '1rem', md: '1.3rem' }
-          }}>
-            AI가 만든 원고를 네이버에서 찾아보세요.<br />
-            지역 주민들이 가장 먼저 만나게 될 것입니다.
-          </Typography>
-        </FixedContent>
-      </SolutionSection>
-
-      {/* Scene 4: HOW IT WORKS */}
-      <HowItWorksSection>
-        <ParallaxLayer speed={0.6}>
-          <Box sx={{
-            position: 'absolute',
-            top: '30%',
-            left: '20%',
-            width: '2px',
-            height: '20px',
-            background: '#00d4ff',
-            animation: 'blink 1s infinite',
-            '@keyframes blink': {
-              '0%, 50%': { opacity: 1 },
-              '51%, 100%': { opacity: 0 },
-            }
-          }} />
-        </ParallaxLayer>
-        <ParallaxLayer speed={0.8}>
-          <Box sx={{
-            position: 'absolute',
-            width: '100%',
-            '& .keyword-chip': {
-              position: 'absolute',
-              background: 'rgba(0, 212, 255, 0.2)',
-              border: '1px solid rgba(0, 212, 255, 0.5)',
-              color: '#00d4ff',
-              transform: `translateY(${scrollY * -0.4}px)`,
-              '&:nth-of-type(1)': { top: '20%', left: '20%' },
-              '&:nth-of-type(2)': { top: '40%', right: '25%' },
-              '&:nth-of-type(3)': { top: '60%', left: '15%' },
-            }
-          }}>
-            <Chip label="정책 키워드" className="keyword-chip" />
-            <Chip label="지역 이슈" className="keyword-chip" />
-            <Chip label="민생 현안" className="keyword-chip" />
-          </Box>
-        </ParallaxLayer>
-        <FixedContent maxWidth="lg">
-          <Typography variant="h3" component="h2" sx={{
-            fontWeight: 'bold',
-            mb: 4,
-            fontSize: { xs: '1.8rem', md: '2.5rem' }
-          }}>
-            3단계로 완성되는 스마트한 정치 활동
-          </Typography>
-          <Box sx={{ mb: 4 }}>
-            <Typography variant="h6" sx={{ mb: 2, color: '#00d4ff' }}>
-              Step 1: 프로필 등록 — 5분 입력으로 평생 활용
-            </Typography>
-            <Typography variant="h6" sx={{ mb: 2, color: '#00d4ff' }}>
-              Step 2: 원고 생성 — 네이버 검색 최적화
-            </Typography>
-            <Typography variant="h6" sx={{ mb: 2, color: '#00d4ff' }}>
-              Step 3: 독점 전략 — 동일 지역구 1명만 계약
-            </Typography>
-          </Box>
-        </FixedContent>
-      </HowItWorksSection>
-
-      {/* Scene 5: TRUST & PRICING */}
-      <PricingSection>
-        <FixedContent maxWidth="lg">
-          <Typography variant="h3" component="h2" sx={{
-            fontWeight: 'bold',
-            mb: 2,
-            textAlign: 'center',
-            fontSize: { xs: '1.8rem', md: '2.5rem' }
-          }}>
-            '소통의 리더'를 위한 가장 현명한 투자
-          </Typography>
-          <Typography variant="h6" sx={{
-            mb: 2,
-            textAlign: 'center',
-            color: 'rgba(255, 255, 255, 0.8)'
-          }}>
-            우리는 민주당 동지입니다. 데이터는 안전합니다.
-          </Typography>
-          <Typography variant="h6" sx={{
-            mb: 6,
-            textAlign: 'center',
-            color: '#00d4ff',
-            fontWeight: 'bold'
-          }}>
-            기존 홍보 대비 75~95% 절감
-          </Typography>
-
-          <Grid container spacing={3} sx={{ mb: 8 }}>
-            <Grid item xs={12} md={4}>
-              <PricingCard>
-                <CardContent sx={{ p: 3, textAlign: 'center' }}>
-                  <Typography variant="h6" sx={{ mb: 2 }}>
-                    📝 기반 다지기
-                  </Typography>
-                  <Typography variant="h4" sx={{ mb: 2, color: '#00d4ff' }}>
-                    월 50,000원
-                  </Typography>
-                  <Typography variant="body2" sx={{ mb: 3, opacity: 0.8 }}>
-                    기본 원고 생성 및 네이버 최적화
-                  </Typography>
-                  <Button
-                    variant="outlined"
-                    fullWidth
-                    sx={{ borderColor: '#00d4ff', color: '#00d4ff' }}
-                  >
-                    기반 다지기
-                  </Button>
-                </CardContent>
-              </PricingCard>
-            </Grid>
-
-            <Grid item xs={12} md={4}>
-              <PricingCard>
-                <CardContent sx={{ p: 3, textAlign: 'center' }}>
-                  <Typography variant="h6" sx={{ mb: 2 }}>
-                    🌆 영향력 확대
-                  </Typography>
-                  <Typography variant="h4" sx={{ mb: 2, color: '#00d4ff' }}>
-                    월 120,000원
-                  </Typography>
-                  <Typography variant="body2" sx={{ mb: 3, opacity: 0.8 }}>
-                    프리미엄 기능 + 분석 리포트
-                  </Typography>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                   <Button
                     variant="contained"
-                    fullWidth
+                    size="large"
+                    onClick={handleGetStarted}
                     sx={{
-                      background: 'linear-gradient(45deg, #00d4ff, #0099cc)',
+                      background: 'linear-gradient(135deg, #00d4ff 0%, #0097d5 100%)',
+                      color: '#041120',
+                      fontWeight: 600,
+                      px: 4,
+                      py: 1.5,
                       '&:hover': {
-                        background: 'linear-gradient(45deg, #00b8e6, #007799)',
-                      }
+                        background: 'linear-gradient(135deg, #00bde6 0%, #0081b5 100%)',
+                      },
                     }}
                   >
-                    영향력 확대
+                    지금 시작하기
                   </Button>
-                </CardContent>
-              </PricingCard>
-            </Grid>
-
-            <Grid item xs={12} md={4}>
-              <PricingCard>
-                <CardContent sx={{ p: 3, textAlign: 'center' }}>
-                  <Typography variant="h6" sx={{ mb: 2 }}>
-                    👑 리더십 증명
-                  </Typography>
-                  <Typography variant="h4" sx={{ mb: 2, color: '#00d4ff' }}>
-                    월 300,000원
-                  </Typography>
-                  <Typography variant="body2" sx={{ mb: 3, opacity: 0.8 }}>
-                    전담 매니저 + 맞춤 전략
-                  </Typography>
                   <Button
                     variant="outlined"
-                    fullWidth
-                    sx={{ borderColor: '#00d4ff', color: '#00d4ff' }}
+                    size="large"
+                    onClick={handleContact}
+                    sx={{ borderColor: '#00d4ff', color: '#00d4ff', px: 4, py: 1.5 }}
                   >
-                    리더십 증명
+                    상담 일정 잡기
                   </Button>
-                </CardContent>
-              </PricingCard>
+                </Stack>
+              </Stack>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Grid container spacing={3}>
+                {heroHighlights.map((item) => (
+                  <Grid item xs={12} sm={6} key={item.label}>
+                    <HighlightCard>
+                      <CardContent sx={{ p: 3 }}>
+                        <Typography variant="h3" component="p" sx={{ fontWeight: 700, color: '#00d4ff' }}>
+                          {item.value}
+                        </Typography>
+                        <Typography variant="subtitle1" sx={{ mt: 1, fontWeight: 600 }}>
+                          {item.label}
+                        </Typography>
+                        <Typography variant="body2" sx={{ mt: 1.5, color: 'rgba(255, 255, 255, 0.72)' }}>
+                          {item.description}
+                        </Typography>
+                      </CardContent>
+                    </HighlightCard>
+                  </Grid>
+                ))}
+              </Grid>
             </Grid>
           </Grid>
+        </Container>
+      </HeroSection>
 
-          {/* FAQ & Final CTA - 더 넓은 간격 */}
-          <Box sx={{ textAlign: 'center', mb: 8 }}>
-            <Typography variant="h4" sx={{ mb: 4, color: 'rgba(255, 255, 255, 0.9)', fontWeight: 'bold' }}>
-              자주 묻는 질문
-            </Typography>
-            <Grid container spacing={3} sx={{ mb: 6 }}>
-              <Grid item xs={12} md={6}>
-                <Box sx={{
-                  background: 'rgba(0, 212, 255, 0.1)',
-                  p: 3,
-                  borderRadius: 2,
-                  border: '1px solid rgba(0, 212, 255, 0.3)',
-                  height: '100%'
-                }}>
-                  <Typography variant="h6" sx={{ color: '#00d4ff', mb: 2 }}>
-                    선거법 위반 위험은 없나요?
-                  </Typography>
-                  <Typography variant="body1" sx={{ opacity: 0.8 }}>
-                    모든 콘텐츠는 선거법 준수를 기본으로 제작됩니다.
-                  </Typography>
-                </Box>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Box sx={{
-                  background: 'rgba(0, 212, 255, 0.1)',
-                  p: 3,
-                  borderRadius: 2,
-                  border: '1px solid rgba(0, 212, 255, 0.3)',
-                  height: '100%'
-                }}>
-                  <Typography variant="h6" sx={{ color: '#00d4ff', mb: 2 }}>
-                    네이버 정책 변화에 대응 가능한가요?
-                  </Typography>
-                  <Typography variant="body1" sx={{ opacity: 0.8 }}>
-                    지속적인 모니터링으로 알고리즘 변화에 대응합니다.
-                  </Typography>
-                </Box>
-              </Grid>
-            </Grid>
-
-            <Box sx={{
-              background: 'rgba(0, 212, 255, 0.15)',
-              p: 4,
-              borderRadius: 3,
-              border: '2px solid rgba(0, 212, 255, 0.4)',
-              mb: 6
-            }}>
-              <Typography variant="h5" sx={{ color: '#00d4ff', mb: 2, fontWeight: 'bold' }}>
-                Before: 검색 노출률 5% 미만 → After: 50%+ 목표
-              </Typography>
-              <Typography variant="body1" sx={{ opacity: 0.9 }}>
-                실제 데이터 기반 성과 목표
-              </Typography>
-            </Box>
-          </Box>
-
-          <Box sx={{ textAlign: 'center', pb: 10 }}>
-            <Button
-              variant="contained"
-              size="large"
-              onClick={handleGetStarted}
+      <Section>
+        <Container maxWidth="lg">
+          <Stack spacing={3} alignItems="flex-start">
+            <Chip
+              label="우리가 해결하는 문제"
               sx={{
-                background: 'linear-gradient(45deg, #00d4ff, #0099cc)',
-                px: 8,
-                py: 4,
-                fontSize: '1.5rem',
-                fontWeight: 'bold',
-                '&:hover': {
-                  background: 'linear-gradient(45deg, #00b8e6, #007799)',
-                  transform: 'translateY(-2px)',
-                },
-                transition: 'all 0.3s ease',
-                boxShadow: '0 8px 32px rgba(0, 212, 255, 0.3)',
+                backgroundColor: 'rgba(0, 212, 255, 0.08)',
+                color: '#00d4ff',
+                fontWeight: 600,
+                letterSpacing: '0.04em',
               }}
-            >
-              스마트한 정치의 시작
-            </Button>
-          </Box>
-        </FixedContent>
-      </PricingSection>
-    </Box>
+            />
+            <Typography variant="h4" sx={{ fontWeight: 700 }}>
+              복잡한 캠페인 메시지를 데이터를 기반으로 정리합니다
+            </Typography>
+            <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.72)', maxWidth: 720 }}>
+              후보자의 강점과 지역 이슈를 빠르게 정리하고, 상황에 맞는 메시지를 지속적으로 배포할 수 있도록 데이터와 경험을 결합했습니다.
+            </Typography>
+          </Stack>
+          <Grid container spacing={3} sx={{ mt: 6 }}>
+            {differentiators.map((item) => (
+              <Grid item xs={12} md={4} key={item.title}>
+                <NeutralCard>
+                  <CardContent sx={{ p: 4 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                      {item.title}
+                    </Typography>
+                    <Divider sx={{ my: 2, borderColor: 'rgba(255, 255, 255, 0.12)' }} />
+                    <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.72)' }}>
+                      {item.description}
+                    </Typography>
+                  </CardContent>
+                </NeutralCard>
+              </Grid>
+            ))}
+          </Grid>
+        </Container>
+      </Section>
+
+      <Section sx={{ backgroundColor: 'rgba(10, 20, 45, 0.65)' }}>
+        <Container maxWidth="lg">
+          <Stack spacing={3} alignItems="flex-start">
+            <Chip
+              label="워크플로"
+              sx={{
+                backgroundColor: 'rgba(0, 212, 255, 0.08)',
+                color: '#00d4ff',
+                fontWeight: 600,
+                letterSpacing: '0.04em',
+              }}
+            />
+            <Typography variant="h4" sx={{ fontWeight: 700 }}>
+              팀 전체가 같은 속도로 움직이도록 설계된 프로세스
+            </Typography>
+            <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.72)', maxWidth: 720 }}>
+              전략 수립부터 생성, 검수, 성과 분석까지 하나의 대시보드에서 운영합니다.
+            </Typography>
+          </Stack>
+          <Grid container spacing={3} sx={{ mt: 6 }}>
+            {workflowSteps.map((step) => (
+              <Grid item xs={12} md={4} key={step.title}>
+                <NeutralCard sx={{ borderTop: '3px solid rgba(0, 212, 255, 0.5)' }}>
+                  <CardContent sx={{ p: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                      {step.title}
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.72)' }}>
+                      {step.description}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: 'rgba(0, 212, 255, 0.9)', fontWeight: 600 }}>
+                      {step.deliverable}
+                    </Typography>
+                  </CardContent>
+                </NeutralCard>
+              </Grid>
+            ))}
+          </Grid>
+        </Container>
+      </Section>
+
+      <Section>
+        <Container maxWidth="lg">
+          <Stack spacing={3} alignItems="flex-start">
+            <Chip
+              label="서비스 구성과 요금"
+              sx={{
+                backgroundColor: 'rgba(0, 212, 255, 0.08)',
+                color: '#00d4ff',
+                fontWeight: 600,
+                letterSpacing: '0.04em',
+              }}
+            />
+            <Typography variant="h4" sx={{ fontWeight: 700 }}>
+              캠페인 규모에 맞는 플랜을 선택하세요
+            </Typography>
+            <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.72)', maxWidth: 720 }}>
+              모든 플랜에는 선거법 준수 필터, 프로젝트 관리 도구, 기본 온보딩이 포함됩니다.
+            </Typography>
+          </Stack>
+          <Grid container spacing={3} sx={{ mt: 6 }}>
+            {pricingPlans.map((plan) => (
+              <Grid item xs={12} md={4} key={plan.name}>
+                <NeutralCard
+                  sx={{
+                    border: plan.popular ? '2px solid rgba(0, 212, 255, 0.6)' : '1px solid rgba(255, 255, 255, 0.08)',
+                    transform: plan.popular ? 'translateY(-8px)' : 'none',
+                    boxShadow: plan.popular ? '0 24px 45px rgba(0, 212, 255, 0.18)' : 'none',
+                    transition: 'transform 0.3s ease',
+                    '&:hover': {
+                      transform: 'translateY(-8px)',
+                    },
+                  }}
+                >
+                  <CardContent sx={{ p: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {plan.popular && (
+                      <Chip
+                        label="가장 많이 선택"
+                        size="small"
+                        sx={{
+                          alignSelf: 'flex-start',
+                          backgroundColor: 'rgba(0, 212, 255, 0.15)',
+                          color: '#00d4ff',
+                          fontWeight: 600,
+                        }}
+                      />
+                    )}
+                    <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                      {plan.name}
+                    </Typography>
+                    <Typography variant="h4" sx={{ fontWeight: 700, color: '#00d4ff' }}>
+                      {plan.price}
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.72)' }}>
+                      {plan.description}
+                    </Typography>
+                    <Box component="ul" sx={{ listStyle: 'none', p: 0, m: 0, mt: 2, display: 'grid', rowGap: 1.5 }}>
+                      {plan.features.map((feature) => (
+                        <Typography
+                          component="li"
+                          key={feature}
+                          variant="body2"
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 1.5,
+                            color: 'rgba(255, 255, 255, 0.76)',
+                          }}
+                        >
+                          <Box
+                            component="span"
+                            sx={{
+                              width: 8,
+                              height: 8,
+                              borderRadius: '50%',
+                              backgroundColor: '#00d4ff',
+                              display: 'inline-block',
+                            }}
+                          />
+                          {feature}
+                        </Typography>
+                      ))}
+                    </Box>
+                    <Button
+                      variant={plan.popular ? 'contained' : 'outlined'}
+                      onClick={() => (plan.action === 'start' ? handleGetStarted() : handleContact())}
+                      sx={{
+                        mt: 2,
+                        background: plan.popular ? 'linear-gradient(135deg, #00d4ff 0%, #0097d5 100%)' : 'transparent',
+                        borderColor: '#00d4ff',
+                        color: plan.popular ? '#041120' : '#00d4ff',
+                        fontWeight: 600,
+                        '&:hover': {
+                          background:
+                            plan.popular
+                              ? 'linear-gradient(135deg, #00bde6 0%, #0081b5 100%)'
+                              : 'rgba(0, 212, 255, 0.12)',
+                        },
+                      }}
+                    >
+                      {plan.cta}
+                    </Button>
+                  </CardContent>
+                </NeutralCard>
+              </Grid>
+            ))}
+          </Grid>
+        </Container>
+      </Section>
+
+      <Section sx={{ backgroundColor: 'rgba(10, 16, 35, 0.78)' }}>
+        <Container maxWidth="lg">
+          <Stack spacing={3} alignItems="flex-start">
+            <Chip
+              label="자주 묻는 질문"
+              sx={{
+                backgroundColor: 'rgba(0, 212, 255, 0.08)',
+                color: '#00d4ff',
+                fontWeight: 600,
+                letterSpacing: '0.04em',
+              }}
+            />
+            <Typography variant="h4" sx={{ fontWeight: 700 }}>
+              질문이 더 있으신가요?
+            </Typography>
+            <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.72)', maxWidth: 720 }}>
+              필요한 정보가 없다면 언제든지 연락을 주세요. 팀이 직접 도와드립니다.
+            </Typography>
+          </Stack>
+          <Stack spacing={2.5} sx={{ mt: 6 }}>
+            {faqItems.map((item) => (
+              <Accordion
+                key={item.question}
+                disableGutters
+                sx={{
+                  background: 'rgba(5, 11, 24, 0.75)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  color: 'rgba(255, 255, 255, 0.88)',
+                  '&::before': { display: 'none' },
+                }}
+              >
+                <AccordionSummary
+                  expandIcon={
+                    <Box component="span" sx={{ color: '#00d4ff', fontWeight: 700, fontSize: '1.25rem' }}>
+                      +
+                    </Box>
+                  }
+                >
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                    {item.question}
+                  </Typography>
+                </AccordionSummary>
+                <AccordionDetails>
+                  <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.72)' }}>
+                    {item.answer}
+                  </Typography>
+                </AccordionDetails>
+              </Accordion>
+            ))}
+          </Stack>
+        </Container>
+      </Section>
+
+      <Section>
+        <Container maxWidth="md">
+          <NeutralCard>
+            <CardContent sx={{ p: { xs: 4, md: 6 }, textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <Typography variant="h4" sx={{ fontWeight: 700 }}>
+                지금 팀의 메시지를 정리할 준비가 되셨나요?
+              </Typography>
+              <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.72)' }}>
+                온보딩부터 운영까지 함께하며, 매주 성과를 확인할 수 있는 리포트와 가이드를 제공합니다.
+              </Typography>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="center">
+                <Button
+                  variant="contained"
+                  size="large"
+                  onClick={handleGetStarted}
+                  sx={{
+                    background: 'linear-gradient(135deg, #00d4ff 0%, #0097d5 100%)',
+                    color: '#041120',
+                    fontWeight: 600,
+                    px: 4,
+                    py: 1.5,
+                    '&:hover': {
+                      background: 'linear-gradient(135deg, #00bde6 0%, #0081b5 100%)',
+                    },
+                  }}
+                >
+                  무료로 시작하기
+                </Button>
+                <Button
+                  variant="outlined"
+                  size="large"
+                  onClick={handleContact}
+                  sx={{ borderColor: '#00d4ff', color: '#00d4ff', px: 4, py: 1.5 }}
+                >
+                  상담 요청하기
+                </Button>
+              </Stack>
+            </CardContent>
+          </NeutralCard>
+        </Container>
+      </Section>
+    </PageWrapper>
   );
 };
 

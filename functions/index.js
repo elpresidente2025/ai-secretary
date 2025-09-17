@@ -22,6 +22,38 @@ try {
   console.warn('[index] posts-getUserPosts handler warning:', e?.message);
 }
 
+// Add dashboard handlers
+try {
+  const dashboardHandlers = require('./handlers/dashboard');
+  Object.assign(exports, dashboardHandlers);
+} catch (e) {
+  console.warn('[index] dashboard handler warning:', e?.message);
+}
+
+// Add system handlers
+try {
+  const systemHandlers = require('./handlers/system');
+  Object.assign(exports, systemHandlers);
+} catch (e) {
+  console.warn('[index] system handler warning:', e?.message);
+}
+
+// Add notices handlers
+try {
+  const noticesHandlers = require('./handlers/notices');
+  Object.assign(exports, noticesHandlers);
+} catch (e) {
+  console.warn('[index] notices handler warning:', e?.message);
+}
+
+// Add publishing handlers
+try {
+  const publishingHandlers = require('./handlers/publishing');
+  Object.assign(exports, publishingHandlers);
+} catch (e) {
+  console.warn('[index] publishing handler warning:', e?.message);
+}
+
 // Delete post (HTTP onRequest, Naver-only via __naverAuth)
 exports.deletePost = onRequest({ region: 'asia-northeast3', cors: true }, async (req, res) => {
   try {
