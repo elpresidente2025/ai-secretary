@@ -7,6 +7,7 @@ import { ThemeProvider } from '@mui/material/styles';
 import { CssBaseline } from '@mui/material';
 import createCustomTheme from './theme';
 import { ThemeModeProvider, useThemeMode } from './contexts/ThemeContext.jsx';
+import { HelmetProvider } from 'react-helmet-async';
 import App from './App.jsx';
 import ErrorPage from './pages/ErrorPage.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
@@ -14,7 +15,7 @@ import AdminRoute from './components/AdminRoute.jsx';
 import ProfileRequiredRoute from './components/ProfileRequiredRoute.jsx';
 import './index.css';
 
-// 🔧 임시: lazy loading 제거하고 직접 import
+// ?�� ?�시: lazy loading ?�거?�고 직접 import
 import LoginPage from './pages/LoginPage.jsx';
 import RegisterPage from './pages/RegisterPage.jsx';
 import Dashboard from './pages/Dashboard.jsx';
@@ -30,7 +31,7 @@ import PaymentFail from './pages/PaymentFail.jsx';
 import NaverCallback from './pages/auth/NaverCallback.jsx';
 import AboutPage from './pages/AboutPage.jsx';
 
-// 🎯 프리로드 함수들 (사용자 의도 감지 시 사용)
+// ?�� ?�리로드 ?�수??(?�용???�도 감�? ???�용)
 export const preloadGenerate = () => import('./pages/GeneratePage.jsx');
 export const preloadPosts = () => import('./pages/PostsListPage.jsx');
 export const preloadBilling = () => import('./pages/Billing.jsx');
@@ -93,7 +94,7 @@ const router = createBrowserRouter([
   },
 ]);
 
-// 테마를 사용하는 앱 컴포넌트
+// ?�마�??�용?�는 ??컴포?�트
 const ThemedApp = () => {
   const { isDarkMode } = useThemeMode();
   const theme = createCustomTheme(isDarkMode);
@@ -108,17 +109,19 @@ const ThemedApp = () => {
   );
 };
 
-// React 앱 렌더링
+// React ???�더�?
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
-    <ThemeModeProvider>
-      <ThemedApp />
-    </ThemeModeProvider>
+    <HelmetProvider>
+      <ThemeModeProvider>
+        <ThemedApp />
+      </ThemeModeProvider>
+    </HelmetProvider>
   </React.StrictMode>
 );
 
-// React 마운트 완료 후 즉시 로딩 스피너 숨기기
+// React 마운???�료 ??즉시 로딩 ?�피???�기�?
 const loadingContainer = document.getElementById('loading-container');
 if (loadingContainer) {
   loadingContainer.classList.add('hidden');
